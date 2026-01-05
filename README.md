@@ -1,5 +1,5 @@
 
-# Booking (Project)
+# Booking System
 
 A concise, public-facing README for the Booking application. This repository contains:
 
@@ -9,12 +9,22 @@ A concise, public-facing README for the Booking application. This repository con
 
 ---
 
+<div align="center">
+
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
+
+</div>
+
 ## Quick Start
 
 1. Clone the repo:
 
 ```bash
-git clone https://github.com/<your-org-or-user>/booking.git
+git clone https://github.com/boulahya01/booking.git
 cd booking
 ```
 
@@ -54,8 +64,7 @@ CRON_SECRET=REPLACE_WITH_SECURE_RANDOM
 Refer to `.env.example` and `.env.cron.example` for template variables.
 
 ---
-````markdown
-# Booking — Pitch Booking System
+# ⚙️ Booking — Pitch Booking System
 
 This repository contains the Booking application: a system to manage bookings for pitches (sports facilities). It includes a web frontend, serverless functions, database migrations, background jobs, and utilities for local development and deployment.
 
@@ -67,7 +76,7 @@ Key capabilities:
 
 ---
 
-## Technology Stack
+## ⚙️ Technology Stack
 - Frontend: Vite, React, TypeScript
 - Backend / Auth: Supabase (Postgres, RLS, Functions)
 - Serverless functions: Supabase functions (Deno) and Node utilities
@@ -80,7 +89,7 @@ Key capabilities:
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/<your-org-or-user>/booking.git
+git clone https://github.com/boulahya01/booking.git
 cd booking
 ```
 
@@ -124,7 +133,7 @@ CRON_SECRET=secure-random-value
 
 ---
 
-## Project layout
+## 📁 Project layout
 
 Top-level folders to know:
 
@@ -155,12 +164,10 @@ api/           # API helpers and cron scripts
 
 ## Contributing
 - Keep changes small and focused.
-- Document feature choices in small files under `docs/` if needed.
+- Document feature choices in small files in `docs/` if needed.
 
 ---
 
-## License & contact
-Include project license or maintainer contact here.
 
-````
+
 
