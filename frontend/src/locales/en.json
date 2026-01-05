@@ -1,0 +1,177 @@
+{
+  "register": {
+    "title": "Create Account",
+    "subtitle": "Join and start booking slots",
+    "welcome": "Welcome!",
+    "created": "Account created successfully",
+    "hi_user": "Hi {{name}}, your account has been created!",
+    "approval_note": "You can now log in, but you'll need admin approval to start booking slots.",
+    "redirect": "Redirecting to dashboard...",
+    "create_button": "Create Account",
+    "have_account": "Already have an account?",
+    "sign_in": "Sign in",
+
+    "placeholders": {
+      "fullName": "Full name",
+      "email": "Email",
+      "studentId": "Student ID (path)",
+      "password": "Password (6 chars)",
+      "confirmPassword": "Confirm password"
+    },
+
+    "errors": {
+      "required": "All fields are required",
+      "password_mismatch": "Passwords do not match",
+      "password_short": "Password must be at least 6 characters",
+      "invalid_email": "Please enter a valid email",
+      "invalid_name": "Please enter a valid full name"
+    }
+  }
+
+  ,"layout": {
+    "app_title": "PitchBook",
+    "book_pitch": "Book Pitch",
+    "my_bookings": "My Bookings",
+    "profile": "Profile",
+    "admin_users": "Admin: Users",
+    "admin_pitches": "Admin: Pitches",
+    "logout": "Logout",
+    "approved": "Approved",
+    "admin": "Admin",
+    "language": "Language"
+  }
+  ,"login": {
+    "welcome_back": "Welcome Back",
+    "subtitle": "Log in to your account",
+    "email": "Email",
+    "student_id": "Student ID",
+    "password": "Password",
+    "sign_in": "Sign In",
+    "sign_up_prompt": "Don't have an account?",
+    "sign_up": "Sign up",
+    "errors": {
+      "password_required": "Password is required",
+      "email_required": "Email is required",
+      "invalid_email": "Please enter a valid email",
+      "student_required": "Student ID is required",
+      "login_failed": "Login failed"
+    }
+  }
+  ,"home": {
+    "title": "Book Your Pitch",
+    "subtitle": "Select a pitch to see available slots for the next 24 hours",
+    "choose_pitch": "Choose a Pitch",
+    "no_pitches": "No pitches available",
+    "loading_slots": "Loading slots...",
+    "no_slots": "No available slots for this pitch in the next 24 hours",
+    "slot_booked_success": "Slot booked successfully!",
+    "slot_cancelled_success": "Booking cancelled successfully!",
+    "must_login": "You must be logged in to book",
+    "not_approved": "Your account is not approved yet",
+    "already_active_booking": "You already have an active booking. Cancel it first before booking another slot.",
+    "slot_not_found": "Slot not found",
+    "failed_book_slot": "Failed to book slot",
+    "failed_cancel_slot": "Failed to cancel booking"
+  }
+  ,"pending": {
+    "title": "Account Pending",
+    "instruction": "You need to send a copy of your student card via WhatsApp to the number:",
+    "whatsapp": "WhatsApp",
+    "visit_admin": "Or visit admin simo at the shop to complete activation.",
+    "student_card": "Student card",
+    "sign_out": "Sign Out"
+  }
+  ,"profile": {
+    "title": "My Profile",
+    "subtitle": "Manage your account",
+    "settings": "Profile Settings",
+    "full_name_label": "Full Name",
+    "full_name_placeholder": "Enter your full name",
+    "student_id_label": "Student ID (Read-only)",
+    "save_changes": "Save Changes",
+    "saving": "Saving...",
+    "security": "Security",
+    "change_password": "Change Password",
+    "new_password_label": "New Password",
+    "new_password_placeholder": "Enter new password (min 6 characters)",
+    "confirm_password_label": "Confirm Password",
+    "confirm_password_placeholder": "Confirm new password",
+    "update_password": "Update Password",
+    "updating": "Updating...",
+    "cancel": "Cancel",
+    "account_info": "Account Info",
+    "email_label": "Email:",
+    "role_label": "Role:",
+    "status_label": "Status:",
+    "admin_badge": "Admin",
+    "student_badge": "Student",
+    "approved_badge": "Approved",
+    "pending_badge": "Pending",
+    "loading": "Loading profile..."
+  }
+  ,"bookings": {
+    "title": "My Bookings",
+    "pending_approval": "Pending Admin Approval",
+    "approval_message": "Thank you for registering! Your account needs to be approved by an admin before you can make bookings.",
+    "what_next": "What happens next?",
+    "approval_timeframe": "An admin will review your information and approve your account, usually within 24 hours.",
+    "approval_note": "Come back here once you're approved to start booking your slots!",
+    "no_bookings": "No active bookings yet.",
+    "go_home": "Go to Home to book a slot!",
+    "booking_count": "You have {{count}} active booking(s)",
+    "slot_time_label": "Slot Time:",
+    "booked_label": "Booked:",
+    "status_label": "Status:",
+    "status_active": "Active",
+    "cancel_booking": "Cancel",
+    "cancelling": "Cancelling...",
+    "cancelled_success": "Booking cancelled successfully!",
+    "failed_fetch": "Failed to fetch bookings",
+    "failed_cancel": "Failed to cancel booking",
+    "loading": "Loading bookings..."
+  }
+  ,"admin_users": {
+    "title": "Admin Panel - User Approvals",
+    "subtitle": "Manage pending user registrations",
+    "loading": "Loading pending users...",
+    "no_pending": "No pending users to approve",
+    "student_id_label": "Student ID:",
+    "registered_label": "Registered:",
+    "reject_button": "Reject user",
+    "approve_button": "Approve",
+    "total_pending": "Total pending users: {{count}}",
+    "approve_modal_title": "Approve User",
+    "reject_modal_title": "Reject User",
+    "modal_confirm": "Are you sure you want to {{action}} this user?",
+    "cancel_button": "Cancel",
+    "approve_action": "approve",
+    "reject_action": "reject",
+    "user_approved": "User approved",
+    "user_rejected": "User rejected",
+    "retry_button": "Retry",
+    "access_denied": "Access denied. Admin only.",
+    "failed_fetch": "Failed to fetch users",
+    "failed_action": "Failed to {{action}} user"
+  }
+  ,"admin_pitches": {
+    "title": "Manage Pitches",
+    "name_header": "Name",
+    "location_header": "Location",
+    "capacity_header": "Capacity",
+    "open_time_header": "Open Time",
+    "close_time_header": "Close Time",
+    "actions_header": "Actions",
+    "edit_button": "Edit",
+    "save_button": "Save",
+    "cancel_button": "Cancel",
+    "name_placeholder": "Pitch name",
+    "location_placeholder": "Location",
+    "no_pitches": "No pitches found. Create one to get started.",
+    "loading": "Loading pitches...",
+    "access_denied": "Access denied. Admin only.",
+    "time_validation": "Opening time must be before closing time",
+    "updated_success": "Pitch updated successfully",
+    "failed_load": "Failed to load pitches: {{error}}",
+    "failed_update": "Failed to update pitch: {{error}}"
+  }
+}

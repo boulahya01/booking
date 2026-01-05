@@ -1,0 +1,177 @@
+.admin-pitches-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.admin-pitches-container h1 {
+  color: #333;
+  margin-bottom: 2rem;
+  font-size: 2rem;
+}
+
+.alert {
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.alert-error {
+  background-color: #fee;
+  color: #c33;
+  border: 1px solid #f99;
+}
+
+.alert-success {
+  background-color: #efe;
+  color: #3a3;
+  border: 1px solid #9f9;
+}
+
+.pitches-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.pitches-table thead {
+  background: linear-gradient(135deg, #ff6b35 0%, #e55a24 100%);
+  color: white;
+  font-weight: 600;
+}
+
+.pitches-table th {
+  padding: 1.2rem;
+  text-align: left;
+  font-size: 0.95rem;
+  letter-spacing: 0.5px;
+}
+
+.pitches-table tbody tr {
+  border-bottom: 1px solid #e0e0e0;
+  transition: background-color 0.2s ease;
+}
+
+.pitches-table tbody tr:hover:not(.editing) {
+  background-color: #f8f8f8;
+}
+
+.pitches-table tbody tr.editing {
+  background-color: #fffbf0;
+}
+
+.pitches-table td {
+  padding: 1.2rem;
+  font-size: 0.95rem;
+}
+
+.pitches-table input[type="text"],
+.pitches-table input[type="number"],
+.pitches-table input[type="time"] {
+  width: 100%;
+  max-width: 150px;
+  padding: 0.6rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.pitches-table input[type="text"]:focus,
+.pitches-table input[type="number"]:focus,
+.pitches-table input[type="time"]:focus {
+  outline: none;
+  border-color: #ff6b35;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.time-cell {
+  font-family: 'Monaco', 'Courier New', monospace;
+  font-weight: 500;
+  color: #ff6b35;
+}
+
+.btn {
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-right: 0.5rem;
+}
+
+.btn-edit {
+  background-color: #ff6b35;
+  color: white;
+}
+
+.btn-edit:hover {
+  background-color: #5568d3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.btn-save {
+  background-color: #28a745;
+  color: white;
+}
+
+.btn-save:hover {
+  background-color: #218838;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+}
+
+.btn-cancel {
+  background-color: #dc3545;
+  color: white;
+}
+
+.btn-cancel:hover {
+  background-color: #c82333;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: #999;
+  font-size: 1.1rem;
+}
+
+.empty-state p {
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .admin-pitches-container {
+    padding: 1rem;
+  }
+
+  .pitches-table {
+    font-size: 0.85rem;
+  }
+
+  .pitches-table th,
+  .pitches-table td {
+    padding: 0.8rem 0.5rem;
+  }
+
+  .pitches-table input[type="text"],
+  .pitches-table input[type="number"],
+  .pitches-table input[type="time"] {
+    max-width: 120px;
+  }
+
+  .btn {
+    padding: 0.5rem 0.8rem;
+    font-size: 0.8rem;
+  }
+}

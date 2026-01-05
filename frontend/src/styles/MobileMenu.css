@@ -1,0 +1,352 @@
+/* Mobile Menu Styles */
+
+/* Hamburger Button */
+.mobile-menu-toggle {
+  display: none;
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 999;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  width: 44px;
+  height: 44px;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+}
+
+.hamburger-line {
+  display: block;
+  width: 24px;
+  height: 2.5px;
+  background: white;
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+.mobile-menu-toggle.active .hamburger-line:nth-child(1) {
+  transform: rotate(45deg) translate(8px, 8px);
+}
+
+.mobile-menu-toggle.active .hamburger-line:nth-child(2) {
+  opacity: 0;
+}
+
+.mobile-menu-toggle.active .hamburger-line:nth-child(3) {
+  transform: rotate(-45deg) translate(7px, -7px);
+}
+
+/* Mobile Menu Overlay */
+.mobile-menu-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 997;
+}
+
+/* Mobile Menu Container */
+.mobile-menu {
+  display: none;
+  position: fixed;
+  top: 0;
+  right: -100%;
+  width: 100%;
+  max-width: 320px;
+  height: 100vh;
+  background: white;
+  z-index: 998;
+  flex-direction: column;
+  transition: right 0.3s ease;
+  box-shadow: -2px 0 12px rgba(0, 0, 0, 0.2);
+}
+
+.mobile-menu.open {
+  right: 0;
+}
+
+/* Menu Header */
+.mobile-menu-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-bottom: 1px solid #eee;
+}
+
+.mobile-menu-header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.mobile-menu-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+}
+
+.mobile-menu-close:active {
+  transform: scale(0.9);
+}
+
+/* User Info Section */
+.mobile-menu-user-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem 1rem;
+  background: #f9f9f9;
+  border-bottom: 1px solid #eee;
+}
+
+.user-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.user-details {
+  flex: 1;
+}
+
+.user-id {
+  margin: 0;
+  font-weight: 600;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.user-role {
+  margin: 0.25rem 0 0 0;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+/* Menu Items */
+.mobile-menu-items {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 0;
+}
+
+.mobile-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: 1rem 1.5rem;
+  background: none;
+  border: none;
+  border-left: 4px solid transparent;
+  cursor: pointer;
+  font-size: 1rem;
+  color: #333;
+  transition: all 0.3s;
+  text-align: left;
+}
+
+.mobile-menu-item:hover {
+  background: #f5f5f5;
+  border-left-color: #ff6b35;
+}
+
+.mobile-menu-item.admin {
+  color: #c33;
+}
+
+.mobile-menu-item.admin:hover {
+  background: #fee;
+  border-left-color: #c33;
+}
+
+.mobile-menu-item.logout {
+  color: #d32f2f;
+}
+
+.mobile-menu-item.logout:hover {
+  background: #ffebee;
+  border-left-color: #d32f2f;
+}
+
+.menu-icon {
+  font-size: 1.3rem;
+  min-width: 24px;
+  text-align: center;
+}
+
+.menu-label {
+  font-weight: 500;
+}
+
+/* Menu Divider */
+.mobile-menu-divider {
+  padding: 1rem 1.5rem 0.5rem 1.5rem;
+  font-size: 0.75rem;
+  color: #999;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Menu Footer */
+.mobile-menu-footer {
+  padding: 1rem;
+  border-top: 1px solid #eee;
+  text-align: center;
+  color: #999;
+  font-size: 0.85rem;
+}
+
+/* Responsive: Show mobile menu on screens smaller than 768px */
+@media (max-width: 768px) {
+  .mobile-menu-toggle {
+    display: flex;
+  }
+
+  .mobile-menu-overlay {
+    display: block;
+  }
+
+  .mobile-menu {
+    display: flex;
+  }
+
+  /* Hide desktop navigation on mobile */
+  .dashboard-nav {
+    display: none;
+  }
+
+  /* Adjust header for mobile */
+  .dashboard-header {
+    padding: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .dashboard-header h1 {
+    font-size: 1.3rem;
+  }
+
+  .user-info {
+    gap: 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .status-badge {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .logout-btn {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  /* Adjust main content padding */
+  .dashboard-main {
+    padding: 1rem;
+  }
+
+  /* Adjust admin containers for mobile */
+  .admin-container {
+    padding: 1rem;
+  }
+
+  .admin-pitches-container {
+    padding: 1rem;
+  }
+
+  /* Tables for mobile */
+  .users-table,
+  .pitches-table {
+    font-size: 0.85rem;
+  }
+
+  .users-table td,
+  .pitches-table td,
+  .users-table th,
+  .pitches-table th {
+    padding: 0.5rem;
+  }
+
+  /* Booking interface for mobile */
+  .bookings-container {
+    padding: 1rem;
+  }
+
+  .pitch-selector {
+    margin-bottom: 1rem;
+  }
+
+  .slots-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Pending approval page for mobile */
+  .pending-content {
+    padding: 1rem;
+  }
+}
+
+/* Extra small screens (< 480px) */
+@media (max-width: 480px) {
+  .mobile-menu {
+    max-width: 100%;
+  }
+
+  .dashboard-header {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+
+  .dashboard-header h1 {
+    font-size: 1.1rem;
+  }
+
+  .user-info {
+    flex-direction: column;
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Make buttons full width on very small screens */
+  .btn-approve,
+  .btn-reject,
+  .btn-edit {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+
+  .mobile-menu-item {
+    padding: 0.75rem 1rem;
+  }
+
+  .menu-icon {
+    font-size: 1.1rem;
+  }
+}

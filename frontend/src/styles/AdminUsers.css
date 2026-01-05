@@ -1,0 +1,482 @@
+/* Admin Users Page - Professional Premium Theme */
+
+/* Font Family Import */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --primary: #667eea;
+  --primary-dark: #764ba2;
+  --success: #51cf66;
+  --danger: #ff6b6b;
+  --warning: #ffc107;
+  --info: #667eea;
+  --text: #333333;
+  --text-secondary: #666666;
+  --text-muted: #999999;
+  --bg: #f9f9f9;
+  --surface: #ffffff;
+  --border: #e0e0e0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-family-mono: 'Menlo', 'Monaco', 'Courier New', monospace;
+}
+
+* {
+  font-family: var(--font-family);
+}
+
+body, html {
+  font-family: var(--font-family);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.admin-container {
+  min-height: 100vh;
+  background: var(--bg);
+  padding: var(--space-8);
+}
+
+.admin-header {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: white;
+  padding: var(--space-6);
+  border-radius: 12px;
+  margin-bottom: var(--space-8);
+  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+}
+
+.admin-header h1 {
+  margin: 0 0 var(--space-3) 0;
+  font-size: 28px;
+  font-weight: bold;
+  letter-spacing: -0.5px;
+}
+
+.admin-header p {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.95;
+}
+
+/* Error Message */
+.error-message {
+  background: #fee;
+  color: #c33;
+  padding: var(--space-4);
+  border-radius: 8px;
+  margin-bottom: var(--space-6);
+  border-left: 4px solid #c33;
+}
+
+/* Loading and No Users */
+.loading,
+.no-users {
+  text-align: center;
+  padding: var(--space-8);
+  background: var(--surface);
+  border-radius: 12px;
+  color: var(--text-secondary);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  font-size: 16px;
+}
+
+/* Users List Container */
+.users-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* Premium User Card */
+.user-card {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: var(--space-6);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid transparent;
+}
+
+.user-card:hover {
+  box-shadow: 0 12px 32px rgba(102, 126, 234, 0.15);
+  transform: translateY(-4px);
+  border-color: var(--primary);
+}
+
+/* User Info Section */
+.user-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.user-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.3px;
+}
+
+.user-student-id {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.user-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: var(--space-1);
+}
+
+.user-created {
+  display: inline-block;
+}
+
+/* User Actions - Premium Buttons */
+.user-actions {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  margin-left: var(--space-6);
+}
+
+.btn-approve,
+.btn-reject {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn-approve svg,
+.btn-reject svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.5;
+  flex-shrink: 0;
+}
+
+.btn-approve {
+  background: linear-gradient(135deg, #51cf66, #40c057);
+  color: white;
+}
+
+.btn-approve:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(81, 207, 102, 0.3);
+  background: linear-gradient(135deg, #40c057, #37b24d);
+}
+
+.btn-approve:active:not(:disabled) {
+  transform: translateY(0px);
+  box-shadow: 0 2px 8px rgba(81, 207, 102, 0.2);
+}
+
+.btn-reject {
+  background: linear-gradient(135deg, #ff6b6b, #fa5252);
+  color: white;
+}
+
+.btn-reject:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(255, 107, 107, 0.3);
+  background: linear-gradient(135deg, #fa5252, #f03e3e);
+}
+
+.btn-reject:active:not(:disabled) {
+  transform: translateY(0px);
+  box-shadow: 0 2px 8px rgba(255, 107, 107, 0.2);
+}
+
+.btn-approve:disabled,
+.btn-reject:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Premium Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeInModal 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes fadeInModal {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(4px);
+  }
+}
+
+/* Premium Modal Card */
+.modal-card {
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  max-width: 420px;
+  width: 90%;
+  animation: slideUpModal 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+@keyframes slideUpModal {
+  from {
+    transform: translateY(30px) scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: white;
+  padding: var(--space-6);
+  border-bottom: none;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.modal-body {
+  padding: var(--space-6);
+}
+
+.modal-body p {
+  margin: 0 0 var(--space-4) 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.modal-user-info {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+  padding: var(--space-4);
+  border-radius: 10px;
+  margin-top: var(--space-4);
+  border: 1px solid rgba(102, 126, 234, 0.15);
+}
+
+.modal-user-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: var(--space-2);
+  letter-spacing: -0.2px;
+}
+
+.modal-user-id {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* Modal Actions */
+.modal-actions {
+  padding: var(--space-4) var(--space-6) var(--space-6);
+  display: flex;
+  gap: var(--space-3);
+  justify-content: flex-end;
+}
+
+.btn-modal-cancel,
+.btn-modal-reject {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-modal-cancel svg,
+.btn-modal-reject svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.5;
+}
+
+.btn-modal-cancel {
+  background: var(--bg);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.btn-modal-cancel:hover:not(:disabled) {
+  background: var(--border);
+  color: var(--text);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.btn-modal-reject {
+  background: linear-gradient(135deg, #ff6b6b, #fa5252);
+  color: white;
+}
+
+.btn-modal-reject:hover:not(:disabled) {
+  box-shadow: 0 6px 16px rgba(255, 107, 107, 0.3);
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, #fa5252, #f03e3e);
+}
+
+.btn-modal-cancel:disabled,
+.btn-modal-reject:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Admin Footer */
+.admin-footer {
+  text-align: center;
+  color: var(--text-secondary);
+  margin-top: var(--space-8);
+  padding: var(--space-4);
+  background: var(--surface);
+  border-radius: 8px;
+}
+
+.admin-footer p {
+  margin: 0;
+  font-size: 13px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .admin-container {
+    padding: var(--space-4);
+  }
+
+  .admin-header {
+    padding: var(--space-4);
+    margin-bottom: var(--space-6);
+  }
+
+  .admin-header h1 {
+    font-size: 24px;
+  }
+
+  .user-card {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: var(--space-4);
+  }
+
+  .user-actions {
+    width: 100%;
+    margin-left: 0;
+    margin-top: var(--space-4);
+    gap: var(--space-2);
+    display: flex;
+    flex-direction: row-reverse;
+  }
+
+  .btn-approve,
+  .btn-reject {
+    flex: 1;
+    justify-content: center;
+    padding: 12px var(--space-3);
+    font-size: 12px;
+  }
+
+  .btn-reject {
+    min-width: 48px;
+  }
+
+  .modal-card {
+    max-width: 100%;
+  }
+
+  .modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .btn-modal-cancel,
+  .btn-modal-reject {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-container {
+    padding: var(--space-3);
+  }
+
+  .user-card {
+    padding: var(--space-3);
+  }
+
+  .user-name {
+    font-size: 16px;
+  }
+
+  .btn-approve,
+  .btn-reject {
+    font-size: 11px;
+    padding: 10px var(--space-2);
+  }
+
+  .modal-header {
+    padding: var(--space-4);
+  }
+
+  .modal-body {
+    padding: var(--space-4);
+  }
+
+  .modal-actions {
+    padding: var(--space-3) var(--space-4);
+  }
+}

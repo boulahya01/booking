@@ -1,0 +1,2 @@
+.ui-avatar { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(0,0,0,0.06); color: var(--text); overflow: hidden; }
+.ui-avatar-initials { font-weight: 700; }

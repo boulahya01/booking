@@ -1,0 +1,68 @@
+.auth-layout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--bg);
+  padding: var(--space-4);
+  font-family: 'El Messiri', 'Noto Naskh Arabic', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+.auth-layout,
+.auth-layout * {
+  font-family: 'El Messiri', 'Noto Naskh Arabic', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif !important;
+}
+
+.auth-layout-container {
+  width: 100%;
+  max-width: 420px;
+}
+
+.auth-layout-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.auth-layout-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: var(--space-4);
+}
+
+.auth-layout-title {
+  font-family: 'El Messiri', 'Noto Naskh Arabic', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-size: var(--text-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text);
+  margin: 0 0 var(--space-3) 0;
+  letter-spacing: -0.5px;
+  text-align: center;
+}
+
+.auth-layout-subtitle {
+  font-family: 'El Messiri', 'Noto Naskh Arabic', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  margin: 0;
+  font-weight: var(--font-weight-normal);
+  text-align: center;
+}
+
+.auth-layout-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+@media (max-width: 640px) {
+  .auth-layout {
+    padding: var(--space-3);
+  }
+
+  .auth-layout-title {
+    font-size: var(--text-2xl);
+  }
+}

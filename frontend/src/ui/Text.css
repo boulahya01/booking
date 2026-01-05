@@ -1,0 +1,22 @@
+.ui-title {
+  font-size: var(--text-2xl);
+  font-weight: var(--font-weight-bold);
+  margin: 0;
+  color: var(--text);
+  line-height: var(--line-height-tight);
+}
+
+.ui-subtitle {
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-semibold);
+  margin: 0;
+  color: var(--text-muted);
+  line-height: var(--line-height-normal);
+}
+
+.ui-body {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: var(--line-height-normal);
+}

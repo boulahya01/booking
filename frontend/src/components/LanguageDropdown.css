@@ -1,0 +1,130 @@
+.language-dropdown {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: inline-block;
+  z-index: 50;
+}
+
+.language-dropdown-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #f5f7fa;
+  border: 1px solid #e0e3e9;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: #555;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.language-dropdown-trigger:hover {
+  background: #eff1f5;
+  border-color: #d0d5e0;
+}
+
+.language-dropdown-trigger:active {
+  transform: scale(0.96);
+}
+
+.language-dropdown-label {
+  min-width: 50px;
+  text-align: left;
+  font-size: 12px;
+}
+
+.chevron {
+  transition: transform 0.2s ease;
+  opacity: 0.5;
+  width: 14px;
+  height: 14px;
+}
+
+.chevron.open {
+  transform: rotate(180deg);
+}
+
+.language-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: white;
+  border: 1px solid #e0e3e9;
+  border-radius: 6px;
+  min-width: 140px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1), 0 1px 4px rgba(0, 0, 0, 0.08);
+  z-index: 1000;
+  overflow: hidden;
+  animation: slideDown 0.12s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.language-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: #555;
+  transition: all 0.12s ease;
+  text-align: left;
+  font-family: inherit;
+}
+
+.language-dropdown-item:hover {
+  background: #f9fafb;
+}
+
+.language-dropdown-item.active {
+  background: #fff5f0;
+  color: #ff6b35;
+  font-weight: 600;
+}
+
+.language-flag {
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+}
+
+.language-name {
+  flex: 1;
+  font-size: 12px;
+}
+
+.checkmark {
+  color: #ff6b35;
+  font-weight: bold;
+  font-size: 12px;
+}
+
+/* RTL Support - Keep position consistent */
+html[dir="rtl"] .language-dropdown {
+  right: 16px;
+  left: auto;
+}
+
+html[dir="rtl"] .language-dropdown-menu {
+  right: 0;
+  left: auto;
+}

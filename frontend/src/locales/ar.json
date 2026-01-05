@@ -1,0 +1,177 @@
+{
+  "register": {
+    "title": "إنشاء حساب",
+    "subtitle": "انضم وابدأ حجز الأوقات",
+    "welcome": "مرحبًا!",
+    "created": "تم إنشاء الحساب بنجاح",
+    "hi_user": "مرحبا {{name}}، تم إنشاء حسابك!",
+    "approval_note": "يمكنك الآن تسجيل الدخول، لكن ستحتاج موافقة المسؤول لبدء حجز الأوقات.",
+    "redirect": "إعادة التوجيه إلى لوحة التحكم...",
+    "create_button": "إنشاء حساب",
+    "have_account": "هل لديك حساب بالفعل؟",
+    "sign_in": "تسجيل الدخول",
+
+    "placeholders": {
+      "fullName": "الاسم الكامل",
+      "email": "البريد الإلكتروني",
+      "studentId": "رقم الطالب (مسار)",
+      "password": "كلمة المرور (6 أحرف)",
+      "confirmPassword": "تأكيد كلمة المرور"
+    },
+
+    "errors": {
+      "required": "جميع الحقول مطلوبة",
+      "password_mismatch": "كلمتا المرور غير متطابقتين",
+      "password_short": "يجب أن تكون كلمة المرور 6 أحرف على الأقل",
+      "invalid_email": "الرجاء إدخال بريد إلكتروني صالح",
+      "invalid_name": "الرجاء إدخال اسم كامل صالح"
+    }
+  }
+
+  ,"layout": {
+    "app_title": "PitchBook",
+    "book_pitch": "حجز الملعب",
+    "my_bookings": "حجوزاتي",
+    "profile": "الملف الشخصي",
+    "admin_users": "المسؤول: المستخدمون",
+    "admin_pitches": "المسؤول: الملاعب",
+    "logout": "تسجيل الخروج",
+    "approved": "موافق عليه",
+    "admin": "مسؤول",
+    "language": "اللغة"
+  }
+  ,"login": {
+    "welcome_back": "مرحبًا بعودتك",
+    "subtitle": "تسجيل الدخول إلى حسابك",
+    "email": "البريد الإلكتروني",
+    "student_id": "رقم الطالب",
+    "password": "كلمة المرور",
+    "sign_in": "تسجيل الدخول",
+    "sign_up_prompt": "لا تملك حسابًا؟",
+    "sign_up": "إنشاء حساب",
+    "errors": {
+      "password_required": "كلمة المرور مطلوبة",
+      "email_required": "البريد الإلكتروني مطلوب",
+      "invalid_email": "الرجاء إدخال بريد إلكتروني صالح",
+      "student_required": "رقم الطالب مطلوب",
+      "login_failed": "فشل تسجيل الدخول"
+    }
+  }
+  ,"home": {
+    "title": "احجز ملعبك",
+    "subtitle": "اختر ملعبًا لعرض الأوقات المتاحة لأجل 24 ساعة القادمة",
+    "choose_pitch": "اختر ملعبًا",
+    "no_pitches": "لا توجد ملاعب متاحة",
+    "loading_slots": "جارٍ تحميل الأوقات...",
+    "no_slots": "لا توجد أوقات متاحة لهذا الملعب في الـ 24 ساعة القادمة",
+    "slot_booked_success": "تم حجز الوقت بنجاح!",
+    "slot_cancelled_success": "تم إلغاء الحجز بنجاح!",
+    "must_login": "يجب عليك تسجيل الدخول للحجز",
+    "not_approved": "حسابك لم تتم الموافقة عليه بعد",
+    "already_active_booking": "لديك بالفعل حجز نشط. ألغِه أولاً قبل حجز آخر.",
+    "slot_not_found": "الوقت غير موجود",
+    "failed_book_slot": "فشل حجز الوقت",
+    "failed_cancel_slot": "فشل إلغاء الحجز"
+  }
+  ,"pending": {
+    "title": "حساب قيد الانتظار",
+    "instruction": "سيتوجب عليك إرسال صورة من بطاقة الطالب عبر واتساب إلى الرقم:",
+    "whatsapp": "واتساب",
+    "visit_admin": "أو زيارة admin simo في الحانوت لإتمام التفعيل.",
+    "student_card": "بطاقة الطالب",
+    "sign_out": "تسجيل الخروج"
+  }
+  ,"profile": {
+    "title": "ملفي الشخصي",
+    "subtitle": "إدارة حسابك",
+    "settings": "إعدادات الملف الشخصي",
+    "full_name_label": "الاسم الكامل",
+    "full_name_placeholder": "أدخل اسمك الكامل",
+    "student_id_label": "رقم الطالب (للقراءة فقط)",
+    "save_changes": "حفظ التغييرات",
+    "saving": "جارٍ الحفظ...",
+    "security": "الأمان",
+    "change_password": "تغيير كلمة المرور",
+    "new_password_label": "كلمة مرور جديدة",
+    "new_password_placeholder": "أدخل كلمة مرور جديدة (6 أحرف على الأقل)",
+    "confirm_password_label": "تأكيد كلمة المرور",
+    "confirm_password_placeholder": "أكد كلمة المرور الجديدة",
+    "update_password": "تحديث كلمة المرور",
+    "updating": "جارٍ التحديث...",
+    "cancel": "إلغاء",
+    "account_info": "معلومات الحساب",
+    "email_label": "البريد الإلكتروني:",
+    "role_label": "الدور:",
+    "status_label": "الحالة:",
+    "admin_badge": "مسؤول",
+    "student_badge": "طالب",
+    "approved_badge": "موافق عليه",
+    "pending_badge": "قيد الانتظار",
+    "loading": "جارٍ تحميل الملف الشخصي..."
+  }
+  ,"bookings": {
+    "title": "حجوزاتي",
+    "pending_approval": "قيد موافقة المسؤول",
+    "approval_message": "شكراً لتسجيلك! يتعين الموافقة على حسابك من قبل المسؤول قبل أن تتمكن من إجراء الحجوزات.",
+    "what_next": "ماذا بعد؟",
+    "approval_timeframe": "سيراجع المسؤول معلوماتك ويوافق على حسابك، عادة في غضون 24 ساعة.",
+    "approval_note": "عد هنا بعد الموافقة عليك لبدء حجز أوقاتك!",
+    "no_bookings": "لا توجد حجوزات نشطة بعد.",
+    "go_home": "انتقل إلى الصفحة الرئيسية لحجز وقت!",
+    "booking_count": "لديك {{count}} حجز نشط",
+    "slot_time_label": "وقت الحجز:",
+    "booked_label": "محجوز:",
+    "status_label": "الحالة:",
+    "status_active": "نشط",
+    "cancel_booking": "إلغاء",
+    "cancelling": "جارٍ الإلغاء...",
+    "cancelled_success": "تم إلغاء الحجز بنجاح!",
+    "failed_fetch": "فشل في جلب الحجوزات",
+    "failed_cancel": "فشل في إلغاء الحجز",
+    "loading": "جارٍ تحميل الحجوزات..."
+  }
+  ,"admin_users": {
+    "title": "لوحة التحكم - موافقات المستخدمين",
+    "subtitle": "إدارة تسجيلات المستخدمين المعلقة",
+    "loading": "جارٍ تحميل المستخدمين المعلقين...",
+    "no_pending": "لا يوجد مستخدمون معلقون للموافقة عليهم",
+    "student_id_label": "رقم الطالب:",
+    "registered_label": "التسجيل:",
+    "reject_button": "رفض المستخدم",
+    "approve_button": "الموافقة",
+    "total_pending": "إجمالي المستخدمين المعلقين: {{count}}",
+    "approve_modal_title": "الموافقة على المستخدم",
+    "reject_modal_title": "رفض المستخدم",
+    "modal_confirm": "هل أنت متأكد من رغبتك في {{action}} هذا المستخدم؟",
+    "cancel_button": "إلغاء",
+    "approve_action": "الموافقة على",
+    "reject_action": "رفض",
+    "user_approved": "تمت الموافقة على المستخدم",
+    "user_rejected": "تم رفض المستخدم",
+    "retry_button": "إعادة محاولة",
+    "access_denied": "تم رفض الوصول. للمسؤولين فقط.",
+    "failed_fetch": "فشل في جلب المستخدمين",
+    "failed_action": "فشل في {{action}} المستخدم"
+  }
+  ,"admin_pitches": {
+    "title": "إدارة الملاعب",
+    "name_header": "الاسم",
+    "location_header": "الموقع",
+    "capacity_header": "السعة",
+    "open_time_header": "وقت الفتح",
+    "close_time_header": "وقت الإغلاق",
+    "actions_header": "الإجراءات",
+    "edit_button": "تحرير",
+    "save_button": "حفظ",
+    "cancel_button": "إلغاء",
+    "name_placeholder": "اسم الملعب",
+    "location_placeholder": "الموقع",
+    "no_pitches": "لم يتم العثور على ملاعب. أنشئ واحداً للبدء.",
+    "loading": "جارٍ تحميل الملاعب...",
+    "access_denied": "تم رفض الوصول. للمسؤولين فقط.",
+    "time_validation": "يجب أن يكون وقت الفتح قبل وقت الإغلاق",
+    "updated_success": "تم تحديث الملعب بنجاح",
+    "failed_load": "فشل تحميل الملاعب: {{error}}",
+    "failed_update": "فشل تحديث الملعب: {{error}}"
+  }
+}

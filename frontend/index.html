@@ -5,6 +5,26 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Booking App</title>
+
+    <!-- Arabic font preload and preconnect -->
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=El+Messiri:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Set document language and direction early based on saved locale or browser -->
+    <script>
+      (function(){
+        try{
+          const locale = localStorage.getItem('locale') || (navigator.language || 'en');
+          if (locale && locale.toLowerCase().startsWith('ar')){
+            document.documentElement.lang = 'ar';
+            document.documentElement.dir = 'rtl';
+          } else {
+            document.documentElement.lang = (locale && locale.split('-')[0]) || 'en';
+            document.documentElement.dir = 'ltr';
+          }
+        }catch(e){/* ignore */}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
