@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm run frontend:dev\" \"supabase start\"",
+    "build": "cd frontend && npm run build",
+    "preview": "cd frontend && npm run preview",
     "frontend:dev": "cd frontend && npm run dev",
     "frontend:build": "cd frontend && npm run build",
     "frontend:preview": "cd frontend && npm run preview",
@@ -12,10 +14,17 @@
     "supabase:stop": "supabase stop",
     "supabase:functions:deploy": "supabase functions deploy"
   },
-  "keywords": ["booking", "supabase", "vite"],
+  "keywords": [
+    "booking",
+    "supabase",
+    "vite"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.78.0"
   }
 }
