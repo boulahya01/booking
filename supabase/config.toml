@@ -13,7 +13,7 @@ max_rows = 1000
 # Port to use for the local database. Default is 54322.
 port = 54322
 # The database major version to use. This has to be the same as the environment variable `POSTGRES_MAJOR_VERSION` accepted by the official PostgreSQL docker image.
-major_version = 15
+major_version = 17
 
 [studio]
 # Port to use for Supabase Studio. Default is 54323.
@@ -32,10 +32,3 @@ file_size_limit = 52428800
 [auth]
 # The default JWT expiry is set to 3600 seconds (1 hour)
 jwt_expiry = 3600
-# If you use an external OAuth provider, you may set variables like the below
-# to apply default settings when an OAuth provider is created for the first time.
-# They may not do anything if the particular provider uses different cryptography scheme.
-# `external_*.redirect_urls` applies the redirect url to all OAuth providers.
-external_google_enabled = false
-external_google_client_id = ""
-external_google_secret = ""

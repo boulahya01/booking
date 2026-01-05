@@ -1,5 +1,40 @@
 # Supabase local development
-.branches
-.changeset
-dist
-node_modules
+.branches/
+.changeset/
+
+# Build output
+dist/
+
+# Dependencies
+node_modules/
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+
+# Environment variables - CRITICAL
+.env
+.env.local
+.env.*.local
+.env.production.local
+.env.development.local
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# Supabase specific
+.supabase/
+.supabase-local/
+supabase_service_key
