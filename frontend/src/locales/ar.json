@@ -25,15 +25,21 @@
       "password_short": "يجب أن تكون كلمة المرور 6 أحرف على الأقل",
       "invalid_email": "الرجاء إدخال بريد إلكتروني صالح",
       "invalid_name": "الرجاء إدخال اسم كامل صالح"
+    },
+
+    "hints": {
+      "fullName": "ⓘ يجب أن يكون اسمك الحقيقي - مطلوب للتحقق من أنك طالب",
+      "studentId": "ⓘ يجب أن يكون رقم الطالب الحقيقي - مطلوب للتحقق من أنك طالب"
     }
   }
 
   ,"layout": {
-    "app_title": "PitchBook",
+    "app_title": "UnemBook",
     "book_pitch": "حجز الملعب",
     "my_bookings": "حجوزاتي",
     "profile": "الملف الشخصي",
     "admin_users": "المسؤول: المستخدمون",
+    "admin_user_management": "المسؤول: إدارة المستخدمين",
     "admin_pitches": "المسؤول: الملاعب",
     "logout": "تسجيل الخروج",
     "approved": "موافق عليه",
@@ -82,7 +88,7 @@
     "sign_out": "تسجيل الخروج"
   }
   ,"profile": {
-    "title": "ملفي الشخصي",
+    "title": "الملف الشخصي",
     "subtitle": "إدارة حسابك",
     "settings": "إعدادات الملف الشخصي",
     "full_name_label": "الاسم الكامل",
@@ -111,7 +117,7 @@
   }
   ,"bookings": {
     "title": "حجوزاتي",
-    "pending_approval": "قيد موافقة المسؤول",
+    "pending_approval": "قيد الانتظار لموافقة المسؤول",
     "approval_message": "شكراً لتسجيلك! يتعين الموافقة على حسابك من قبل المسؤول قبل أن تتمكن من إجراء الحجوزات.",
     "what_next": "ماذا بعد؟",
     "approval_timeframe": "سيراجع المسؤول معلوماتك ويوافق على حسابك، عادة في غضون 24 ساعة.",
@@ -135,7 +141,7 @@
     "subtitle": "إدارة تسجيلات المستخدمين المعلقة",
     "loading": "جارٍ تحميل المستخدمين المعلقين...",
     "no_pending": "لا يوجد مستخدمون معلقون للموافقة عليهم",
-    "student_id_label": "رقم الطالب:",
+    "student_id_label": "رقم مسار:",
     "registered_label": "التسجيل:",
     "reject_button": "رفض المستخدم",
     "approve_button": "الموافقة",
@@ -173,5 +179,37 @@
     "updated_success": "تم تحديث الملعب بنجاح",
     "failed_load": "فشل تحميل الملاعب: {{error}}",
     "failed_update": "فشل تحديث الملعب: {{error}}"
+  }
+
+  ,"admin_user_management": {
+    "title": "إدارة المستخدمين",
+    "subtitle": "إدارة وحذف المستخدمين من النظام",
+    "full_name_header": "الاسم الكامل",
+    "student_id_header": "رقم الطالب",
+    "status_header": "الحالة",
+    "actions_header": "الإجراءات",
+    "delete_button": "حذف",
+    "filter_label": "تصفية حسب الحالة:",
+    "filter_all": "جميع المستخدمين",
+    "filter_pending": "قيد الانتظار",
+    "filter_approved": "موافق عليه",
+    "filter_rejected": "مرفوض",
+    "filter_suspended": "معلق",
+    "status_pending": "قيد الانتظار",
+    "status_approved": "موافق عليه",
+    "status_rejected": "مرفوض",
+    "status_suspended": "معلق",
+    "loading": "جارٍ تحميل المستخدمين...",
+    "no_users": "لم يتم العثور على مستخدمين.",
+    "failed_load": "فشل تحميل المستخدمين",
+    "failed_delete": "فشل حذف المستخدم",
+    "user_deleted": "تم حذف المستخدم بنجاح",
+    "retry": "إعادة محاولة",
+    "access_denied": "تم رفض الوصول. للمسؤولين فقط.",
+    "delete_modal_title": "حذف المستخدم",
+    "delete_modal_message": "هل أنت متأكد من رغبتك في حذف {{name}}؟",
+    "delete_warning": "لا يمكن التراجع عن هذا الإجراء. سيتم حذف المستخدم وجميع بيانات المستخدم بشكل دائم.",
+    "cancel_button": "إلغاء",
+    "confirm_delete": "حذف المستخدم"
   }
 }
