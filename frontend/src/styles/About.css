@@ -1,0 +1,19 @@
+.about-page {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px;
+}
+.about-hero {
+  background: linear-gradient(135deg,#6a11cb 0%, #2575fc 100%);
+  color: #fff;
+  padding: 28px;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(39,44,77,0.12);
+}
+.about-hero h1 { margin: 0 0 8px 0; font-size: 1.25rem }
+.about-hero p { margin: 0; opacity: 0.95; font-size: 0.95rem }
+.about-content { margin-top: 20px; display: grid; gap: 16px }
+.about-section { background: #fff; padding: 16px; border-radius: 8px; box-shadow: 0 6px 18px rgba(15,23,42,0.06) }
+.about-section h2 { font-size: 1.1rem; margin: 0 0 8px 0 }
+.about-section p { font-size: 0.9rem; margin: 0 0 12px 0 }
+.about-github-link { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; color: #111; font-size: 0.9rem }
