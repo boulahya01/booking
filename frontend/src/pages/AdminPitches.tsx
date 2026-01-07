@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
@@ -10,6 +11,7 @@ export function AdminPitches() {
   const { profile: userProfile, loading: authLoading } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [pitches, setPitches] = useState<Pitch[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
@@ -59,12 +61,21 @@ export function AdminPitches() {
     setEditingId(null)
   }
 
+  const formatTimeDisplay = (time: string) => {
+    if (time === '24:00') {
+      return '00:00 (next day)'
+    }
+    return time
+  }
+
   const handleSave = async (pitchId: string) => {
     try {
-      // Validation: open_time < close_time
-      if (formData.open_time >= formData.close_time) {
-        toast.error('Opening time must be before closing time')
-        return
+      let closeTime = formData.close_time
+
+      // Auto-convert overnight times: if open_time > close_time, it means overnight
+      // Convert close_time to '24:00' to indicate midnight next day
+      if (formData.open_time > formData.close_time) {
+        closeTime = '24:00'
       }
 
       // Update pitch
@@ -75,7 +86,7 @@ export function AdminPitches() {
           location: formData.location,
           capacity: formData.capacity,
           open_time: formData.open_time,
-          close_time: formData.close_time,
+          close_time: closeTime,
         })
         .eq('id', pitchId)
 
@@ -190,7 +201,7 @@ export function AdminPitches() {
                   <td>{pitch.location}</td>
                   <td>{pitch.capacity}</td>
                   <td className="time-cell">{pitch.open_time}</td>
-                  <td className="time-cell">{pitch.close_time}</td>
+                  <td className="time-cell">{formatTimeDisplay(pitch.close_time)}</td>
                   <td>
                     <button
                       className="btn btn-edit"
