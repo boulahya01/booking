@@ -172,11 +172,19 @@ serve(async (req: Request): Promise<Response> => {
         for (const pitch of pitches) {
             console.log(`[available-slots] Processing pitch: ${pitch.name} (${pitch.id})`)
 
-            const openHour = parseHourFromTime(pitch.open_time)
-            const closeHour = parseHourFromTime(pitch.close_time)
+            let openHour = parseHourFromTime(pitch.open_time)
+            let closeHour = parseHourFromTime(pitch.close_time)
+
+            // Handle midnight closing: close_time = '24:00' means closeHour = 24
+            // If close_time is '00:00' and it's stored as such, parseHourFromTime returns 0
+            // To distinguish overnight (08:00 to 00:00 next day), we accept '24:00' as input
+            // and interpret it as hour 24 in the loop
+            if (pitch.close_time === '24:00') {
+                closeHour = 24
+            }
 
             console.log(
-                `[available-slots] Operating hours: ${openHour}:00 - ${closeHour}:00 (open_time: ${pitch.open_time}, close_time: ${pitch.close_time})`
+                `[available-slots] Operating hours: ${openHour}:00 - ${closeHour === 24 ? '00:00 (next day)' : closeHour + ':00'} (open_time: ${pitch.open_time}, close_time: ${pitch.close_time})`
             )
             console.log(`[available-slots] Generating slots: hour >= ${openHour} AND hour < ${closeHour}`)
 
