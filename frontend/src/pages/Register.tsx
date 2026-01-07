@@ -6,7 +6,6 @@ import { register } from '../lib/auth'
 import '../styles/Auth.css'
 import { Input, Button, Card, Spinner } from '../ui'
 import { AuthLayout } from '../components/AuthLayout'
-import { LanguageDropdown } from '../components/LanguageDropdown'
 
 export function Register() {
   const { t } = useTranslation()
@@ -18,6 +17,7 @@ export function Register() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [focusedField, setFocusedField] = useState<string | null>(null)
   const navigate = useNavigate()
 
   const validateForm = () => {
@@ -37,7 +37,7 @@ export function Register() {
       setError(t('register.errors.invalid_email'))
       return false
     }
-    if (fullName.trim().length < 2) {
+    if (fullName.trim().length < 6) {
       setError(t('register.errors.invalid_name'))
       return false
     }
@@ -95,7 +95,6 @@ export function Register() {
   return (
     <AuthLayout>
       <Card>
-        <LanguageDropdown />
         <div className="auth-layout-header">
           <h1 className="auth-layout-title">{t('register.title')}</h1>
           <p className="auth-layout-subtitle">{t('register.subtitle')}</p>
@@ -104,11 +103,25 @@ export function Register() {
         {error && <div className="error-message">{error}</div>}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-          <Input id="fullName" type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder={t('register.placeholders.fullName')} disabled={loading} icon={<FiUserCheck />} />
+          <div>
+            <Input id="fullName" type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} onFocus={() => setFocusedField('fullName')} onBlur={() => setFocusedField(null)} placeholder={t('register.placeholders.fullName')} disabled={loading} icon={<FiUserCheck />} />
+            {focusedField === 'fullName' && (
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', opacity: 0.7, margin: 'var(--space-2) 0 0 0', transition: 'opacity 0.3s ease' }}>
+                {t('register.hints.fullName')}
+              </p>
+            )}
+          </div>
 
           <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('register.placeholders.email')} disabled={loading} icon={<FiMail />} />
 
-          <Input id="studentId" type="text" value={studentId} onChange={(e) => setStudentId(e.target.value)} placeholder={t('register.placeholders.studentId')} disabled={loading} icon={<FiUser />} />
+          <div>
+            <Input id="studentId" type="text" value={studentId} onChange={(e) => setStudentId(e.target.value)} onFocus={() => setFocusedField('studentId')} onBlur={() => setFocusedField(null)} placeholder={t('register.placeholders.studentId')} disabled={loading} icon={<FiUser />} />
+            {focusedField === 'studentId' && (
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', opacity: 0.7, margin: 'var(--space-2) 0 0 0', transition: 'opacity 0.3s ease' }}>
+                {t('register.hints.studentId')}
+              </p>
+            )}
+          </div>
 
           <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t('register.placeholders.password')} disabled={loading} icon={<FiLock />} />
 
