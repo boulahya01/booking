@@ -410,6 +410,9 @@ export function Home() {
 
   const formatTimeString = (timeStr: string) => {
     // Format time string like "08:00:00" to "08:00"
+    if (timeStr === '24:00' || timeStr === '24:00:00') {
+      return '00:00 (next)'
+    }
     return timeStr.substring(0, 5)
   }
 
@@ -544,6 +547,7 @@ export function Home() {
                       <SlotCard
                         key={slot.id}
                         time={formatTime(slot.datetime_start)}
+                        endTime={formatTime(slot.datetime_end)}
                         status={getSlotStatus(slot)}
                         pitchName={slot.pitch_name}
                         bookerName={slot.bookerName}
