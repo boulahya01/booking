@@ -14,7 +14,7 @@
     "placeholders": {
       "fullName": "Full name",
       "email": "Email",
-      "studentId": "Student ID (path)",
+      "studentId": "Student ID (Massar)",
       "password": "Password (6 chars)",
       "confirmPassword": "Confirm password"
     },
@@ -25,15 +25,21 @@
       "password_short": "Password must be at least 6 characters",
       "invalid_email": "Please enter a valid email",
       "invalid_name": "Please enter a valid full name"
+    },
+
+    "hints": {
+      "fullName": "ⓘ Must be your real name - required to verify you are a student",
+      "studentId": "ⓘ Must be your real student ID - required to verify you are a student"
     }
   }
 
   ,"layout": {
-    "app_title": "PitchBook",
+    "app_title": "UnemBook",
     "book_pitch": "Book Pitch",
     "my_bookings": "My Bookings",
     "profile": "Profile",
     "admin_users": "Admin: Users",
+    "admin_user_management": "Admin: Manage Users",
     "admin_pitches": "Admin: Pitches",
     "logout": "Logout",
     "approved": "Approved",
@@ -173,5 +179,37 @@
     "updated_success": "Pitch updated successfully",
     "failed_load": "Failed to load pitches: {{error}}",
     "failed_update": "Failed to update pitch: {{error}}"
+  }
+
+  ,"admin_user_management": {
+    "title": "User Management",
+    "subtitle": "Manage and remove users from the system",
+    "full_name_header": "Full Name",
+    "student_id_header": "Student ID",
+    "status_header": "Status",
+    "actions_header": "Actions",
+    "delete_button": "Remove",
+    "filter_label": "Filter by Status:",
+    "filter_all": "All Users",
+    "filter_pending": "Pending",
+    "filter_approved": "Approved",
+    "filter_rejected": "Rejected",
+    "filter_suspended": "Suspended",
+    "status_pending": "Pending",
+    "status_approved": "Approved",
+    "status_rejected": "Rejected",
+    "status_suspended": "Suspended",
+    "loading": "Loading users...",
+    "no_users": "No users found.",
+    "failed_load": "Failed to load users",
+    "failed_delete": "Failed to delete user",
+    "user_deleted": "User removed successfully",
+    "retry": "Retry",
+    "access_denied": "Access denied. Admin only.",
+    "delete_modal_title": "Remove User",
+    "delete_modal_message": "Are you sure you want to remove {{name}}?",
+    "delete_warning": "This action cannot be undone. The user and all their data will be permanently deleted.",
+    "cancel_button": "Cancel",
+    "confirm_delete": "Remove User"
   }
 }
