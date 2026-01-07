@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { FiCheck, FiX, FiHash, FiCalendar, FiUser } from 'react-icons/fi'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../hooks/useAuth'
@@ -133,12 +134,10 @@ export function AdminUsers() {
           {pendingUsers.map((user) => (
             <div key={user.id} className="user-card">
               <div className="user-info">
-                <div className="user-name">{user.full_name || 'N/A'}</div>
-                <div className="user-student-id">Student ID: {user.student_id}</div>
+                <div className="user-name" title={user.full_name || 'N/A'}><FiUser style={{ marginRight: 8 }} />{user.full_name || 'N/A'}</div>
+                <div className="user-student-id"><FiHash style={{ marginRight: 8 }} />{user.student_id}</div>
                 <div className="user-meta">
-                  <span className="user-created">
-                    Registered: {new Intl.DateTimeFormat(i18n.language === 'ar' ? 'ar-EG' : 'en-GB', { dateStyle: 'medium', numberingSystem: 'latn' }).format(new Date(user.created_at))}
-                  </span>
+                  <span className="user-created"><FiCalendar style={{ marginRight: 8 }} />{new Intl.DateTimeFormat(i18n.language === 'ar' ? 'ar-EG' : 'en-GB', { dateStyle: 'medium', numberingSystem: 'latn' }).format(new Date(user.created_at))}</span>
                 </div>
               </div>
               <div className="user-actions">
@@ -147,15 +146,17 @@ export function AdminUsers() {
                   disabled={actionLoading === user.id}
                   className="btn-reject"
                   title="Reject user"
+                  aria-label="Reject user"
                 >
-                  {actionLoading === user.id ? '...' : '✕'}
+                  {actionLoading === user.id ? '...' : <><FiX /> <span className="btn-text">Reject</span></>}
                 </button>
                 <button
                   onClick={() => startConfirm('approve', user.id)}
                   disabled={actionLoading === user.id}
                   className="btn-approve"
+                  aria-label="Approve user"
                 >
-                  {actionLoading === user.id ? '...' : 'Approve'}
+                  {actionLoading === user.id ? '...' : <><FiCheck /> <span className="btn-text">Approve</span></>}
                 </button>
               </div>
             </div>
