@@ -1,40 +1,59 @@
 .language-dropdown {
-  position: absolute;
-  top: 16px;
-  right: 16px;
+  position: relative;
   display: inline-block;
-  z-index: 50;
 }
 
 .language-dropdown-trigger {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 10px;
-  background: #f5f7fa;
-  border: 1px solid #e0e3e9;
+  padding: 6px 8px;
+  background: transparent;
+  border: 1px solid var(--border, rgba(0,0,0,0.08));
   border-radius: 6px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
-  color: #555;
+  color: var(--text, #222);
   transition: all 0.2s ease;
   white-space: nowrap;
 }
 
 .language-dropdown-trigger:hover {
-  background: #eff1f5;
-  border-color: #d0d5e0;
+  background: var(--surface-alt, #f5f5f5);
+  border-color: var(--border, rgba(0,0,0,0.08));
 }
 
 .language-dropdown-trigger:active {
   transform: scale(0.96);
 }
 
+
 .language-dropdown-label {
-  min-width: 50px;
-  text-align: left;
-  font-size: 12px;
+  display: none; /* compact header: hide full label by default */
+}
+
+/* Show full language label on auth pages so users can change language on login/register */
+.auth-layout .language-dropdown-label {
+  display: inline-block;
+  margin-left: 6px;
+}
+
+html[dir="rtl"] .auth-layout .language-dropdown-label {
+  margin-left: 0;
+  margin-right: 6px;
+}
+
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
 }
 
 .chevron {
@@ -60,6 +79,7 @@
   z-index: 1000;
   overflow: hidden;
   animation: slideDown 0.12s ease-out;
+  color: #333;
 }
 
 @keyframes slideDown {
