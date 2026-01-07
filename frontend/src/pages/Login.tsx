@@ -6,7 +6,6 @@ import { loginWithEmail } from '../lib/auth'
 import '../styles/Auth.css'
 import { Input, Button, Card, Spinner } from '../ui'
 import { AuthLayout } from '../components/AuthLayout'
-import { LanguageDropdown } from '../components/LanguageDropdown'
 
 export function Login() {
   const { t } = useTranslation()
@@ -104,7 +103,6 @@ export function Login() {
   return (
     <AuthLayout>
       <Card>
-        <LanguageDropdown />
         <div className="auth-layout-header">
           <h1 className="auth-layout-title">{t('login.welcome_back')}</h1>
           <p className="auth-layout-subtitle">{t('login.subtitle')}</p>
