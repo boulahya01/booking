@@ -97,6 +97,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // Subscribe to profile changes for the current user so UI updates when admin approves account
+  useEffect(() => {
+    if (!user?.id) return
+
+    const userId = user.id
+    console.log('[AuthContext] Subscribing to profile changes for user:', userId)
+
+    const channel = supabase
+      .channel(`public:profiles:user:${userId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` },
+        (payload: any) => {
+          try {
+            console.log('[AuthContext] profile change payload:', payload?.event, payload)
+            if (payload?.new) {
+              setProfile(payload.new as Profile)
+            } else if (payload?.old && payload?.event === 'DELETE') {
+              setProfile(null)
+            }
+          } catch (err) {
+            console.error('[AuthContext] Error applying profile change payload:', err)
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      try {
+        channel.unsubscribe()
+      } catch (e) {
+        /* ignore */
+      }
+    }
+  }, [user?.id])
+
   async function loadProfile(userId: string) {
     try {
       setProfileLoading(true)
