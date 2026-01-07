@@ -6,6 +6,7 @@ import { FiUser } from 'react-icons/fi'
 
 export type SlotCardProps = {
   time: string
+  endTime?: string
   status: 'available' | 'booked' | 'booked-by-you'
   onBook?: () => void
   onCancel?: () => void
@@ -16,6 +17,7 @@ export type SlotCardProps = {
 
 export const SlotCard: React.FC<SlotCardProps> = ({
   time,
+  endTime,
   status,
   onBook,
   onCancel,
@@ -32,11 +34,13 @@ export const SlotCard: React.FC<SlotCardProps> = ({
   
   // Extract just the time (HH:MM) from full datetime string
   const timeOnly = time.includes(':') ? time.split(' ')[0] : time
+  const endTimeOnly = endTime ? (endTime.includes(':') ? endTime.split(' ')[0] : endTime) : ''
 
   return (
     <Card className={`ui-slot-card slot-card-${config.bgClass}`}>
       <div className="slot-card-content">
         <div className="slot-time-display">{timeOnly}</div>
+        {endTimeOnly && <div className="slot-end-time-label">{endTimeOnly}</div>}
       </div>
 
       {bookerName && (status === 'booked' || status === 'booked-by-you') && (
