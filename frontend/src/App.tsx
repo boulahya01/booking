@@ -7,7 +7,9 @@ import { Register } from './pages/Register'
 import { Login } from './pages/Login'
 import { PendingApproval } from './pages/PendingApproval'
 import { AdminUsers } from './pages/AdminUsers'
+import { About } from './pages/About'
 import { AdminPitches } from './pages/AdminPitches'
+import { AdminUserManagement } from './pages/AdminUserManagement'
 import { Home } from './pages/Home'
 import { Bookings } from './pages/Bookings'
 import { Profile } from './pages/Profile'
@@ -62,7 +64,9 @@ function Dashboard() {
         <Route path="/bookings" element={<ApprovedRoute><Bookings /></ApprovedRoute>} />
         <Route path="/profile" element={<ApprovedRoute><Profile /></ApprovedRoute>} />
         <Route path="/admin/users" element={<ApprovedRoute><AdminUsers /></ApprovedRoute>} />
+        <Route path="/admin/user-management" element={<ApprovedRoute><AdminUserManagement /></ApprovedRoute>} />
         <Route path="/admin/pitches" element={<ApprovedRoute><AdminPitches /></ApprovedRoute>} />
+        <Route path="/about" element={<ApprovedRoute><About /></ApprovedRoute>} />
         <Route path="/pending-approval" element={<PendingApproval />} />
         <Route path="/logout" element={<LogoutHandler />} />
         <Route path="*" element={<Navigate to="/" replace />} />
