@@ -30,16 +30,11 @@
 
 
 .language-dropdown-label {
-  display: none; /* compact header: hide full label by default */
-}
-
-/* Show full language label on auth pages so users can change language on login/register */
-.auth-layout .language-dropdown-label {
-  display: inline-block;
+  display: inline-block; /* show label on auth pages */
   margin-left: 6px;
 }
 
-html[dir="rtl"] .auth-layout .language-dropdown-label {
+html[dir="rtl"] .language-dropdown-label {
   margin-left: 0;
   margin-right: 6px;
 }
