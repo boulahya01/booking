@@ -57,6 +57,19 @@
   gap: var(--space-4);
 }
 
+/* Position language selector in top-right corner */
+.auth-layout-language-selector {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  z-index: 10;
+}
+
+html[dir="rtl"] .auth-layout-language-selector {
+  right: auto;
+  left: var(--space-4);
+}
+
 @media (max-width: 640px) {
   .auth-layout {
     padding: var(--space-3);
@@ -64,5 +77,15 @@
 
   .auth-layout-title {
     font-size: var(--text-2xl);
+  }
+
+  .auth-layout-language-selector {
+    top: var(--space-3);
+    right: var(--space-3);
+  }
+
+  html[dir="rtl"] .auth-layout-language-selector {
+    right: auto;
+    left: var(--space-3);
   }
 }
