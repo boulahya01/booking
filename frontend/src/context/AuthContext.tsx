@@ -83,7 +83,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // cleanup function for subscription will be handled via mounted flag and returning below
       return () => {
         mounted = false
-        try { subscription?.unsubscribe() } catch (e) {}
+        try { subscription?.unsubscribe() } catch (e) {
+          // Ignore unsubscribe errors
+        }
       }
     }
 

@@ -10,6 +10,9 @@ export interface AuthResponse {
  * Register a new user with email, password, student ID, and full name
  * User status starts as 'pending' until admin approves
  * User can login immediately after registration but cannot book
+ *
+ * NOTE: Profile creation is handled by a database trigger (on_auth_user_created)
+ * when the auth user is created. The client should NOT attempt to create profiles.
  */
 export async function register(
     email: string,
@@ -26,29 +29,7 @@ export async function register(
     })
 
     if (error) {
-        console.error('[register] supabase.auth.signUp error full:', error)
-    }
-
-    // Ensure a profile row exists for the new user.
-    // Some production deployments may not have the signup trigger applied,
-    // so we upsert a profile record here as a safe fallback.
-    try {
-        const userId = data?.user?.id
-        if (userId) {
-            await supabase.from<Profile>('profiles').upsert(
-                {
-                    id: userId,
-                    student_id: studentId,
-                    full_name: fullName,
-                    role: 'student',
-                    status: 'pending',
-                },
-                { onConflict: 'id' }
-            )
-        }
-    } catch (upsertErr) {
-        // Non-fatal: log for diagnostics but don't block registration
-        console.error('[register] profile upsert error', upsertErr)
+        console.error('[register] supabase.auth.signUp error:', error)
     }
 
     return { data, error: error ? { message: error.message } : undefined }

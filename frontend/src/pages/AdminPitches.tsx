@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabaseClient'
+	
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 import { Pitch } from '../types/database'
@@ -11,7 +11,6 @@ export function AdminPitches() {
   const { profile: userProfile, loading: authLoading } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
-  const { t } = useTranslation()
   const [pitches, setPitches] = useState<Pitch[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formData, setFormData] = useState({

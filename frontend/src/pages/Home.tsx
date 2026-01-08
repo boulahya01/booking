@@ -35,7 +35,6 @@ export function Home() {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [currentTime, setCurrentTime] = useState(new Date())
-  const [error, setError] = useState<string>('')
 
   // Load all pitches on mount
   useEffect(() => {

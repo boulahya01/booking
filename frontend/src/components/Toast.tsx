@@ -7,7 +7,7 @@ interface ToastProps extends ToastType {
   onClose: () => void
 }
 
-export const Toast: React.FC<ToastProps> = ({ id, message, type, onClose }) => {
+export const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
   const getIcon = () => {
     switch (type) {
       case 'success':

@@ -95,7 +95,7 @@ export function Register() {
   return (
     <AuthLayout>
       <Card>
-        <div className="auth-layout-header">
+        <div className="auth-                   supabase db pushlayout-header">
           <h1 className="auth-layout-title">{t('register.title')}</h1>
           <p className="auth-layout-subtitle">{t('register.subtitle')}</p>
         </div>

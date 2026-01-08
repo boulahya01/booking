@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { signOut } from '../lib/auth'
-import { FiMenu, FiX, FiLogOut, FiHome, FiCalendar, FiUser, FiUsers, FiGrid, FiInfo, FiBell } from 'react-icons/fi'
+import { FiMenu, FiX, FiLogOut, FiHome, FiCalendar, FiUser, FiUsers, FiGrid, FiBell } from 'react-icons/fi'
 import pkg from '../../package.json'
 import { supabase } from '../lib/supabaseClient'
 import { LanguageDropdown } from './LanguageDropdown'
@@ -97,16 +97,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       }
     }
   }, [profile?.role])
-
-  const toggleLanguage = () => {
-    const next = i18n.language === 'ar' ? 'en' : 'ar'
-    i18n.changeLanguage(next)
-    localStorage.setItem('locale', next)
-    if (typeof document !== 'undefined') {
-      document.documentElement.lang = next
-      document.documentElement.dir = next.startsWith('ar') ? 'rtl' : 'ltr'
-    }
-  }
 
   return (
     <div className="main-layout">
