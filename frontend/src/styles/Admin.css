@@ -671,12 +671,16 @@
     font-weight: 700;
   }
 
-  /* Hide Student ID and Actions columns on mobile */
+  /* Hide Student ID on mobile, keep Actions visible */
   .users-table th:nth-child(2),
-  .users-table td:nth-child(2),
+  .users-table td:nth-child(2) {
+    display: none !important;
+  }
+
+  /* Ensure Actions column remains visible on mobile */
   .users-table th:nth-child(4),
   .users-table td:nth-child(4) {
-    display: none !important;
+    display: table-cell !important;
   }
 
   /* Two column layout: Full Name (60%) and Status (40%) */

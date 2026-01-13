@@ -14,10 +14,15 @@ export function Profile() {
   const [fullName, setFullName] = useState('')
   const [studentId, setStudentId] = useState('')
   const [loading, setLoading] = useState(false)
+  const [, setError] = useState('')
+  const [, setSuccess] = useState('')
   const [showPasswordForm, setShowPasswordForm] = useState(false)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordLoading, setPasswordLoading] = useState(false)
+  const [, setPasswordError] = useState('')
+  const [, setPasswordSuccess] = useState('')
+  const [, setCurrentPassword] = useState('')
 
   useEffect(() => {
     if (profile) {
@@ -146,10 +151,10 @@ export function Profile() {
 
           {!showPasswordForm ? (
             <Button
-              variant="secondary"
-              onClick={() => setShowPasswordForm(true)}
-              style={{ width: '100%' }}
-            >
+                variant="ghost"
+                onClick={() => setShowPasswordForm(true)}
+                style={{ width: '100%' }}
+              >
               Change Password
             </Button>
           ) : (

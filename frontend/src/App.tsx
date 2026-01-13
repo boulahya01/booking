@@ -1,13 +1,14 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { AuthProvider } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
 import { useAuth } from './hooks/useAuth'
 import { Register } from './pages/Register'
 import { Login } from './pages/Login'
+import { ForgotPassword } from './pages/ForgotPassword'
+import { ResetPassword } from './pages/ResetPassword'
 import { PendingApproval } from './pages/PendingApproval'
 import { AdminUsers } from './pages/AdminUsers'
-import { About } from './pages/About'
 import { AdminPitches } from './pages/AdminPitches'
 import { AdminUserManagement } from './pages/AdminUserManagement'
 import { Home } from './pages/Home'
@@ -66,7 +67,6 @@ function Dashboard() {
         <Route path="/admin/users" element={<ApprovedRoute><AdminUsers /></ApprovedRoute>} />
         <Route path="/admin/user-management" element={<ApprovedRoute><AdminUserManagement /></ApprovedRoute>} />
         <Route path="/admin/pitches" element={<ApprovedRoute><AdminPitches /></ApprovedRoute>} />
-        <Route path="/about" element={<ApprovedRoute><About /></ApprovedRoute>} />
         <Route path="/pending-approval" element={<PendingApproval />} />
         <Route path="/logout" element={<LogoutHandler />} />
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -78,12 +78,39 @@ function Dashboard() {
 // Main app router
 function AppRoutes() {
   const { user, loading } = useAuth()
+  const [isInitializing, setIsInitializing] = useState(true)
 
-  if (loading) {
+  useEffect(() => {
+    // Give Supabase a moment to process the recovery URL hash and establish session
+    // This ensures detectSessionInUrl has time to parse #access_token=...&type=recovery
+    const timer = setTimeout(() => setIsInitializing(false), 100)
+    return () => clearTimeout(timer)
+  }, [])
+
+  if (loading || isInitializing) {
     return <Loading />
   }
 
-  // Already logged in, redirect to dashboard
+  // Check if user is in password reset recovery flow (or explicitly on the reset page)
+  // Recovery token is normally in the URL hash: #access_token=...&type=recovery
+  const currentHash = window.location.hash
+  const pathname = window.location.pathname
+  const isRecoveryHash = currentHash.includes('type=recovery')
+  // Some email templates or redirects may not include the `type=recovery` piece
+  // but still land the user on the `/reset-password` path. Treat that as recovery too.
+  const isResetPath = pathname === '/reset-password' || pathname.startsWith('/reset-password')
+
+  // If user is in recovery flow or explicitly on the reset page, ALWAYS show reset password page
+  if (isRecoveryHash || isResetPath) {
+    return (
+      <Routes>
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="*" element={<Navigate to="/reset-password" replace />} />
+      </Routes>
+    )
+  }
+
+  // Already logged in (but not in recovery flow), redirect to dashboard
   if (user) {
     return <Dashboard />
   }
@@ -93,6 +120,8 @@ function AppRoutes() {
     <Routes>
       <Route path="/register" element={<Register />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/logout" element={<Navigate to="/login" replace />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>

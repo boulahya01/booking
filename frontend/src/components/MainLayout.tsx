@@ -27,8 +27,18 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const navigate = useNavigate()
 
   const handleLogout = async () => {
-    await signOut()
-    window.location.href = '/login'
+    try {
+      console.log('[MainLayout] Initiating logout...')
+      await signOut()
+      // Clear selected pitch when logging out
+      localStorage.removeItem('selectedPitchId')
+      console.log('[MainLayout] Logout successful, redirecting to login')
+      window.location.href = '/login'
+    } catch (err: any) {
+      console.error('[MainLayout] Logout error:', err)
+      // Force redirect even if error occurs
+      window.location.href = '/login'
+    }
   }
 
   const menuItems: MenuItem[] = [

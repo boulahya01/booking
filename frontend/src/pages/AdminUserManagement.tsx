@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 import { supabase } from '../lib/supabaseClient'
 import { Card, Button, Spinner } from '../ui'
-import { FiTrash2, FiHash, FiMail, FiUser, FiInfo, FiClipboard } from 'react-icons/fi'
+import { FiTrash2, FiHash, FiMail, FiUser, FiInfo, FiClipboard, FiCheck, FiX } from 'react-icons/fi'
 import '../styles/Admin.css'
  
 interface User {
@@ -27,6 +27,7 @@ export function AdminUserManagement() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [totalUsers, setTotalUsers] = useState<number>(0)
 
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all')
@@ -45,11 +46,18 @@ export function AdminUserManagement() {
     }
   }, [profile, toast, t])
 
-  // Fetch all users
   const fetchUsers = async () => {
     try {
       setLoading(true)
       setError('')
+
+      // fetch total count separately for display
+      try {
+        const { count } = await supabase.from('profiles').select('id', { count: 'exact', head: true })
+        setTotalUsers(count || 0)
+      } catch (countErr) {
+        console.error('Failed to fetch total users count', countErr)
+      }
 
       const query = supabase.from('profiles').select('*')
 
@@ -61,7 +69,22 @@ export function AdminUserManagement() {
 
       if (fetchError) throw fetchError
 
-      setUsers(data || [])
+      // sort by status: approved -> pending -> rejected -> others
+      const orderPriority: Record<string, number> = {
+        approved: 0,
+        pending: 1,
+        rejected: 2,
+        suspended: 3,
+      }
+
+      const sorted = (data || []).slice().sort((a: any, b: any) => {
+        const pa = orderPriority[a.status] ?? 99
+        const pb = orderPriority[b.status] ?? 99
+        if (pa !== pb) return pa - pb
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      })
+
+      setUsers(sorted)
     } catch (err: any) {
       setError(err.message)
       toast.error(t('admin_user_management.failed_load'))
@@ -135,6 +158,18 @@ export function AdminUserManagement() {
     }
   }
 
+  const updateUserStatus = async (userId: string, status: string) => {
+    try {
+      const { error: updateError } = await supabase.from('profiles').update({ status }).eq('id', userId)
+      if (updateError) throw updateError
+      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, status: status as any } : u)))
+      toast.success(t(`admin_user_management.status_updated_${status}`))
+    } catch (err: any) {
+      console.error('Update status error:', err)
+      toast.error(t('admin_user_management.failed_update_status'))
+    }
+  }
+
   const handleCopy = async (text: string, label?: string) => {
     try {
       await navigator.clipboard.writeText(text)
@@ -159,7 +194,7 @@ export function AdminUserManagement() {
             </div>
             <div className="admin-stats">
               <div className="stat-card">
-                <div className="stat-value">{users.length}</div>
+                <div className="stat-value">{totalUsers}</div>
                 <div className="stat-label">Total Users</div>
               </div>
             </div>
@@ -230,16 +265,41 @@ export function AdminUserManagement() {
                           <span className={`status-badge status-${user.status}`}>{t(`admin_user_management.status_${user.status}`)}</span>
                         </td>
                         <td className="cell-actions">
-                          <Button
-                            onClick={(e) => { e.stopPropagation(); handleDeleteUser(user) }}
-                            variant="danger"
-                            disabled={deletingId === user.id}
-                            className="delete-btn"
-                            title={t('admin_user_management.delete_button')}
-                            aria-label={t('admin_user_management.delete_button')}
-                          >
-                            {deletingId === user.id ? <Spinner size={14} /> : <FiTrash2 size={16} />}
-                          </Button>
+                          {user.status === 'pending' ? (
+                            <>
+                              <Button
+                                onClick={(e) => { e.stopPropagation(); updateUserStatus(user.id, 'approved') }}
+                                variant="primary"
+                                className="approve-btn"
+                                title={t('admin_user_management.approve_button')}
+                                aria-label={t('admin_user_management.approve_button')}
+                                style={{ padding: '8px 10px' }}
+                              >
+                                <FiCheck size={16} />
+                              </Button>
+                              <Button
+                                onClick={(e) => { e.stopPropagation(); updateUserStatus(user.id, 'rejected') }}
+                                variant="ghost"
+                                className="reject-btn"
+                                title={t('admin_user_management.reject_button')}
+                                aria-label={t('admin_user_management.reject_button')}
+                                style={{ marginLeft: '8px', padding: '8px 10px' }}
+                              >
+                                <FiX size={16} />
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              onClick={(e) => { e.stopPropagation(); handleDeleteUser(user) }}
+                              variant="danger"
+                              disabled={deletingId === user.id}
+                              className="delete-btn"
+                              title={t('admin_user_management.delete_button')}
+                              aria-label={t('admin_user_management.delete_button')}
+                            >
+                              {deletingId === user.id ? <Spinner size={14} /> : <FiTrash2 size={16} />}
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     ))}

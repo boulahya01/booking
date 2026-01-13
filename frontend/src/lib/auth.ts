@@ -5,15 +5,6 @@ export interface AuthResponse {
     data?: any
     error?: { message: string }
 }
-
-/**
- * Register a new user with email, password, student ID, and full name
- * User status starts as 'pending' until admin approves
- * User can login immediately after registration but cannot book
- *
- * NOTE: Profile creation is handled by a database trigger (on_auth_user_created)
- * when the auth user is created. The client should NOT attempt to create profiles.
- */
 export async function register(
     email: string,
     password: string,
@@ -135,9 +126,58 @@ export async function getUserProfile(userId: string): Promise<Profile | null> {
 }
 
 /**
- * Sign out the current user
+ * Sign out the current user and clear local storage
  */
 export async function signOut(): Promise<{ error?: any }> {
+    // Clear saved pitch selection when signing out
+    localStorage.removeItem('selectedPitchId')
     const { error } = await supabase.auth.signOut()
     return { error }
+}
+
+/**
+ * Request password reset email
+ * Sends a reset link to the user's email address
+ */
+export async function resetPasswordForEmail(email: string): Promise<AuthResponse> {
+    try {
+        // Use environment variable for production domain, fallback to runtime origin
+        const appUrl = import.meta.env.VITE_APP_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173')
+        const redirectUrl = `${appUrl}/reset-password`
+
+        console.log('[resetPasswordForEmail] Sending reset email with redirectTo:', redirectUrl)
+
+        const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: redirectUrl,
+        })
+
+        if (error) {
+            console.error('[resetPasswordForEmail] error:', error)
+            return { error: { message: error.message } }
+        }
+
+        return { data, error: undefined }
+    } catch (err: any) {
+        return { error: { message: err.message || 'Failed to send reset email' } }
+    }
+}
+
+/**
+ * Update user's password with a valid reset token
+ * Called after user clicks reset link from email
+ */
+export async function updatePassword(newPassword: string): Promise<AuthResponse> {
+    try {
+        const { data, error } = await supabase.auth.updateUser({ password: newPassword })
+
+        if (error) {
+            console.error('[updatePassword] error:', error)
+            return { error: { message: error.message } }
+        }
+
+        return { data, error: undefined }
+    } catch (err: any) {
+        console.error('[updatePassword] exception:', err)
+        return { error: { message: err.message || 'Failed to update password' } }
+    }
 }

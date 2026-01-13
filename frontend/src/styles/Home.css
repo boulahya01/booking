@@ -32,7 +32,7 @@
 
 /* Pitches Section */
 .pitches-section {
-  margin-bottom: 3rem;
+  margin-bottom: 3.5rem;
 }
 
 .pitches-section h2 {
@@ -48,7 +48,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  max-width: 450px;
+  max-width: 680px;
 }
 
 .pitch-dropdown-button {
@@ -56,25 +56,26 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1rem 1.25rem;
+  padding: 1.5rem 1.75rem;
+  min-height: 88px;
   background: white;
-  border: 2px solid #e8e8e8;
-  border-radius: 10px;
+  border: 2px solid rgba(0,0,0,0.06);
+  border-radius: 16px;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: none;
   font-family: inherit;
 }
 
 .pitch-dropdown-button:hover {
-  border-color: var(--accent);
-  box-shadow: 0 4px 16px rgba(255, 107, 53, 0.15);
+  border-color: rgba(0,0,0,0.06);
+  box-shadow: none;
 }
 
 .pitch-dropdown-button:focus {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
+  border-color: rgba(0,0,0,0.08);
+  box-shadow: none;
 }
 
 .pitch-dropdown-content {
@@ -90,11 +91,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 72px;
+  height: 72px;
   background: linear-gradient(135deg, var(--accent) 0%, #e55a24 100%);
   color: white;
-  border-radius: 8px;
+  border-radius: 16px;
+  box-shadow: none;
 }
 
 .pitch-dropdown-text {
@@ -104,17 +106,17 @@
 }
 
 .pitch-dropdown-label {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text);
-  font-size: 0.95rem;
+  font-size: 1.2rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .pitch-dropdown-sublabel {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
+  font-size: 1rem;
+  color: rgba(16,24,40,0.62);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -123,26 +125,47 @@
 .chevron-icon {
   flex-shrink: 0;
   color: var(--accent);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255,107,53,0.06);
+  box-shadow: none;
 }
 
 .chevron-icon.open {
   transform: rotate(180deg);
 }
 
+/* when dropdown is active */
+.pitch-dropdown-button.open {
+  border-color: var(--accent);
+  box-shadow: none;
+}
+
+/* small responsive tune */
+@media (max-width: 640px) {
+  .pitch-dropdown-button { padding: 1rem 1rem; border-radius: 12px; }
+  .pitch-icon { width: 44px; height: 44px; }
+  .pitch-dropdown-label { font-size: 1rem; }
+}
+
 /* Pitch Dropdown Menu */
 .pitch-dropdown-menu {
-  position: absolute;
-  top: calc(100% + 0.5rem);
-  left: 0;
-  right: 0;
+  /* Render the menu in-flow so it expands and shows all items (no internal scroll) */
+  position: static;
+  margin-top: 0.75rem;
+  width: 100%;
   background: white;
   border: 1px solid #e8e8e8;
-  border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-  z-index: 1000;
-  overflow: hidden;
-  animation: slideDown 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(16, 24, 40, 0.06);
+  z-index: 1;
+  overflow: visible;
+  animation: none;
 }
 
 @keyframes slideDown {
@@ -161,7 +184,7 @@
   align-items: center;
   gap: 0.875rem;
   width: 100%;
-  padding: 1rem 1.25rem;
+  padding: 1.25rem 1.5rem;
   background: transparent;
   border: none;
   cursor: pointer;
@@ -175,26 +198,29 @@
   border-bottom: none;
 }
 
-.pitch-menu-item:hover {
-  background: #f9f9f9;
-}
-
-.pitch-menu-item.active {
-  background: linear-gradient(135deg, rgba(255, 107, 53, 0.05) 0%, rgba(229, 90, 36, 0.05) 100%);
-}
+.pitch-menu-item:hover { background: transparent; }
+.pitch-menu-item:focus { outline: none; background: transparent; }
+.pitch-menu-item:focus-visible { box-shadow: none; }
+.pitch-menu-item.active { background: transparent; }
 
 .pitch-menu-item-icon {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 48px;
+  height: 48px;
   background: #f5f5f5;
   color: var(--accent);
   border-radius: 8px;
-  transition: all 0.2s ease;
+  transition: none;
 }
+
+/* Let SVGs inherit the parent's color so active state can change them */
+.pitch-menu-item-icon svg { color: inherit; }
+
+/* Ensure icon becomes white when the item is active */
+.pitch-menu-item.active .pitch-menu-item-icon svg { color: white !important; }
 
 .pitch-menu-item.active .pitch-menu-item-icon {
   background: linear-gradient(135deg, var(--accent) 0%, #e55a24 100%);
@@ -207,21 +233,51 @@
 }
 
 .pitch-menu-item-name {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text);
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.pitch-menu-item-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+}
+
 .pitch-menu-item-location {
   font-size: 0.8rem;
   color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 0.2rem;
+}
+
+.pitch-menu-item-location svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.pitch-menu-item-hours {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pitch-menu-item-hours svg {
+  flex-shrink: 0;
+  color: var(--accent);
 }
 
 .pitch-menu-item-checkmark {
@@ -238,44 +294,27 @@
 }
 
 .pitch-button {
-  padding: 1.75rem;
+  padding: 2.25rem;
   background: white;
   border: 2px solid #e8e8e8;
-  border-radius: 12px;
+  border-radius: 16px;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: none;
   text-align: left;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: none;
   position: relative;
   overflow: hidden;
 }
 
-.pitch-button::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 4px;
-  background: linear-gradient(135deg, var(--accent) 0%, #e55a24 100%);
-  transition: left 0.3s ease;
-}
+.pitch-button::before { display: none; }
 
-.pitch-button:hover {
-  border-color: var(--accent);
-  box-shadow: 0 4px 16px rgba(255, 107, 53, 0.15);
-  transform: translateY(-4px);
-}
-
-.pitch-button:hover::before {
-  left: 0;
-}
+.pitch-button:hover { border-color: #e8e8e8; box-shadow: none; transform: none; }
 
 .pitch-button.active {
   background: linear-gradient(135deg, var(--accent) 0%, #e55a24 100%);
   border-color: var(--accent);
   color: white;
-  box-shadow: 0 8px 24px rgba(255, 107, 53, 0.3);
+  box-shadow: none;
 }
 
 .pitch-button.active::before {
@@ -283,8 +322,8 @@
 }
 
 .pitch-button-name {
-  font-weight: 600;
-  font-size: 1.125rem;
+  font-weight: 700;
+  font-size: 1.25rem;
   margin-bottom: 0.5rem;
   line-height: 1.3;
 }

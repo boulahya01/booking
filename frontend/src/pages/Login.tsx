@@ -128,6 +128,10 @@ export function Login() {
 
           <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t('login.password')} disabled={loading} icon={<FiLock />} />
 
+          <Link to="/forgot-password" style={{ color: 'var(--accent)', textDecoration: 'none', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-weight-semibold)' }}>
+            {t('login.forgot_password')}
+          </Link>
+
           <Button type="submit" variant="primary" disabled={loading} style={{ width: '100%', justifyContent: 'center' }}>
             {loading ? <Spinner size={16} /> : t('login.sign_in')}
           </Button>

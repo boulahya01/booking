@@ -93,6 +93,14 @@
   --focus-ring: 0 0 0 3px rgba(255, 107, 53, 0.1), 0 0 0 2px #fff, 0 0 0 5px rgba(255, 107, 53, 0.5);
 }
 
+/* Ensure Arabic font is available as a fallback even if index.html link is blocked
+   and apply it explicitly when document is RTL or lang starts with ar */
+@import url('https://fonts.googleapis.com/css2?family=El+Messiri:wght@400;500;600;700&display=swap');
+
+html[dir="rtl"], html[lang^="ar"] {
+  font-family: 'El Messiri', 'Noto Naskh Arabic', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+}
+
 /* Dark theme: apply to top-level element with data-theme="dark" or `.theme-dark` */
 :root[data-theme="dark"],
 .theme-dark {
@@ -130,6 +138,11 @@ body {
   font-family: var(--font-family);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* When auth layout is mounted we add `.auth-page` to body; ensure the auth fonts are applied site-wide */
+body.auth-page {
+  font-family: 'El Messiri', 'Noto Naskh Arabic', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', Arial, sans-serif !important;
 }
 
 a { color: inherit; }

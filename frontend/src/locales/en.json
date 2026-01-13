@@ -55,6 +55,7 @@
     "sign_in": "Sign In",
     "sign_up_prompt": "Don't have an account?",
     "sign_up": "Sign up",
+    "forgot_password": "Forgot password?",
     "errors": {
       "password_required": "Password is required",
       "email_required": "Email is required",
@@ -63,10 +64,52 @@
       "login_failed": "Login failed"
     }
   }
+
+  ,"forgot_password": {
+    "title": "Forgot Password?",
+    "subtitle": "Enter your email to receive a password reset link",
+    "email_required": "Email is required",
+    "invalid_email": "Please enter a valid email",
+    "email_placeholder": "Enter your email",
+    "send_reset_link": "Send Reset Link",
+    "back_to_login": "Back to Login",
+    "contact_admin_title": "Password Reset — Contact Admin",
+    "contact_admin_subtitle": "To reset your password, please contact an administrator.",
+    "contact_admin_instructions": "Send a message via WhatsApp to the admin with your student ID and full name to request a password reset.",
+    "contact_admin_whatsapp": "Contact Admin on WhatsApp",
+    "or_visit_admin": "Or visit the admin in person for assistance.",
+    "check_email": "Check Your Email",
+    "email_sent": "We've sent a password reset link to {{email}}",
+    "link_expires": "The link expires in 1 hour.",
+    "check_spam": "If you don't see the email, check your spam folder.",
+    "redirecting": "Redirecting to login..."
+  }
+
+  ,"reset_password": {
+    "title": "Reset Password",
+    "subtitle": "Enter your new password below",
+    "new_password": "New Password",
+    "confirm_password": "Confirm Password",
+    "password_required": "Password is required",
+    "confirm_required": "Please confirm your password",
+    "password_too_short": "Password must be at least 6 characters",
+    "passwords_mismatch": "Passwords do not match",
+    "update_password": "Update Password",
+    "success": "Password Reset Successfully",
+    "password_updated": "Your password has been updated successfully",
+    "redirecting": "Redirecting to login...",
+    "invalid_link": "Invalid or Expired Link",
+    "link_expired": "This password reset link has expired or is invalid",
+    "request_new_reset": "Request a new password reset link to continue",
+    "request_reset_link": "Request New Reset Link",
+    "remember_password": "Remember your password?",
+    "back_to_login": "Back to Login"
+  }
   ,"home": {
     "title": "Book Your Pitch",
     "subtitle": "Select a pitch to see available slots for the next 24 hours",
     "choose_pitch": "Choose a Pitch",
+    "available_pitches": "pitches available",
     "no_pitches": "No pitches available",
     "loading_slots": "Loading slots...",
     "no_slots": "No available slots for this pitch in the next 24 hours",
