@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 import type { Pitch } from '../types/database'
 import '../styles/Home.css'
 import { SlotCard } from '../ui'
-import { FiBriefcase, FiChevronDown } from 'react-icons/fi'
+import { FiBriefcase, FiChevronDown, FiMapPin, FiClock } from 'react-icons/fi'
 import { useTranslation } from 'react-i18next'
 
 interface VirtualSlot {
@@ -28,6 +28,9 @@ export function Home() {
   const { t, i18n } = useTranslation()
   const { user, isApproved } = useAuth()
   const toast = useToast()
+  const menuRef = useRef<HTMLDivElement>(null)
+  const itemRefs = useRef<Array<HTMLButtonElement | null>>([])
+  const [focusedIndex, setFocusedIndex] = useState<number>(-1)
   const [pitches, setPitches] = useState<Pitch[]>([])
   const [selectedPitch, setSelectedPitch] = useState<string>('')
   const [showPitchMenu, setShowPitchMenu] = useState(false)
@@ -35,14 +38,98 @@ export function Home() {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [, setError] = useState('')
 
-  // Load all pitches on mount
+  const movePitchToTop = (id: string) => {
+    setPitches((prev) => {
+      const idx = prev.findIndex((p) => p.id === id)
+      if (idx <= 0) return prev
+      const copy = [...prev]
+      const [item] = copy.splice(idx, 1)
+      return [item, ...copy]
+    })
+  }
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowPitchMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Manage focus when menu opens/closes and when focusedIndex changes
+  useEffect(() => {
+    if (showPitchMenu) {
+      const start = pitches.findIndex((p) => p.id === selectedPitch)
+      setFocusedIndex(start >= 0 ? start : 0)
+    } else {
+      setFocusedIndex(-1)
+    }
+  }, [showPitchMenu, pitches, selectedPitch])
+
+  useEffect(() => {
+    if (focusedIndex >= 0) {
+      const el = itemRefs.current[focusedIndex]
+      if (el) {
+        el.focus()
+        el.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+      }
+    }
+  }, [focusedIndex])
+
+  const handleMenuKeyDown = (e: React.KeyboardEvent) => {
+    if (!showPitchMenu) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setFocusedIndex((i) => (i < 0 ? 0 : Math.min(pitches.length - 1, i + 1)))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setFocusedIndex((i) => (i < 0 ? 0 : Math.max(0, i - 1)))
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      if (focusedIndex >= 0) {
+        const p = pitches[focusedIndex]
+        if (p) {
+          movePitchToTop(p.id)
+          setSelectedPitch(p.id)
+          setShowPitchMenu(false)
+        }
+      }
+    } else if (e.key === 'Escape') {
+      setShowPitchMenu(false)
+    } else if (e.key.length === 1) {
+      // Type-ahead: jump to first pitch starting with typed character
+      const ch = e.key.toLowerCase()
+      const idx = pitches.findIndex((p) => (p.name || '').toLowerCase().startsWith(ch))
+      if (idx >= 0) setFocusedIndex(idx)
+    }
+  }
+
+  // Load all pitches on mount and restore saved pitch from localStorage
   useEffect(() => {
     console.log('[Home] Page loaded - isApproved:', isApproved)
     if (user) {
       fetchPitches()
+      // Restore previously selected pitch from localStorage
+      const savedPitch = localStorage.getItem('selectedPitchId')
+      if (savedPitch) {
+        console.log('[Home] Restoring saved pitch from localStorage:', savedPitch)
+        setSelectedPitch(savedPitch)
+      }
     }
   }, [user, isApproved])
+
+  // Persist selectedPitch to localStorage whenever it changes
+  useEffect(() => {
+    if (selectedPitch) {
+      localStorage.setItem('selectedPitchId', selectedPitch)
+      console.log('[Home] Saved pitch to localStorage:', selectedPitch)
+    }
+  }, [selectedPitch])
 
   // Update current time and refresh slots every 2 minutes
   useEffect(() => {
@@ -87,7 +174,7 @@ export function Home() {
       const { data, error: fetchError } = await supabase
         .from('pitches')
         .select('*')
-        .order('name')
+        .order('sort_order', { ascending: true })
 
       if (fetchError) {
         console.error('[Home] Fetch pitches error:', fetchError)
@@ -98,10 +185,16 @@ export function Home() {
       console.log('[Home] Fetched pitches:', pitchList.length, pitchList)
       setPitches(pitchList)
 
-      // Auto-select first pitch
-      if (pitchList.length > 0 && !selectedPitch) {
-        console.log('[Home] Auto-selecting first pitch:', pitchList[0].id)
-        setSelectedPitch(pitchList[0].id)
+      // Try to restore from localStorage, otherwise auto-select first pitch
+      if (pitchList.length > 0) {
+        const savedPitch = localStorage.getItem('selectedPitchId')
+        if (savedPitch && pitchList.some(p => p.id === savedPitch)) {
+          console.log('[Home] Restoring saved pitch from localStorage:', savedPitch)
+          setSelectedPitch(savedPitch)
+        } else if (!selectedPitch) {
+          console.log('[Home] Auto-selecting first pitch:', pitchList[0].id)
+          setSelectedPitch(pitchList[0].id)
+        }
       }
     } catch (err: any) {
       const errMsg = 'Failed to fetch pitches'
@@ -448,20 +541,19 @@ export function Home() {
 
   return (
     <div className="home-container">
-      <div className="home-header">
-        <h1><FiBriefcase style={{ display: 'inline', marginRight: '12px', verticalAlign: 'middle' }} /> {t('home.title')}</h1>
-        <p className="subtitle">{t('home.subtitle')}</p>
-      </div>
+    
 
-      {/* Pitch Buttons */}
+      {/* Pitch Selection Menu */}
       <div className="pitches-section">
         {pitches.length === 0 ? (
           <div className="alert alert-warning">{t('home.no_pitches')}</div>
         ) : (
-          <div className="pitch-dropdown-wrapper">
+          <div className="pitch-dropdown-wrapper" ref={menuRef}>
             <button
               className="pitch-dropdown-button"
               onClick={() => setShowPitchMenu(!showPitchMenu)}
+              aria-haspopup="listbox"
+              aria-expanded={showPitchMenu}
             >
               <div className="pitch-dropdown-content">
                 {selectedPitch ? (
@@ -474,7 +566,8 @@ export function Home() {
                         {pitches.find(p => p.id === selectedPitch)?.name}
                       </div>
                       <div className="pitch-dropdown-sublabel">
-                        {formatTimeString(pitches.find(p => p.id === selectedPitch)?.open_time || '')} - {formatTimeString(pitches.find(p => p.id === selectedPitch)?.close_time || '')}
+                        <FiMapPin size={14} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
+                        {pitches.find(p => p.id === selectedPitch)?.location || 'Location'}
                       </div>
                     </div>
                   </>
@@ -485,6 +578,7 @@ export function Home() {
                     </div>
                     <div className="pitch-dropdown-text">
                       <div className="pitch-dropdown-label">{t('home.choose_pitch')}</div>
+                      <div className="pitch-dropdown-sublabel">{pitches.length} {t('home.available_pitches', 'pitches available')}</div>
                     </div>
                   </>
                 )}
@@ -496,22 +590,37 @@ export function Home() {
             </button>
 
             {showPitchMenu && (
-              <div className="pitch-dropdown-menu">
-                {pitches.map((pitch) => (
+              <div className="pitch-dropdown-menu" role="listbox" tabIndex={0} onKeyDown={handleMenuKeyDown}>
+                {pitches.map((pitch, idx) => (
                   <button
                     key={pitch.id}
+                    ref={(el) => (itemRefs.current[idx] = el)}
                     className={`pitch-menu-item ${selectedPitch === pitch.id ? 'active' : ''}`}
                     onClick={() => {
-                      setSelectedPitch(pitch.id)
-                      setShowPitchMenu(false)
-                    }}
+                          movePitchToTop(pitch.id)
+                          setSelectedPitch(pitch.id)
+                          setShowPitchMenu(false)
+                        }}
+                    onMouseEnter={() => setFocusedIndex(idx)}
+                    role="option"
+                    aria-selected={selectedPitch === pitch.id}
+                    tabIndex={focusedIndex === idx ? 0 : -1}
                   >
                     <div className="pitch-menu-item-icon">
                       <FiBriefcase size={18} />
                     </div>
                     <div className="pitch-menu-item-content">
                       <div className="pitch-menu-item-name">{pitch.name}</div>
-                      <div className="pitch-menu-item-location">{formatTimeString(pitch.open_time)} - {formatTimeString(pitch.close_time)}</div>
+                      <div className="pitch-menu-item-details">
+                        <span className="pitch-menu-item-location">
+                          <FiMapPin size={14} />
+                          {pitch.location || 'Location'}
+                        </span>
+                        <span className="pitch-menu-item-hours">
+                          <FiClock size={14} />
+                          {formatTimeString(pitch.open_time)} - {formatTimeString(pitch.close_time)}
+                        </span>
+                      </div>
                     </div>
                     {selectedPitch === pitch.id && (
                       <div className="pitch-menu-item-checkmark">✓</div>

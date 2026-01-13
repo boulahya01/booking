@@ -13,7 +13,7 @@ export function Bookings() {
   const { t, i18n } = useTranslation()
   const { user, isApproved } = useAuth()
   const toast = useToast()
-  const [myBookings, setMyBookings] = useState<Booking[]>([])
+  const [myBookings, setMyBookings] = useState<(Booking & { pitch_name?: string; pitch_location?: string })[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
@@ -37,11 +37,29 @@ export function Bookings() {
         .select('*')
         .eq('user_id', user.id)
         .eq('status', 'active')
-        .order('created_at', { ascending: false })
+        .order('slot_datetime', { ascending: true })
 
       if (fetchError) throw fetchError
-      console.log('[Bookings] Fetched bookings:', data?.length || 0)
-      setMyBookings(data || [])
+      
+      // Fetch pitch data for each booking
+      const bookingsWithPitches = await Promise.all(
+        (data || []).map(async (booking) => {
+          const { data: pitchData, error: pitchError } = await supabase
+            .from('pitches')
+            .select('id, name, location')
+            .eq('id', booking.pitch_id)
+            .maybeSingle()
+          
+          return {
+            ...booking,
+            pitch_name: pitchError ? 'Unknown' : pitchData?.name || 'Unknown',
+            pitch_location: pitchError ? 'Unknown' : pitchData?.location || 'Unknown',
+          }
+        })
+      )
+      
+      console.log('[Bookings] Fetched bookings with pitches:', bookingsWithPitches.length)
+      setMyBookings(bookingsWithPitches)
     } catch (err: any) {
       console.error('[Bookings] Error:', err)
       toast.error(err.message || 'Failed to fetch bookings')
@@ -115,6 +133,12 @@ export function Bookings() {
           <div className="bookings-list">
             {myBookings.map((booking) => (
               <div key={booking.id} className="booking-card">
+                <div className="booking-card-header">
+                  <div className="booking-pitch-name">{booking.pitch_name}</div>
+                  <div className="booking-pitch-location">
+                    <span>📍</span> {booking.pitch_location}
+                  </div>
+                </div>
                 <div className="booking-card-content">
                   <div className="booking-slot-time">
                     <span className="label">{t('bookings.slot_time_label')}</span>{' '}
