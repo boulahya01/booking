@@ -15,6 +15,7 @@ export type Pitch = {
     capacity: number;
     open_time: string; // Time in "HH:MM" format (e.g., "08:00")
     close_time: string; // Time in "HH:MM" format (e.g., "22:00")
+    sort_order?: number; // Manual sort order (1-n)
     created_at: string;
 };
 
