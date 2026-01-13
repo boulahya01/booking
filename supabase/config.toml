@@ -32,3 +32,5 @@ file_size_limit = 52428800
 [auth]
 # The default JWT expiry is set to 3600 seconds (1 hour)
 jwt_expiry = 3600
+# Enable password breach detection against HaveIBeenPwned
+enable_password_breach_detection = true
