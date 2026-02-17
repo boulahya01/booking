@@ -30,7 +30,7 @@
 
 .ui-button--primary:hover:not(:disabled) {
   box-shadow: var(--shadow-lg);
-  background: linear-gradient(135deg, var(--accent-hover), #d94f1f);
+  background: linear-gradient(135deg, var(--accent-hover), var(--primary-dark));
 }
 
 .ui-button--ghost {

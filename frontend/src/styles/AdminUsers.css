@@ -1,14 +1,6 @@
 /* Admin Users Page - Simple Clean Design */
-
-:root {
-  --primary: #667eea;
-  --primary-dark: #764ba2;
-  --success: #36cf50;
-  --danger: #ff6b6b;
-  --text: #333333;
-  --text-secondary: #666666;
-  --text-muted: #999999;
-  --bg: #f9f9f9;
+:root, :root[data-theme="light"] {
+  --bg: #ffffff;
   --surface: #ffffff;
   --border: #e0e0e0;
   --space-1: 4px;
@@ -18,6 +10,13 @@
   --space-5: 20px;
   --space-6: 24px;
   --space-8: 32px;
+}
+
+/* Ensure dark mode overrides are applied */
+:root[data-theme="dark"] {
+  --bg: var(--bg-dark, #0d1117);
+  --surface: var(--surface-dark, #161b22);
+  --border: var(--border-dark, #30363d);
 }
 
 * {
@@ -205,7 +204,7 @@ body, html {
 }
 
 .btn-approve {
-  background: linear-gradient(135deg, var(--success), #40c057);
+  background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
   color: white;
 }
 
@@ -219,7 +218,7 @@ body, html {
 }
 
 .btn-reject {
-  background: linear-gradient(135deg, var(--danger), #fa5252);
+  background: linear-gradient(135deg, var(--danger) 0%, #991b1b 100%);
   color: white;
 }
 
@@ -366,7 +365,7 @@ body, html {
 }
 
 .btn-modal-reject {
-  background: linear-gradient(135deg, var(--danger), #fa5252);
+  background: linear-gradient(135deg, var(--danger) 0%, #991b1b 100%);
   color: white;
 }
 

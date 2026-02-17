@@ -6,7 +6,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #ff6b35 0%, #e55a24 100%);
+  background: var(--primary-gradient);
   padding: 2rem;
 }
 
@@ -16,7 +16,7 @@
 }
 
 .auth-card {
-  background: white;
+  background: var(--surface);
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
   padding: 3rem 2rem;
@@ -28,7 +28,7 @@
 .auth-card h2 {
   margin-bottom: 1.5rem;
   text-align: center;
-  color: #333;
+  color: var(--text);
   font-size: 1.8rem;
 }
 
@@ -123,7 +123,7 @@
 }
 
 .pending-card {
-  background: white;
+  background: var(--surface);
   border-radius: 16px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.08);
   max-width: 420px;
@@ -287,7 +287,7 @@
 }
 
 .phone-icon {
-  color: #ff6b35;
+  color: var(--accent);
   font-size: 1.2rem;
   flex-shrink: 0;
   transition: transform 0.3s ease;
@@ -301,7 +301,7 @@
   font-family: var(--font-family);
   font-weight: 700;
   font-size: 1.1rem;
-  color: #ff6b35;
+  color: var(--accent);
   display: inline;
   letter-spacing: 0.3px;
   transition: color 0.3s ease;
@@ -362,7 +362,7 @@
   width: 100%;
   padding: 0.75rem;
   margin-top: 1rem;
-  background: linear-gradient(135deg, #ff6b35 0%, #e55a24 100%);
+  background: var(--primary-gradient);
   color: white;
   border: none;
   border-radius: 6px;
@@ -377,7 +377,7 @@
 }
 
 .btn-logout:hover {
-  background: linear-gradient(135deg, #e55a24 0%, #cc4a1a 100%);
+  background: linear-gradient(135deg, var(--accent-hover) 0%, var(--primary-dark) 100%);
   transform: translateY(-2px);
   box-shadow: 0 5px 20px rgba(255, 107, 53, 0.4);
 }
@@ -393,7 +393,7 @@
 }
 
 .pending-instruction strong {
-  color: #ff6b35;
+  color: var(--accent);
   font-weight: 700;
 }
 
@@ -471,7 +471,7 @@
 /* Old styles for backward compatibility */
 .auth-card.pending {
   text-align: center;
-  background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 100%);
+  background: rgba(245, 158, 11, 0.1);
 }
 
 .account-info {
@@ -546,7 +546,7 @@
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #ff6b35;
+  border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
 }
 
@@ -566,8 +566,8 @@
 .toggle-btn {
   flex: 1;
   padding: 0.75rem;
-  border: 2px solid #ddd;
-  background: white;
+  border: 2px solid var(--border);
+  background: var(--surface);
   border-radius: 6px;
   cursor: pointer;
   font-weight: 500;
@@ -575,14 +575,14 @@
 }
 
 .toggle-btn:hover {
-  border-color: #ff6b35;
-  color: #ff6b35;
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .toggle-btn.active {
-  background: linear-gradient(135deg, #ff6b35 0%, #e55a24 100%);
+  background: var(--primary-gradient);
   color: white;
-  border-color: #ff6b35;
+  border-color: var(--accent);
 }
 
 .toggle-btn:disabled {
@@ -605,12 +605,12 @@
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #ff6b35 0%, #e55a24 100%);
+  background: var(--primary-gradient);
   color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #e55a24 0%, #cc4a1a 100%);
+  background: linear-gradient(135deg, var(--accent-hover) 0%, var(--primary-dark) 100%);
   transform: translateY(-2px);
   box-shadow: 0 5px 20px rgba(255, 107, 53, 0.4);
 }
@@ -654,7 +654,7 @@
 }
 
 .form-footer a {
-  color: #ff6b35;
+  color: var(--accent);
   text-decoration: none;
   font-weight: 500;
 }

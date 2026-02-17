@@ -42,8 +42,8 @@
 }
 
 .alert-warning {
-  background: #fff8e1;
-  color: #f57f17;
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--warning);
   border-left-color: #f57f17;
 }
 
@@ -55,8 +55,8 @@
 }
 
 .alert-error {
-  background: #fff5f5;
-  color: #c92a2a;
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
   border-left-color: #c92a2a;
 }
 
@@ -234,7 +234,7 @@
 }
 
 .booking-card {
-  background: white;
+  background: var(--surface);
   border-radius: 12px;
   padding: 1.5rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -297,7 +297,7 @@
 }
 
 .btn-cancel {
-  background: linear-gradient(135deg, var(--accent) 0%, #e55a24 100%);
+  background: var(--primary-gradient);
   color: white;
   border: none;
   padding: 0.875rem 1.5rem;

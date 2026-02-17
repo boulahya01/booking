@@ -19,36 +19,50 @@ export function ResetPassword() {
   const [validToken, setValidToken] = useState(true)
   const [isReady, setIsReady] = useState(false)
 
+  // When success is set, navigate away immediately
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => {
+        console.log('[ResetPassword] Redirecting to login after success...')
+        navigate('/login', { replace: true })
+      }, 1500) // Show success for 1.5 seconds
+      
+      return () => clearTimeout(timer)
+    }
+  }, [success, navigate])
+
   // Check if user has valid session from reset link
   useEffect(() => {
     const checkResetToken = async () => {
-      // Supabase sends reset links with #type=recovery in the hash
-      const hash = window.location.hash
-      const isRecoveryFlow = hash.includes('type=recovery')
-
-      if (isRecoveryFlow) {
-        // Give Supabase a moment to process the hash and establish session (detectSessionInUrl)
-        // Small delay ensures auth state change listener has fired
+      try {
+        // First, explicitly call detectSessionInUrl to extract token from hash
+        // This is critical for recovery/reset flows where Supabase appends #access_token=...
+        await supabase.auth.getSession()
+        
+        // Small delay to ensure Supabase has processed the URL
         await new Promise(resolve => setTimeout(resolve, 100))
         
-        // Verify session exists
-        try {
-          const sessionRes = await supabase.auth.getSession()
-          const session = sessionRes?.data?.session ?? null
-          
-          console.log('[ResetPassword] Session check:', { hasSession: !!session, accessToken: session?.access_token?.substring(0, 20) })
-          
+        // Check if we have a valid session
+        const sessionRes = await supabase.auth.getSession()
+        const session = sessionRes?.data?.session ?? null
+        
+        console.log('[ResetPassword] Session check:', { 
+          hasSession: !!session,
+          accessToken: session?.access_token?.substring(0, 20),
+          hash: window.location.hash.substring(0, 50)
+        })
+        
+        if (session) {
           setValidToken(true)
-        } catch (err) {
-          console.error('[ResetPassword] error checking session:', err)
+        } else {
           setValidToken(false)
           setError(t('reset_password.invalid_link'))
-        } finally {
-          setIsReady(true)
         }
-      } else {
+      } catch (err) {
+        console.error('[ResetPassword] error checking session:', err)
         setValidToken(false)
         setError(t('reset_password.invalid_link'))
+      } finally {
         setIsReady(true)
       }
     }
@@ -86,19 +100,54 @@ export function ResetPassword() {
       return
     }
 
+    console.log('[ResetPassword] Starting password update...')
     const { error: updateError } = await updatePassword(password)
+    console.log('[ResetPassword] Password update result:', { hasError: !!updateError, error: updateError })
 
     if (updateError) {
+      console.error('[ResetPassword] Update failed:', updateError.message)
       setError(updateError.message)
       setLoading(false)
     } else {
+      console.log('[ResetPassword] Password updated successfully, showing success screen')
+      // Clear the form and set success state
+      setPassword('')
+      setConfirmPassword('')
       setSuccess(true)
       setLoading(false)
-      // Auto-redirect after 2 seconds
-      setTimeout(() => {
-        navigate('/login')
-      }, 2000)
+      // useEffect will handle navigation
     }
+  }
+
+  if (success) {
+    return (
+      <AuthLayout>
+        <Card>
+          <div className="auth-layout-header" style={{ textAlign: 'center' }}>
+            <FiCheck size={48} style={{ color: '#22c55e', marginBottom: '1rem' }} />
+            <h1 className="auth-layout-title" style={{ color: '#16a34a' }}>
+              {t('reset_password.success')}
+            </h1>
+            <p className="auth-layout-subtitle">{t('reset_password.password_updated')}</p>
+          </div>
+
+          <div
+            style={{
+              backgroundColor: '#f0fdf4',
+              border: '1px solid #bbf7d0',
+              borderRadius: '8px',
+              padding: '1rem',
+              marginBottom: '2rem',
+              color: '#15803d',
+              fontSize: '0.9rem',
+              textAlign: 'center',
+            }}
+          >
+            <p style={{ margin: '0.5rem 0' }}>{t('reset_password.redirecting')}</p>
+          </div>
+        </Card>
+      </AuthLayout>
+    )
   }
 
   if (!isReady) {
@@ -147,37 +196,6 @@ export function ResetPassword() {
           >
             {t('reset_password.request_reset_link')}
           </Button>
-        </Card>
-      </AuthLayout>
-    )
-  }
-
-  if (success) {
-    return (
-      <AuthLayout>
-        <Card>
-          <div className="auth-layout-header" style={{ textAlign: 'center' }}>
-            <FiCheck size={48} style={{ color: '#22c55e', marginBottom: '1rem' }} />
-            <h1 className="auth-layout-title" style={{ color: '#16a34a' }}>
-              {t('reset_password.success')}
-            </h1>
-            <p className="auth-layout-subtitle">{t('reset_password.password_updated')}</p>
-          </div>
-
-          <div
-            style={{
-              backgroundColor: '#f0fdf4',
-              border: '1px solid #bbf7d0',
-              borderRadius: '8px',
-              padding: '1rem',
-              marginBottom: '2rem',
-              color: '#15803d',
-              fontSize: '0.9rem',
-              textAlign: 'center',
-            }}
-          >
-            <p style={{ margin: '0.5rem 0' }}>{t('reset_password.redirecting')}</p>
-          </div>
         </Card>
       </AuthLayout>
     )

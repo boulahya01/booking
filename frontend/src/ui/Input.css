@@ -19,7 +19,7 @@
 }
 
 .ui-input-container:focus-within {
-  border-color: #ff6b35;
+  border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
 }
 
@@ -36,7 +36,7 @@
 }
 
 .ui-input-container:focus-within .ui-input-icon {
-  color: #ff6b35;
+  color: var(--accent);
 }
 
 .ui-input {
@@ -165,7 +165,7 @@ body[dir="rtl"] .ui-input.with-toggle {
 }
 
 .ui-input-password-toggle:hover {
-  color: #ff6b35;
+  color: var(--accent);
 }
 
 .ui-input-password-toggle:active {

@@ -28,7 +28,7 @@
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(135deg, var(--accent) 0%, #e55a24 100%);
+  background: var(--primary-gradient);
 }
 
 .booking-card:hover {
@@ -103,7 +103,7 @@
 }
 
 .btn-cancel {
-  background: linear-gradient(135deg, var(--accent) 0%, #e55a24 100%);
+  background: var(--primary-gradient);
   color: white;
   border: none;
   padding: 0.875rem 1.5rem;

@@ -8,14 +8,14 @@
   border: 2px solid transparent;
   min-height: 180px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-md);
 }
 
-/* Available Status - Orange Border */
+/* Available Status - Primary Border */
 .slot-card-available {
-  background: white;
-  border-color: #ff6b35;
-  color: #333;
+  background: var(--surface);
+  border-color: var(--accent);
+  color: var(--text);
 }
 
 .slot-card-available:hover {
@@ -29,17 +29,17 @@
 
 /* Booked Status - Grey */
 .slot-card-booked {
-  background: #f8f8f8;
-  border-color: #e8e8e8;
-  color: #999;
+  background: var(--surface-level-2);
+  border-color: var(--border);
+  color: var(--text-muted);
   opacity: 0.85;
 }
 
-/* Your Booking Status - Orange Top Border */
+/* Your Booking Status - Primary Top Border */
 .slot-card-booked-by-you {
-  background: white;
-  border-color: #ff6b35;
-  color: #333;
+  background: var(--surface);
+  border-color: var(--accent);
+  color: var(--text);
   position: relative;
 }
 
@@ -50,7 +50,7 @@
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(135deg, #ff6b35 0%, #e55a24 100%);
+  background: var(--primary-gradient);
   border-radius: 12px 12px 0 0;
 }
 
@@ -76,7 +76,7 @@
 }
 
 .slot-card-available .slot-time-display {
-  color: #ff6b35;
+  color: var(--accent);
 }
 
 .slot-card-booked .slot-time-display {
@@ -84,7 +84,7 @@
 }
 
 .slot-card-booked-by-you .slot-time-display {
-  color: #ff6b35;
+  color: var(--accent);
 }
 
 .slot-end-time-label {
@@ -97,7 +97,7 @@
 
 .slot-end-time {
   font-size: 1.2rem;
-  color: #ff6b35;
+  color: var(--accent);
   font-weight: 600;
   margin-left: 8px;
   opacity: 1;
@@ -144,7 +144,7 @@
   justify-content: center;
   width: 28px;
   height: 28px;
-  background: linear-gradient(135deg, #ff6b35 0%, #e55a24 100%);
+  background: var(--primary-gradient);
   color: white;
   border-radius: 6px;
   font-weight: 700;
@@ -196,7 +196,7 @@
 }
 
 .slot-card-available .ui-button--primary {
-  background: linear-gradient(135deg, #ff6b35 0%, #e55a24 100%);
+  background: var(--primary-gradient);
   color: white;
   box-shadow: 0 4px 12px rgba(255, 107, 53, 0.2);
 }

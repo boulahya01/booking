@@ -6,6 +6,7 @@ import { FiMenu, FiX, FiLogOut, FiHome, FiCalendar, FiUser, FiUsers, FiGrid, FiB
 import pkg from '../../package.json'
 import { supabase } from '../lib/supabaseClient'
 import { LanguageDropdown } from './LanguageDropdown'
+import { ThemeToggle } from './ThemeToggle'
 import { useTranslation } from 'react-i18next'
 import './MainLayout.css'
 
@@ -138,6 +139,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
               </button>
             )}
             <LanguageDropdown />
+            <ThemeToggle />
             <div className="user-badge">
               <span className="user-name">{profile?.full_name || profile?.student_id}</span>
               {profile?.role === 'admin' && <span className="badge badge-admin">{t('layout.admin')}</span>}

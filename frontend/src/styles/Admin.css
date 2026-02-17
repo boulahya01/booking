@@ -8,8 +8,8 @@
 
 /* Hero Banner */
 .admin-header {
-  background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
-  color: #fff;
+  background: var(--primary-gradient);
+  color: white;
   padding: calc(var(--space-6) + 8px) var(--space-6);
   border-radius: 18px;
   margin: 0 var(--space-4) var(--space-6) var(--space-4);

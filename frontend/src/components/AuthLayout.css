@@ -65,6 +65,12 @@
   z-index: 10;
 }
 
+.auth-layout-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 html[dir="rtl"] .auth-layout-language-selector {
   right: auto;
   left: var(--space-4);

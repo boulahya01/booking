@@ -115,12 +115,12 @@
 }
 
 .badge-admin {
-  background: linear-gradient(135deg, #ff6b6b 0%, #ff5252 100%);
+  background: var(--danger);
   color: white;
 }
 
 .badge-student {
-  background: linear-gradient(135deg, #ff6b35 0%, #e55a24 100%);
+  background: var(--primary-gradient);
   color: white;
 }
 
@@ -133,7 +133,7 @@
 }
 
 .alert-error {
-  background: #ffe0e0;
+  background: rgba(239, 68, 68, 0.1);
   color: #c92a2a;
   border-left: 4px solid #c92a2a;
 }
@@ -151,8 +151,8 @@
 }
 
 .alert-warning {
-  background: #fff3e0;
-  color: #e65100;
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--warning);
   border-left: 4px solid #e65100;
 }
 

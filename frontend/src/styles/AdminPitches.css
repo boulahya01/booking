@@ -32,14 +32,14 @@
 .pitches-table {
   width: 100%;
   border-collapse: collapse;
-  background: white;
+  background: var(--surface);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   border-radius: 8px;
   overflow: hidden;
 }
 
 .pitches-table thead {
-  background: linear-gradient(135deg, #ff6b35 0%, #e55a24 100%);
+  background: var(--primary-gradient);
   color: white;
   font-weight: 600;
 }
@@ -85,14 +85,14 @@
 .pitches-table input[type="number"]:focus,
 .pitches-table input[type="time"]:focus {
   outline: none;
-  border-color: #ff6b35;
+  border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .time-cell {
   font-family: 'Monaco', 'Courier New', monospace;
   font-weight: 500;
-  color: #ff6b35;
+  color: var(--accent);
 }
 
 .btn {
@@ -107,7 +107,7 @@
 }
 
 .btn-edit {
-  background-color: #ff6b35;
+  background-color: var(--accent);
   color: white;
 }
 

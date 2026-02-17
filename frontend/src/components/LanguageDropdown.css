@@ -66,8 +66,8 @@ html[dir="rtl"] .language-dropdown-label {
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
-  background: white;
-  border: 1px solid #e0e3e9;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 6px;
   min-width: 140px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1), 0 1px 4px rgba(0, 0, 0, 0.08);
@@ -105,12 +105,12 @@ html[dir="rtl"] .language-dropdown-label {
 }
 
 .language-dropdown-item:hover {
-  background: #f9fafb;
+  background: var(--surface-level-2, var(--surface-alt));
 }
 
 .language-dropdown-item.active {
-  background: #fff5f0;
-  color: #ff6b35;
+  background: var(--primary);
+  color: white;
   font-weight: 600;
 }
 
@@ -128,7 +128,7 @@ html[dir="rtl"] .language-dropdown-label {
 }
 
 .checkmark {
-  color: #ff6b35;
+  color: var(--accent);
   font-weight: bold;
   font-size: 12px;
 }
