@@ -1,0 +1,15 @@
+node_modules/
+.env
+.env.*.local
+.env.local
+.svelte-kit/
+.build/
+dist/
+.vscode/
+.idea/
+.DS_Store
+coverage/
+.npm/
+package-lock.json
+pnpm-lock.yaml
+yarn.lock

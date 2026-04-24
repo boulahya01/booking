@@ -1,0 +1,11 @@
+-- =====================================================
+-- DEPRECATED - THIS MIGRATION HAS INFINITE RECURSION BUG
+-- Do not apply this migration. Use 20251218000000_fix_rls_no_recursion.sql instead
+-- 
+-- Root cause: EXISTS (SELECT FROM profiles) subqueries trigger RLS 
+-- evaluation recursively, causing infinite loops and 500 errors
+-- Solution: Use helper functions with SECURITY DEFINER instead
+-- =====================================================
+
+-- This migration is kept for reference only.
+-- All policies have been replaced in: 20251218000000_fix_rls_no_recursion.sql

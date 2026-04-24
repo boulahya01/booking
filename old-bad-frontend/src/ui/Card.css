@@ -1,0 +1,24 @@
+.ui-card {
+  background: var(--bg);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-md);
+  color: var(--text);
+  border: none;
+}
+
+.ui-card--compact {
+  padding: var(--space-4);
+}
+
+.ui-card .card-title {
+  font-weight: var(--font-weight-bold);
+  font-size: var(--text-xl);
+  margin: 0 0 var(--space-2) 0;
+}
+
+.ui-card .card-body {
+  margin-top: var(--space-4);
+  font-size: var(--text-base);
+  line-height: var(--line-height-normal);
+}
