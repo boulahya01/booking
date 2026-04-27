@@ -30,6 +30,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.103.3",
     "isomorphic-dompurify": "^2.3.4",
+    "svelte-i18n": "^4.0.1",
     "zod": "^3.22.2"
   },
   "husky": {
