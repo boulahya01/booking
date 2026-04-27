@@ -24,7 +24,10 @@
     { labelKey: 'nav.bookings', href: '/bookings', icon: 'calendar-days' },
     { labelKey: 'nav.profile', href: '/profile', icon: 'user' },
     { labelKey: 'nav.notifications', href: '/notifications', icon: 'bell' },
-    { labelKey: 'nav.all_bookings', href: '/admin/bookings', icon: 'calendar-days', adminOnly: true },
+    { labelKey: 'nav.all_bookings', href: '/admin/bookings', icon: 'calendar-check', adminOnly: true },
+    { labelKey: 'nav.manage_pitches', href: '/admin/pitches', icon: 'map-pin', adminOnly: true },
+    { labelKey: 'nav.manage_users', href: '/admin/manage-users', icon: 'users', adminOnly: true },
+    { labelKey: 'nav.notifications_admin', href: '/admin/notifications', icon: 'bell-dot', adminOnly: true },
     { labelKey: 'nav.admin', href: '/admin/users', icon: 'shield', adminOnly: true }
   ]
 
