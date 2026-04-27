@@ -6,7 +6,10 @@ const config = {
   kit: {
     adapter: adapter(),
     csrf: {
-      trustedOrigins: [process.env.VITE_APP_URL || 'http://localhost:5173']
+      trustedOrigins: [
+        'http://localhost:5173',
+        'https://test-bookings-two.vercel.app'
+      ]
     },
     csp: {
       directives: {
