@@ -151,8 +151,7 @@
     "unknown_pitch": "Unknown Pitch",
     "unknown_location": "Unknown location",
     "to": "to",
-    "cancel_confirm": "Cancel this booking?",
-    "completed_notification": "Your booking has ended! The slot is now available."
+    "cancel_confirm": "Cancel this booking?"
   },
   "profile": {
     "title": "My Profile",

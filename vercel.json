@@ -3,10 +3,5 @@
   "outputDirectory": "frontend/.svelte-kit/output",
   "devCommand": "cd frontend && npm run dev",
   "installCommand": "cd frontend && npm install",
-  "crons": [
-    {
-      "path": "/api/cron/process-booking-jobs",
-      "schedule": "0 * * * *"
-    }
-  ]
+  "crons": []
 }

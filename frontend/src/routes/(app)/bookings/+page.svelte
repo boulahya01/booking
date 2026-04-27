@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { goto } from '$app/navigation'
   import { supabase } from '$lib/supabaseClient'
   import Button from '$lib/components/Button.svelte'
   import LoadingSkeleton from '$lib/components/LoadingSkeleton.svelte'
@@ -18,48 +17,6 @@
 
   onMount(async () => {
     await fetchBookings()
-
-    // Set up real-time listener for booking changes
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user && !USE_MOCK) {
-      const channel = supabase
-        .channel('public:bookings')
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'bookings',
-            filter: `user_id=eq.${user.id}`
-          },
-          (payload) => {
-            // Booking status changed in real-time
-            const updatedBooking = payload.new as any
-            
-            // Update local bookings array
-            const bookingIndex = bookings.findIndex(b => b.id === updatedBooking.id)
-            if (bookingIndex >= 0) {
-              bookings[bookingIndex].status = updatedBooking.status
-              bookings = bookings // Trigger reactivity
-              applyFilter()
-            }
-
-            // Notify user if booking was completed
-            if (updatedBooking.status === 'completed') {
-              uiState.addToast(
-                $_('bookings.completed_notification') || 'Your booking has ended! The slot is now available.',
-                'success'
-              )
-            }
-          }
-        )
-        .subscribe()
-
-      // Clean up subscription on unmount
-      return () => {
-        channel.unsubscribe()
-      }
-    }
   })
 
   async function fetchBookings() {
