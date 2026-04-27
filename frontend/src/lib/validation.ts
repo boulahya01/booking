@@ -1,4 +1,4 @@
-import DOMPurify from 'isomorphic-dompurify'
+import DOMPurify from 'dompurify'
 import { z } from 'zod'
 
 export const sanitizeInput = (s = ''): string => {
