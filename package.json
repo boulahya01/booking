@@ -1,33 +1,12 @@
 {
-  "name": "booking-app",
-  "version": "1.0.0",
-  "description": "Full-stack booking application with Supabase and Vite",
+  "name": "booking",
+  "version": "0.1.0",
+  "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run frontend:dev\" \"supabase start\"",
+    "dev": "cd frontend && npm run dev",
     "build": "cd frontend && npm run build",
     "preview": "cd frontend && npm run preview",
-    "frontend:dev": "cd frontend && npm run dev",
-    "frontend:build": "cd frontend && npm run build",
-    "frontend:preview": "cd frontend && npm run preview",
-    "lint": "cd frontend && npm run lint",
-    "lint:fix": "cd frontend && npm run lint:fix",
-    "format": "cd frontend && npm run format",
-    "supabase:start": "supabase start",
-    "supabase:stop": "supabase stop",
-    "supabase:functions:deploy": "supabase functions deploy"
-  },
-  "keywords": [
-    "booking",
-    "supabase",
-    "vite"
-  ],
-  "author": "",
-  "license": "MIT",
-  "devDependencies": {
-    "concurrently": "^8.2.2"
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.78.0"
+    "check": "cd frontend && npm run check"
   }
 }

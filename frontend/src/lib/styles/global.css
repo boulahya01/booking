@@ -1,0 +1,335 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* ─── Primary — Trustworthy Blue (Proven for Booking Apps) ─── */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-light: #dbeafe;
+  --primary-dark: #1e40af;
+  --primary-gradient: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+
+  /* ─── Text — Clean, highly readable ─── */
+  --text: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #9ca3af;
+  --text-inverse: #ffffff;
+
+  /* ─── Backgrounds — Clean, fresh surfaces ─── */
+  --bg: #f8f9fb;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-level-1: #f1f3f7;
+  --surface-level-2: #e8ebf0;
+
+  /* ─── Semantic — Clear, accessible ─── */
+  --success: #059669;
+  --success-light: #d1fae5;
+  --warning: #d97706;
+  --warning-light: #fef3c7;
+  --danger: #dc2626;
+  --danger-light: #fee2e2;
+  --info: #2563eb;
+  --info-light: #dbeafe;
+
+  /* ─── Borders — Subtle, warm, Claude-inspired ─── */
+  --border: #e5e4dd;
+  --border-light: #eeede8;
+
+  /* ─── Typography — Serif headings, Sans body (Claude-inspired) ─── */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --font-mono: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 28px;
+  --text-4xl: 32px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.6;
+
+  /* ─── Spacing (8px base) ─── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ─── Radius — Generous, approachable ─── */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+  --radius-3xl: 32px;
+  --radius-full: 999px;
+
+  /* ─── Shadows — Modern, subtle layered drops ─── */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.06), 0 4px 6px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.08), 0 8px 10px rgba(0, 0, 0, 0.04);
+  --shadow-primary: 0 4px 14px rgba(37, 99, 235, 0.25);
+
+  /* ─── Transitions ─── */
+  --transition-fast: 150ms ease-in-out;
+  --transition-normal: 200ms ease-in-out;
+  --transition-slow: 300ms ease-in-out;
+
+  /* ─── Focus Ring — Focus Blue for accessibility ─── */
+  --focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+/* ─── DARK MODE — Claude warm dark palette ─── */
+.dark {
+  /* Primary — Coral Accent for dark backgrounds (Claude) */
+  --primary: #d97757;
+  --primary-hover: #e08a6a;
+  --primary-light: rgba(217, 119, 87, 0.15);
+  --primary-dark: #c96442;
+  --primary-gradient: linear-gradient(135deg, #d97757 0%, #c96442 100%);
+
+  /* Text — warm parchment-tinted (Claude) */
+  --text: #faf9f5;
+  --text-secondary: #b0aea5;
+  --text-muted: #87867f;
+  --text-inverse: #141413;
+
+  /* Backgrounds — warm near-black, never pure black (Claude) */
+  --bg: #141413;
+  --surface: #1e1e1c;
+  --surface-raised: #262624;
+  --surface-level-1: #30302e;
+  --surface-level-2: #3d3d3a;
+
+  /* Semantic — lighter warm variants (Claude) */
+  --success: #7ab87e;
+  --success-light: rgba(90, 143, 94, 0.15);
+  --warning: #d4963a;
+  --warning-light: rgba(181, 118, 42, 0.15);
+  --danger: #d45e5e;
+  --danger-light: rgba(181, 51, 51, 0.15);
+  --info: #5eb0f0;
+  --info-light: rgba(56, 152, 236, 0.15);
+
+  /* Borders — subtle warm tint, Claude-inspired (warm olive instead of white) */
+  --border: #3d3d3a;
+  --border-light: #30302e;
+  --border-colored: #4d4c48;
+
+  /* Shadows — warm dark layered drops */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.25), 0 2px 4px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.3), 0 4px 6px rgba(0, 0, 0, 0.15);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.35), 0 8px 10px rgba(0, 0, 0, 0.15);
+  --shadow-primary: 0 4px 14px rgba(217, 119, 87, 0.2);
+
+  /* Ring shadows — Claude-style depth (shadow pretending to be border) */
+  --ring-subtle: 0 0 0 1px #3d3d3a;
+  --ring-warm: 0 0 0 1px #4d4c48;
+  --ring-primary: 0 0 0 1px #d97757;
+
+  /* Focus Ring */
+  --focus-ring: 0 0 0 3px rgba(56, 152, 236, 0.2);
+}
+
+/* ─── BASE LAYER ─── */
+@layer base {
+  html {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    border: none;
+    overflow: auto;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: auto;
+    border: none;
+    font-family: var(--font-family);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: var(--bg);
+    color: var(--text);
+  }
+
+  a {
+    color: var(--primary);
+    text-decoration: none;
+  }
+
+  a:hover {
+    text-decoration: underline;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font-family: inherit;
+  }
+}
+
+/* ─── HIDE SCROLLBARS ON MOBILE ─── */
+@media (max-width: 768px) {
+  html,
+  body {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+}
+
+/* ─── RTL ─── */
+html[dir='rtl'],
+body[dir='rtl'] {
+  direction: rtl;
+}
+
+html[dir='rtl'] {
+  font-family: 'Inter', 'Noto Naskh Arabic', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+}
+
+/* ─── COMPONENT LAYER ─── */
+@layer components {
+  .app-shell {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg);
+  }
+
+  .app-content {
+    flex: 1;
+    padding: 1rem;
+    max-width: 980px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+    background-color: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 30;
+  }
+
+  .topbar .brand {
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 56px;
+    padding: 0 16px;
+    background: var(--surface);
+    display: flex;
+    gap: 1rem;
+    justify-content: space-around;
+    align-items: stretch;
+    border-top: 1px solid var(--border);
+    z-index: 40;
+  }
+
+  @media (min-width: 1024px) {
+    .bottom-nav {
+      display: none;
+    }
+  }
+
+  .container {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 1rem;
+  }
+
+  /* Slot Card - Claude-inspired design */
+  .slot-card {
+    min-height: 180px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .slot-card:hover:not(.slot-card--booked) {
+    transform: translateY(-4px);
+  }
+
+  .slot-card:active:not(.slot-card--booked) {
+    transform: translateY(-1px);
+  }
+
+  /* Mobile touch targets - minimum 44px */
+  @media (max-width: 640px) {
+    .slot-card button {
+      min-height: 44px;
+    }
+  }
+
+  /* Smooth scrollbar for date selector */
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Modal animations */
+  .animate-in {
+    animation: fadeIn 0.15s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  @media (min-width: 640px) {
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
+    }
+  }
+}

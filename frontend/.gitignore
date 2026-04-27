@@ -1,0 +1,17 @@
+node_modules/
+.env
+.env.*.local
+!.env.example
+.svelte-kit/
+.build/
+dist/
+.DS_Store
+coverage/
+.npm/
+
+# Keep lock file for reproducible Vercel builds
+# package-lock.json is tracked in git
+
+# Test outputs
+playwright-report/
+test-results/

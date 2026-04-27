@@ -1,0 +1,123 @@
+<script lang="ts">
+  import { onMount } from 'svelte'
+  import { user } from '$lib/stores/auth'
+  import { supabase } from '$lib/supabaseClient'
+  import { _ } from 'svelte-i18n'
+  import { locale } from 'svelte-i18n'
+  import { USE_MOCK, mockBookings, mockPitches } from '$lib/mock'
+  import Icon from './Icon.svelte'
+
+  let booking: any = null
+  let loading = true
+
+  onMount(() => {
+    if (USE_MOCK) {
+      const active = mockBookings.find(b => b.status === 'active')
+      if (active) {
+        const pitch = mockPitches.find(p => p.id === active.pitch_id)
+        booking = { ...active, pitch_name: pitch?.name || active.pitch_id }
+      }
+      loading = false
+      return
+    }
+    const unsub = user.subscribe(async (u) => {
+      if (!u) {
+        booking = null
+        loading = false
+        return
+      }
+      loading = true
+      try {
+        const { data, error } = await supabase
+          .from('bookings')
+          .select('id,pitch_id,slot_datetime,status')
+          .eq('user_id', u.id)
+          .eq('status', 'active')
+          .order('slot_datetime', { ascending: true })
+          .limit(1)
+
+        if (!error && data && data.length) {
+          booking = data[0]
+          const { data: pitchData } = await supabase.from('pitches').select('name').eq('id', booking.pitch_id).maybeSingle()
+          booking.pitch_name = pitchData?.name || booking.pitch_id
+        } else {
+          booking = null
+        }
+      } catch (err) {
+        booking = null
+      }
+      loading = false
+    })
+
+    return () => unsub()
+  })
+
+  function formatBookingTime(dateString: string) {
+    const date = new Date(dateString)
+    const currentLocale = $locale || 'en'
+    return {
+      day: date.getDate(),
+      month: date.toLocaleDateString(currentLocale, { month: 'short' }),
+      weekday: date.toLocaleDateString(currentLocale, { weekday: 'long' }),
+      time: date.toLocaleTimeString(currentLocale, { hour: '2-digit', minute: '2-digit', hour12: false })
+    }
+  }
+</script>
+
+<!-- Next Booking Card — Claude-inspired: ring shadows, warm tones -->
+<div class="rounded-xl p-4 transition-all duration-200"
+     style={booking
+       ? 'background: var(--primary-light/40); box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12);'
+       : 'background: var(--surface-level-1/40); box-shadow: 0 0 0 1px var(--border);'}>
+  {#if loading}
+    <div class="flex items-center gap-3" style="color: var(--text-muted);">
+      <div class="w-10 h-10 rounded-full animate-pulse" style="background: var(--surface-level-1);"></div>
+      <div class="h-4 w-32 animate-pulse rounded" style="background: var(--surface-level-1);"></div>
+    </div>
+  {:else if booking}
+    {@const time = formatBookingTime(booking.slot_datetime)}
+    <div class="flex items-center gap-4">
+      <!-- Date badge -->
+      <div class="w-14 h-14 rounded-xl flex flex-col items-center justify-center flex-shrink-0"
+           style="background: var(--primary-light/60); color: var(--primary); box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.1);">
+        <span class="text-[10px] font-semibold uppercase tracking-wide">{time.month}</span>
+        <span class="text-lg font-bold leading-none">{time.day}</span>
+      </div>
+      <!-- Info -->
+      <div class="flex-1 min-w-0">
+        <p class="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style="color: var(--primary);">{$_('home.next_booking')}</p>
+        <h3 class="font-semibold truncate" style="color: var(--text);">{booking.pitch_name}</h3>
+        <p class="text-sm" style="color: var(--text-secondary);">{time.weekday} at {time.time}</p>
+      </div>
+      <!-- Action -->
+      <a
+        href="/bookings"
+        class="flex-shrink-0 px-4 py-2.5 rounded-lg text-white text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 flex items-center gap-1.5"
+        style="background: var(--primary-gradient); box-shadow: 0 0 0 1px var(--primary);">
+        {$_('home.view_booking')}
+        <Icon name="arrow-right" size={14} />
+      </a>
+    </div>
+  {:else}
+    <div class="flex items-center gap-4">
+      <!-- Empty icon -->
+      <div class="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
+           style="background: var(--surface-level-1); color: var(--text-muted);">
+        <Icon name="calendar-days" size={24} />
+      </div>
+      <!-- Info -->
+      <div class="flex-1">
+        <p class="font-semibold" style="color: var(--text);">{$_('home.no_bookings')}</p>
+        <p class="text-sm" style="color: var(--text-secondary);">{$_('home.book_something')}</p>
+      </div>
+      <!-- Action -->
+      <a
+        href="/home"
+        class="flex-shrink-0 px-4 py-2.5 rounded-lg text-white text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 flex items-center gap-1.5"
+        style="background: var(--primary-gradient); box-shadow: 0 0 0 1px var(--primary);">
+        {$_('home.browse_pitches')}
+        <Icon name="arrow-right" size={14} />
+      </a>
+    </div>
+  {/if}
+</div>
