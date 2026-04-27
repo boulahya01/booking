@@ -151,7 +151,8 @@
     "unknown_pitch": "ملعب غير معروف",
     "unknown_location": "موقع غير معروف",
     "to": "إلى",
-    "cancel_confirm": "إلغاء هذا الحجز؟"
+    "cancel_confirm": "إلغاء هذا الحجز؟",
+    "completed_notification": "انتهت حجزتك! الوقت متاح الآن للحجز من جديد."
   },
   "profile": {
     "title": "الملف الشخصي",
