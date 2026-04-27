@@ -30,6 +30,7 @@
 
   // Auto-refresh slots every 2 minutes and on tab visibility change
   let refreshInterval: ReturnType<typeof setInterval> | null = null
+  let cleanupVisibility: (() => void) | null = null
 
   function startAutoRefresh() {
     // Refresh every 2 minutes
@@ -47,8 +48,8 @@
     }
     document.addEventListener('visibilitychange', handleVisibility)
 
-    // Cleanup stored in onDestroy
-    ;(refreshInterval as any)._cleanup = () => {
+    // Store cleanup function
+    cleanupVisibility = () => {
       document.removeEventListener('visibilitychange', handleVisibility)
     }
   }
@@ -56,8 +57,11 @@
   function stopAutoRefresh() {
     if (refreshInterval) {
       clearInterval(refreshInterval)
-      ;(refreshInterval as any)?._cleanup?.()
       refreshInterval = null
+    }
+    if (cleanupVisibility) {
+      cleanupVisibility()
+      cleanupVisibility = null
     }
   }
 
