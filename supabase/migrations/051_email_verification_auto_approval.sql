@@ -59,9 +59,30 @@ ALTER TABLE public.profiles DROP COLUMN IF EXISTS verified_at;
 -- Note: Keep status column (pending/approved/rejected/suspended)
 
 -- ============================================================================
--- STEP 4: Update create_profile_on_auth_signup trigger to not set photo fields
--- (No changes needed - the trigger only sets student_id, full_name, role, status)
+-- STEP 4: Recreate create_profile_on_auth_signup trigger without dropped columns
 -- ============================================================================
+
+-- The existing trigger tries to insert verification_status which was dropped.
+-- Recreate it with only the columns that still exist.
+
+CREATE OR REPLACE FUNCTION public.create_profile_on_auth_signup()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO profiles (id, student_id, full_name, role, status)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'student_id', ''),
+    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
+    'student',
+    'pending'
+  );
+  RETURN NEW;
+END;
+$$;
 
 -- ============================================================================
 -- STEP 5: Clean up storage bucket (id-photos bucket no longer needed)
