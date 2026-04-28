@@ -4,6 +4,7 @@
 
   export let status: 'unsubmitted' | 'pending' | 'verified' | 'rejected' = 'unsubmitted'
   export let notes: string | null = null
+  export let rejectionReason: string | null = null
 
   const statusConfig = {
     unsubmitted: {
@@ -52,11 +53,11 @@
   </div>
   <p class="text-sm text-text-secondary pl-10">{$_(config.description)}</p>
 
-  {#if notes && status === 'rejected'}
+  {#if (notes || rejectionReason) && status === 'rejected'}
     <div class="mt-2 pl-10">
       <div class="bg-white/60 rounded-lg p-3 text-sm">
         <span class="font-medium text-danger">{$_('verification.admin_notes')}:</span>
-        <span class="text-text-secondary ml-1">{notes}</span>
+        <span class="text-text-secondary ml-1">{rejectionReason || notes}</span>
       </div>
     </div>
   {/if}

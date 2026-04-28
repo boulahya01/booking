@@ -76,7 +76,7 @@
     </div>
   {:else if booking}
     {@const time = formatBookingTime(booking.slot_datetime)}
-    <div class="flex items-center gap-4">
+    <a href="/bookings" class="flex items-center gap-4 group">
       <!-- Date badge -->
       <div class="w-14 h-14 rounded-xl flex flex-col items-center justify-center flex-shrink-0"
            style="background: var(--primary-light/60); color: var(--primary); box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.1);">
@@ -85,19 +85,15 @@
       </div>
       <!-- Info -->
       <div class="flex-1 min-w-0">
-        <p class="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style="color: var(--primary);">{$_('home.next_booking')}</p>
         <h3 class="font-semibold truncate" style="color: var(--text);">{booking.pitch_name}</h3>
         <p class="text-sm" style="color: var(--text-secondary);">{time.weekday} at {time.time}</p>
       </div>
-      <!-- Action -->
-      <a
-        href="/bookings"
-        class="flex-shrink-0 px-4 py-2.5 rounded-lg text-white text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 flex items-center gap-1.5"
-        style="background: var(--primary-gradient); box-shadow: 0 0 0 1px var(--primary);">
-        {$_('home.view_booking')}
-        <Icon name="arrow-right" size={14} />
-      </a>
-    </div>
+      <!-- Arrow -->
+      <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 group-hover:-translate-y-0.5"
+           style="background: var(--primary-light); color: var(--primary);">
+        <Icon name="arrow-right" size={20} />
+      </div>
+    </a>
   {:else}
     <div class="flex items-center gap-4">
       <!-- Empty icon -->
@@ -106,18 +102,9 @@
         <Icon name="calendar-days" size={24} />
       </div>
       <!-- Info -->
-      <div class="flex-1">
+      <div class="flex-1 min-w-0">
         <p class="font-semibold" style="color: var(--text);">{$_('home.no_bookings')}</p>
-        <p class="text-sm" style="color: var(--text-secondary);">{$_('home.book_something')}</p>
       </div>
-      <!-- Action -->
-      <a
-        href="/home"
-        class="flex-shrink-0 px-4 py-2.5 rounded-lg text-white text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 flex items-center gap-1.5"
-        style="background: var(--primary-gradient); box-shadow: 0 0 0 1px var(--primary);">
-        {$_('home.browse_pitches')}
-        <Icon name="arrow-right" size={14} />
-      </a>
     </div>
   {/if}
 </div>

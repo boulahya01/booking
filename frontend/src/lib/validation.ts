@@ -42,3 +42,7 @@ export const LoginStudentSchema = z.object({
 export const NameSchema = z.string().min(1).max(100)
 
 export const validate = <T>(schema: z.ZodSchema<T>, data: unknown): T => schema.parse(data)
+
+export const isValidUsmbaEmail = (email: string): boolean => {
+  return /^[^\s@]+@usmba\.ac\.ma$/.test(email)
+}
