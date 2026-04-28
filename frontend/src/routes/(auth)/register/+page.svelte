@@ -42,6 +42,7 @@
   $: passwordAllMet = passwordLength && passwordNumber && passwordSpecial && passwordUppercase
 
   $: emailValid = isValidEmail(email)
+  $: emailUsmba = email.endsWith('@usmba.ac.ma') || email.length === 0
   $: emailTouched = email.length > 0 && !emailFocused
 
   $: studentIdValid = isValidStudentId(studentId.toUpperCase())
@@ -60,6 +61,9 @@
       return false
     }
     if (!isValidEmail(email)) {
+      return false
+    }
+    if (!email.endsWith('@usmba.ac.ma')) {
       return false
     }
     if (!isValidStudentId(studentId.toUpperCase())) {
@@ -91,7 +95,7 @@
         return
       }
       uiState.addToast($_('register.created'), 'success')
-      await goto('/pending-approval')
+      await goto('/verify-email')
     } catch (err: any) {
       submitError = $_('register.error_registration_failed')
     } finally {
@@ -151,16 +155,24 @@
             placeholder={$_('register.email_placeholder')}
             bind:value={email}
             disabled={loading}
-            error={email.length > 0 && !emailValid ? $_('register.error_invalid_email') : ''}
+            error={email.length > 0 && (!emailValid || !emailUsmba) ? (emailValid && !emailUsmba ? $_('register.error_invalid_email_domain') : $_('register.error_invalid_email')) : ''}
             on:focus={() => emailFocused = true}
             on:blur={() => emailFocused = false}
           />
-          {#if emailFocused || (emailTouched && !emailValid)}
-            <div class="flex items-center gap-2 text-xs px-1">
-              <Icon name={emailValid ? 'check' : 'x'} size={14} className={emailValid ? 'text-success' : 'text-danger'} />
-              <span class={emailValid ? 'text-success' : 'text-text-secondary'}>
-                {$_('register.hint_email_format')}
-              </span>
+          {#if emailFocused || (emailTouched && (!emailValid || !emailUsmba))}
+            <div class="space-y-1 px-1">
+              <div class="flex items-center gap-2 text-xs">
+                <Icon name={emailValid ? 'check' : 'x'} size={14} className={emailValid ? 'text-success' : 'text-text-muted'} />
+                <span class={emailValid ? 'text-success' : 'text-text-secondary'}>
+                  {$_('register.hint_email_format')}
+                </span>
+              </div>
+              <div class="flex items-center gap-2 text-xs">
+                <Icon name={emailUsmba ? 'check' : 'x'} size={14} className={emailUsmba ? 'text-success' : 'text-text-muted'} />
+                <span class={emailUsmba ? 'text-success' : 'text-text-secondary'}>
+                  {$_('register.email_domain_info')}
+                </span>
+              </div>
             </div>
           {/if}
         </div>

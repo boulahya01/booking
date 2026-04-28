@@ -6,6 +6,8 @@
   import Card from '$lib/components/Card.svelte'
   import Button from '$lib/components/Button.svelte'
   import { uiState } from '$lib/stores/ui'
+  import { authState } from '$lib/stores/auth'
+  import { getUserProfile } from '$lib/auth'
   import { _ } from 'svelte-i18n'
   import Icon from '$lib/components/Icon.svelte'
 
@@ -27,8 +29,26 @@
           message = error.message
           return
         }
+
+        // Email verified - now reload profile to get updated status from the trigger
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const profile = await getUserProfile(user.id)
+          if (profile) {
+            authState.setUser({
+              id: profile.id,
+              email: user.email ?? undefined,
+              student_id: profile.student_id,
+              full_name: profile.full_name,
+              role: profile.role === 'admin' ? 'admin' : 'user',
+              status: profile.status as import('$lib/stores/auth').UserStatus
+            })
+          }
+        }
+
         status = 'success'
-        setTimeout(() => goto('/login'), 2000)
+        uiState.addToast('Email verified! Your account is now approved.', 'success')
+        setTimeout(() => goto('/home'), 2000)
       } catch (err: any) {
         status = 'error'
         message = err.message || $_('verify_email.error_generic')
@@ -40,8 +60,10 @@
     resendLoading = true
     message = ''
     try {
+      // Try to get user from current session first
       const { data: { user } } = await supabase.auth.getUser()
       if (!user?.email) {
+        // If no session, the user may need to check their email or try logging in
         message = $_('verify_email.error_no_email')
         resendLoading = false
         return

@@ -5,6 +5,7 @@
   import { supabase } from '$lib/supabaseClient'
   import { USE_MOCK, mockDelay } from '$lib/mock'
   import { uiState } from '$lib/stores/ui'
+  import { authState } from '$lib/stores/auth'
   import Icon from './Icon.svelte'
 
   export let slotData: any
@@ -43,6 +44,13 @@
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         error = 'Authentication required'
+        return
+      }
+
+      // Check if user has verified their email (status='pending' means not verified yet)
+      const userStatus = $authState.user?.status
+      if (userStatus === 'pending') {
+        error = 'Please verify your email before booking. Check your inbox for the verification link.'
         return
       }
 

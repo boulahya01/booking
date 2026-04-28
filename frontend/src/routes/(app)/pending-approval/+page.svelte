@@ -5,11 +5,9 @@
   import { signOut } from '$lib/auth'
   import { uiState } from '$lib/stores/ui'
   import Button from '$lib/components/Button.svelte'
-  import Modal from '$lib/components/Modal.svelte'
   import Icon from '$lib/components/Icon.svelte'
   import { _ } from 'svelte-i18n'
   import { USE_MOCK, mockProfile, mockDelay } from '$lib/mock'
-  import { sanitizeInput } from '$lib/validation'
 
   let profile: any = null
   let status = 'pending'
@@ -18,8 +16,8 @@
 
   // Appeal state
   let showAppealModal = false
-  let appealNotes = ''
   let submittingAppeal = false
+  let appealMessage = ''
 
   onMount(async () => {
     if (USE_MOCK) {
@@ -71,17 +69,14 @@
         status = 'pending'
         uiState.addToast($_('pending.appeal_success'), 'success')
         showAppealModal = false
-        appealNotes = ''
         return
       }
 
       const updateData: any = {
         status: 'pending',
-        verification_status: 'pending'
+        verification_notes: appealMessage || null
       }
 
-      if (appealNotes) updateData.verification_notes = sanitizeInput(appealNotes)
-      
       const { error: err } = await supabase
         .from('profiles')
         .update(updateData)
@@ -96,7 +91,7 @@
       status = 'pending'
       uiState.addToast($_('pending.appeal_success'), 'success')
       showAppealModal = false
-      appealNotes = ''
+      appealMessage = ''
     } catch (e: any) {
       uiState.addToast(e.message || $_('pending.appeal_error'), 'error')
     } finally {
@@ -111,7 +106,7 @@
 
 <div class="min-h-screen bg-gradient-to-b from-surface-level-1/50 to-surface p-6 flex items-center justify-center">
   {#if loading}
-    <!-- Loading State -->
+    <!-- Loading state -->
     <div class="text-center">
       <div class="w-16 h-16 mx-auto mb-4 relative">
         <div class="absolute inset-0 rounded-full border-4 border-border dark:border-white/6"></div>
@@ -123,19 +118,19 @@
     <!-- Pending State -->
     <div class="w-full max-w-lg">
       <!-- Header Card -->
-      <div class="bg-surface dark:bg-surface rounded-2xl shadow-sm p-6 mb-4">
+      <div class="rounded-2xl p-6 mb-4" style="background: var(--surface); border: 1px solid var(--border);">
         <div class="text-center mb-6">
           <!-- Animated Clock Icon -->
-          <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-warning-light/50 flex items-center justify-center relative">
-            <div class="absolute inset-0 rounded-full bg-warning-light/30 animate-ping opacity-75"></div>
+          <div class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center relative" style="background: var(--warning-light);">
+            <div class="absolute inset-0 rounded-full animate-ping opacity-75" style="background: var(--warning-light);"></div>
             <Icon name="clock" size={36} className="text-warning relative" />
           </div>
-          <h1 class="text-2xl font-semibold font-serif text-text mb-2">{$_('pending.title')}</h1>
+          <h1 class="text-2xl font-medium font-serif text-text mb-2">{$_('pending.title')}</h1>
           <p class="text-text-secondary">{$_('pending.message')}</p>
         </div>
 
         <!-- Progress Steps -->
-        <div class="bg-surface-level-1 dark:bg-surface-level-1/50 rounded-xl p-4 mb-4">
+        <div class="rounded-xl p-4 mb-4" style="background: var(--surface-level-1);">
           <div class="flex items-center justify-between">
             <!-- Step 1: Complete -->
             <div class="flex flex-col items-center flex-1">
@@ -144,10 +139,10 @@
               </div>
               <span class="text-xs text-text-secondary text-center">{$_('pending.step_register')}</span>
             </div>
-            
+
             <!-- Connector -->
-            <div class="flex-1 h-0.5 bg-border dark:bg-white/6 mx-2"></div>
-            
+            <div class="flex-1 h-0.5 mx-2" style="background: var(--border);"></div>
+
             <!-- Step 2: In Progress -->
             <div class="flex flex-col items-center flex-1">
               <div class="w-8 h-8 rounded-full bg-warning text-white flex items-center justify-center mb-2 animate-pulse">
@@ -155,13 +150,13 @@
               </div>
               <span class="text-xs text-warning font-medium text-center">{$_('pending.step_review')}</span>
             </div>
-            
+
             <!-- Connector -->
-            <div class="flex-1 h-0.5 bg-border dark:bg-white/6 mx-2"></div>
-            
+            <div class="flex-1 h-0.5 mx-2" style="background: var(--border);"></div>
+
             <!-- Step 3: Pending -->
             <div class="flex flex-col items-center flex-1">
-              <div class="w-8 h-8 rounded-full bg-surface-level-2 dark:bg-surface-level-2 text-text-muted flex items-center justify-center mb-2">
+              <div class="w-8 h-8 rounded-xl flex items-center justify-center mb-2" style="background: var(--surface-level-2); color: var(--text-muted);">
                 <Icon name="shield" size={16} />
               </div>
               <span class="text-xs text-text-muted text-center">{$_('pending.step_approve')}</span>
@@ -170,9 +165,9 @@
         </div>
 
         <!-- User Info Summary -->
-        <div class="bg-surface-level-1 dark:bg-surface-level-1/50 rounded-xl p-4 space-y-3">
+        <div class="rounded-xl p-4 space-y-3" style="background: var(--surface-level-1);">
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-full bg-primary-light flex items-center justify-center text-primary font-semibold">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center text-primary font-semibold" style="background: var(--primary-light);">
               {profile?.full_name?.charAt(0)?.toUpperCase() || '?'}
             </div>
             <div class="flex-1 min-w-0">
@@ -183,28 +178,24 @@
         </div>
       </div>
 
-      <!-- Verification CTA Card -->
-      <a href="/profile" class="block bg-surface dark:bg-surface rounded-2xl shadow-sm hover:shadow-md transition-all p-5 mb-4 group">
-        <div class="flex items-start gap-4">
-          <div class="w-12 h-12 rounded-xl bg-primary-light/50 flex items-center justify-center flex-shrink-0 group-hover:bg-primary-light transition-colors">
-            <Icon name="camera" size={24} className="text-primary" />
+      <!-- Info Card -->
+      <div class="rounded-xl p-5" style="background: var(--surface); border: 1px solid var(--border);">
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background: var(--info-light);">
+            <Icon name="info" size={20} className="text-info" />
           </div>
-          <div class="flex-1">
-            <h3 class="font-semibold text-text mb-1">{$_('pending.verify_banner_title')}</h3>
-            <p class="text-sm text-text-secondary mb-3">{$_('pending.verify_banner_desc')}</p>
-            <div class="inline-flex items-center gap-1.5 text-sm font-medium text-primary">
-              {$_('pending.verify_banner_cta')}
-              <Icon name="arrow-right" size={14} className="group-hover:translate-x-0.5 transition-transform" />
-            </div>
-            <p class="text-xs text-text-muted mt-2">{$_('pending.verify_optional')}</p>
+          <div>
+            <h3 class="font-semibold text-text mb-1">{$_('pending.info_title')}</h3>
+            <p class="text-sm text-text-secondary">{$_('pending.info_message')}</p>
           </div>
         </div>
-      </a>
+      </div>
 
       <!-- Logout Button -->
       <button
         on:click={logout}
-        class="w-full flex items-center justify-center gap-2 p-3.5 rounded-xl text-text-secondary hover:text-danger hover:bg-danger-light/50 transition-colors"
+        class="w-full flex items-center justify-center gap-2 p-3.5 rounded-xl text-text-secondary hover:text-danger transition-colors mt-4"
+        style="background: transparent;"
       >
         <Icon name="log-out" size={18} />
         {$_('nav.logout')}
@@ -214,65 +205,67 @@
     <!-- Rejected State -->
     <div class="w-full max-w-lg">
       <!-- Header Card -->
-      <div class="bg-surface dark:bg-surface rounded-2xl shadow-sm p-6 mb-4">
-        <div class="text-center mb-6">
-          <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-danger-light/50 flex items-center justify-center">
+      <div class="rounded-2xl p-6 mb-4" style="background: var(--surface); border: 1px solid var(--border);">
+        <div class="text-center mb-4">
+          <div class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center" style="background: var(--danger-light);">
             <Icon name="x-circle" size={36} className="text-danger" />
           </div>
-          <h1 class="text-2xl font-semibold font-serif text-text mb-2">{$_('pending.rejection_message')}</h1>
+          <h1 class="text-2xl font-medium font-serif text-text mb-2">{$_('pending.rejection_message')}</h1>
           <p class="text-text-secondary">{$_('pending.rejection_subtitle')}</p>
         </div>
 
         <!-- Rejection Reason -->
-        <div class="bg-danger-light/30 dark:bg-danger-light/20 rounded-xl p-4 mb-4">
+        <div class="rounded-xl p-4" style="background: var(--danger-light);">
           <div class="flex items-start gap-3">
             <Icon name="alert-triangle" size={20} className="text-danger mt-0.5 flex-shrink-0" />
-            <div>
-              <p class="font-medium text-text mb-1">{$_('pending.rejection_reason_label')}</p>
+            <div class="flex-1">
+              <p class="font-medium text-text mb-1">Reason</p>
               <p class="text-sm text-text-secondary">{rejectionReason || $_('common.error')}</p>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Action Cards -->
-      <!-- Verify CTA -->
-      <a href="/profile" class="block bg-surface dark:bg-surface rounded-2xl shadow-sm hover:shadow-md transition-all p-5 mb-4 group">
-        <div class="flex items-start gap-4">
-          <div class="w-12 h-12 rounded-xl bg-primary-light/50 flex items-center justify-center flex-shrink-0 group-hover:bg-primary-light transition-colors">
-            <Icon name="camera" size={24} className="text-primary" />
-          </div>
-          <div class="flex-1">
-            <h3 class="font-semibold text-text mb-1">{$_('pending.verify_banner_title')}</h3>
-            <p class="text-sm text-text-secondary mb-3">{$_('pending.verify_banner_desc')}</p>
-            <div class="inline-flex items-center gap-1.5 text-sm font-medium text-primary">
-              {$_('pending.verify_banner_cta')}
-              <Icon name="arrow-right" size={14} className="group-hover:translate-x-0.5 transition-transform" />
+      <!-- Actions -->
+      <div class="space-y-3 mb-4">
+        <!-- Edit Info -->
+        <a href="/profile" class="block rounded-xl p-5 transition-all hover:-translate-y-0.5 group" style="background: var(--surface); border: 1px solid var(--border);">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background: var(--primary-light);">
+              <Icon name="pencil" size={24} className="text-primary" />
             </div>
+            <div class="flex-1">
+              <h3 class="font-semibold text-text">Edit Your Information</h3>
+              <p class="text-sm text-text-secondary">Update your details to match the requirements</p>
+            </div>
+            <Icon name="arrow-right" size={20} className="text-text-muted group-hover:translate-x-0.5 transition-transform" />
           </div>
-        </div>
-      </a>
+        </a>
 
-      <!-- Appeal Button -->
-      <button
-        on:click={() => showAppealModal = true}
-        class="w-full bg-surface dark:bg-surface rounded-2xl shadow-sm hover:shadow-md transition-all p-5 mb-4 text-left group"
-      >
-        <div class="flex items-start gap-4">
-          <div class="w-12 h-12 rounded-xl bg-info-light/50 flex items-center justify-center flex-shrink-0 group-hover:bg-info-light transition-colors">
-            <Icon name="mail" size={24} className="text-info" />
+        <!-- Submit Appeal -->
+        <button
+          on:click={() => showAppealModal = true}
+          class="w-full block rounded-xl p-5 text-left transition-all hover:-translate-y-0.5 group"
+          style="background: var(--surface); border: 1px solid var(--border);"
+        >
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background: var(--info-light);">
+              <Icon name="mail" size={24} className="text-info" />
+            </div>
+            <div class="flex-1">
+              <h3 class="font-semibold text-text">Submit an Appeal</h3>
+              <p class="text-sm text-text-secondary">Send a message to admin for review</p>
+            </div>
+            <Icon name="arrow-right" size={20} className="text-text-muted group-hover:translate-x-0.5 transition-transform" />
           </div>
-          <div class="flex-1">
-            <h3 class="font-semibold text-text mb-1">{$_('pending.appeal_title')}</h3>
-            <p class="text-sm text-text-secondary">{$_('pending.appeal_subtitle')}</p>
-          </div>
-        </div>
-      </button>
+        </button>
+      </div>
 
-      <!-- Logout Button -->
+      <!-- Logout -->
       <button
         on:click={logout}
-        class="w-full flex items-center justify-center gap-2 p-3.5 rounded-xl text-text-secondary hover:text-danger hover:bg-danger-light/50 transition-colors"
+        class="w-full flex items-center justify-center gap-2 p-3.5 rounded-xl text-text-secondary hover:text-danger transition-colors"
+        style="background: transparent;"
       >
         <Icon name="log-out" size={18} />
         {$_('nav.logout')}
@@ -282,77 +275,39 @@
 </div>
 
 <!-- Appeal Modal -->
-<Modal open={showAppealModal} size="lg" on:close={() => showAppealModal = false}>
-  <div slot="header" class="flex items-center gap-3">
-    <div class="w-10 h-10 rounded-lg bg-info-light flex items-center justify-center">
-      <Icon name="mail" size={20} className="text-info" />
-    </div>
-    <div>
-      <h2 class="text-lg font-semibold text-text">{$_('pending.appeal_title')}</h2>
-      <p class="text-sm text-text-secondary">{$_('pending.appeal_subtitle')}</p>
-    </div>
-  </div>
-  <div slot="body" class="space-y-5">
-    <!-- Current Information -->
-    <div class="bg-surface-level-1 dark:bg-surface-level-1/50 rounded-xl p-4">
-      <p class="text-sm font-medium text-text mb-3">{$_('pending.current_info')}</p>
-      <div class="space-y-2">
-        <div class="flex items-center gap-2 text-sm">
-          <Icon name="user" size={15} className="text-text-muted" />
-          <span class="text-text-muted">{$_('profile.full_name_label')}:</span>
-          <span class="font-medium text-text">{profile?.full_name || '-'}</span>
+{#if showAppealModal}
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.5);">
+    <div class="w-full max-w-md rounded-2xl p-6" style="background: var(--surface);">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background: var(--info-light);">
+          <Icon name="mail" size={20} className="text-info" />
         </div>
-        <div class="flex items-center gap-2 text-sm">
-          <Icon name="mail" size={15} className="text-text-muted" />
-          <span class="text-text-muted">{$_('profile.email_label')}:</span>
-          <span class="font-medium text-text">{profile?.email || '-'}</span>
-        </div>
-        <div class="flex items-center gap-2 text-sm">
-          <Icon name="id-card" size={15} className="text-text-muted" />
-          <span class="text-text-muted">{$_('profile.student_id_label')}:</span>
-          <span class="font-medium text-text">{profile?.student_id || '-'}</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Additional Notes -->
-    <div>
-      <label for="appeal-notes" class="block text-sm font-medium text-text-secondary mb-2">
-        {$_('pending.additional_notes')}
-      </label>
-      <textarea
-        id="appeal-notes"
-        class="w-full rounded-xl border border-border dark:border-white/8 bg-surface-level-1 p-3 text-sm text-text placeholder:text-text-muted focus:border-info focus:outline-none focus:ring-2 focus:ring-info/20 transition-all min-h-[100px] resize-none"
-        placeholder={$_('pending.additional_notes_placeholder')}
-        bind:value={appealNotes}
-      ></textarea>
-    </div>
-
-    <!-- Verification Reminder -->
-    <div class="bg-info-light/30 dark:bg-info-light/20 rounded-xl p-4">
-      <div class="flex items-start gap-3">
-        <Icon name="info" size={18} className="text-info mt-0.5 flex-shrink-0" />
         <div>
-          <p class="text-sm font-medium text-text mb-1">{$_('pending.verify_reminder_title')}</p>
-          <p class="text-sm text-text-secondary">
-            {$_('pending.verify_reminder_desc')}
-            <a href="/profile" class="text-info underline font-medium">{$_('pending.verify_banner_cta')}</a>
-          </p>
+          <h2 class="text-lg font-semibold text-text">Submit an Appeal</h2>
+          <p class="text-sm text-text-secondary">This will resubmit your account for admin review</p>
         </div>
+      </div>
+
+      <textarea
+        bind:value={appealMessage}
+        placeholder="Explain why your account should be approved..."
+        class="w-full p-3 rounded-lg border mb-4 min-h-[120px] resize-none"
+        style="background: var(--surface-level-1); border-color: var(--border); color: var(--text);"
+      ></textarea>
+
+      <div class="flex gap-3">
+        <Button
+          variant="primary"
+          className="flex-1"
+          loading={submittingAppeal}
+          on:click={submitAppeal}
+        >
+          {$_('pending.appeal_submitting')}
+        </Button>
+        <Button variant="secondary" className="flex-1" on:click={() => { showAppealModal = false; appealMessage = '' }}>
+          {$_('common.cancel')}
+        </Button>
       </div>
     </div>
   </div>
-  <div slot="footer" class="flex gap-3">
-    <Button
-      variant="primary"
-      className="flex-1"
-      loading={submittingAppeal}
-      on:click={submitAppeal}
-    >
-      {$_('pending.appeal_submitting')}
-    </Button>
-    <Button variant="secondary" className="flex-1" on:click={() => showAppealModal = false}>
-      {$_('common.cancel')}
-    </Button>
-  </div>
-</Modal>
+{/if}

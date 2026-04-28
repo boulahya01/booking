@@ -7,14 +7,12 @@
   import Icon from '$lib/components/Icon.svelte'
   import { uiState, language } from '$lib/stores/ui'
   import { authState, isAuthenticated } from '$lib/stores/auth'
-  import { loginWithEmail, loginWithStudentId } from '$lib/auth'
-  import { isValidEmail, isValidStudentId } from '$lib/utils/cn'
-  import { sanitizeInput, sanitizeStudentId } from '$lib/validation'
+  import { loginWithEmail } from '$lib/auth'
+  import { isValidEmail } from '$lib/utils/cn'
+  import { sanitizeInput } from '$lib/validation'
   import { _ } from 'svelte-i18n'
 
-  let mode: 'email' | 'student_id' = 'email'
   let email = ''
-  let studentId = ''
   let password = ''
   let loading = false
   let errors: Record<string, string> = {}
@@ -31,13 +29,8 @@
 
   function validate() {
     errors = {}
-    if (mode === 'email') {
-      if (!email) errors.email = $_('login.error_email_required')
-      else if (!isValidEmail(email)) errors.email = $_('login.error_invalid_email')
-    } else {
-      if (!studentId) errors.studentId = $_('login.error_student_required')
-      else if (!isValidStudentId(studentId)) errors.studentId = $_('login.error_invalid_student')
-    }
+    if (!email) errors.email = $_('login.error_email_required')
+    else if (!isValidEmail(email)) errors.email = $_('login.error_invalid_email')
     if (!password) errors.password = $_('login.error_password_required')
     return Object.keys(errors).length === 0
   }
@@ -48,16 +41,10 @@
     loading = true
     authState.setLoading(true)
 
-    // Sanitize inputs before submission
     const cleanEmail = sanitizeInput(email).trim().toLowerCase()
-    const cleanStudentId = sanitizeStudentId(studentId).toUpperCase()
-    // Do NOT sanitize password - sanitizeInput trims whitespace which alters passwords
 
     try {
-      const result =
-        mode === 'email'
-          ? await loginWithEmail(cleanEmail, password)
-          : await loginWithStudentId(cleanStudentId, password)
+      const result = await loginWithEmail(cleanEmail, password)
 
       if (result.error) {
         throw new Error('Invalid credentials. Please check your information and try again.')
@@ -79,10 +66,12 @@
 
       uiState.addToast('Logged in successfully!', 'success')
 
-      if (profile.status === 'pending') {
+      // Route based on profile status
+      if (profile.status === 'rejected') {
         goto('/pending-approval')
-      } else if (profile.status === 'rejected') {
-        goto('/pending-approval')
+      } else if (profile.status === 'pending') {
+        // Unverified users go to verify-email page
+        goto('/verify-email')
       } else {
         goto('/home')
       }
@@ -114,51 +103,16 @@
         <p class="text-text-secondary">{$_('login.subtitle')}</p>
       </div>
 
-      <!-- Mode Selector -->
-      <div class="flex gap-2">
-        <button
-          on:click={() => (mode = 'email')}
-          class={`flex-1 py-2 px-3 rounded-lg font-medium transition min-h-[44px] ${
-            mode === 'email'
-              ? 'bg-primary text-white'
-              : 'bg-surface-level-1 text-text-secondary border border-border hover:bg-surface-level-2'
-          }`}
-        >
-          {$_('login.email_tab')}
-        </button>
-        <button
-          on:click={() => (mode = 'student_id')}
-          class={`flex-1 py-2 px-3 rounded-lg font-medium transition min-h-[44px] ${
-            mode === 'student_id'
-              ? 'bg-primary text-white'
-              : 'bg-surface-level-1 text-text-secondary border border-border hover:bg-surface-level-2'
-          }`}
-        >
-          {$_('login.student_id_tab')}
-        </button>
-      </div>
-
       <!-- Form -->
       <form on:submit|preventDefault={handleLogin} class="space-y-4">
-        {#if mode === 'email'}
-          <TextField
-            label={$_('login.email_label')}
-            type="email"
-            placeholder={$_('login.email_placeholder')}
-            bind:value={email}
-            error={errors.email}
-            required
-          />
-        {:else}
-          <TextField
-            label={$_('login.student_id_label')}
-            type="text"
-            placeholder={$_('login.student_id_placeholder')}
-            bind:value={studentId}
-            error={errors.studentId}
-            required
-          />
-        {/if}
+        <TextField
+          label={$_('login.email_label')}
+          type="email"
+          placeholder={$_('login.email_placeholder')}
+          bind:value={email}
+          error={errors.email}
+          required
+        />
 
         <TextField
           label={$_('login.password_label')}

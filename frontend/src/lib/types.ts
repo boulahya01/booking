@@ -3,13 +3,8 @@ export type Profile = {
   student_id: string
   full_name: string
   email?: string
-  id_photo_url?: string | null
-  selfie_url?: string | null
-  verification_status?: 'unsubmitted' | 'pending' | 'verified' | 'rejected'
-  verification_notes?: string | null
-  verified_by?: string | null
-  verified_at?: string | null
   rejection_reason?: string | null
+  verification_notes?: string | null
   role: 'student' | 'admin' | 'moderator'
   status: 'pending' | 'approved' | 'rejected' | 'suspended'
   created_at: string

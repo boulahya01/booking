@@ -7,31 +7,16 @@
   import Button from '$lib/components/Button.svelte'
   import TextField from '$lib/components/TextField.svelte'
   import LoadingSkeleton from '$lib/components/LoadingSkeleton.svelte'
-  import PhotoThumbnail from '$lib/components/PhotoThumbnail.svelte'
-  import PhotoViewerModal from '$lib/components/PhotoViewerModal.svelte'
   import Icon from '$lib/components/Icon.svelte'
   import { _ } from 'svelte-i18n'
   import { USE_MOCK, mockUsers, mockDelay } from '$lib/mock'
+  import { logger } from '$lib/logger'
 
   let pendingUsers: any[] = []
   let loading = true
   let rejectingId: string | null = null
   let rejectReason = ''
   let error = ''
-
-  // Photo viewer state
-  let showPhotoViewer = false
-  let viewerTitle = ''
-  let viewerUrl: string | null = null
-  let viewerNextUrl: string | null = null
-
-  function openPhotoViewer(title: string, url: string | null, nextUrl: string | null = null) {
-    if (!url) return
-    viewerTitle = title
-    viewerUrl = url
-    viewerNextUrl = nextUrl
-    showPhotoViewer = true
-  }
 
   onMount(async () => {
     await checkAdmin()
@@ -59,14 +44,15 @@
 
   async function loadPendingUsers() {
     if (USE_MOCK) {
-      pendingUsers = mockUsers.filter(u => u.status === 'pending')
+      pendingUsers = mockUsers.filter(u => u.status === 'pending' || u.status === 'rejected')
       loading = false
       return
     }
+    // Show users who are pending or rejected
     const { data, error: err } = await supabase
       .from('profiles')
       .select('*')
-      .eq('status', 'pending')
+      .in('status', ['pending', 'rejected'])
       .order('created_at', { ascending: true })
 
     if (!err && data) {
@@ -83,20 +69,20 @@
       const u = mockUsers.find(x => x.id === userId)
       if (u) {
         u.status = 'approved'
-        u.verification_status = 'verified'
       }
-      pendingUsers = mockUsers.filter(u => u.status === 'pending')
+      pendingUsers = mockUsers.filter(u => u.status === 'pending' || u.status === 'rejected')
       uiState.addToast($_('admin.user_approved'), 'success')
       return
     }
 
     const { error: err } = await supabase
       .from('profiles')
-      .update({ status: 'approved', verification_status: 'verified' })
+      .update({ status: 'approved' })
       .eq('id', userId)
 
     if (!err) {
       uiState.addToast($_('admin.user_approved'), 'success')
+      await loadPendingUsers()
     } else {
       uiState.addToast(err.message, 'error')
     }
@@ -110,10 +96,9 @@
       const u = mockUsers.find(x => x.id === rejectingId)
       if (u) {
         u.status = 'rejected'
-        u.verification_status = 'rejected'
-        u.verification_notes = rejectReason
+        u.rejection_reason = rejectReason
       }
-      pendingUsers = mockUsers.filter(u => u.status === 'pending')
+      pendingUsers = mockUsers.filter(u => u.status === 'pending' || u.status === 'rejected')
       uiState.addToast($_('admin.user_rejected'), 'success')
       rejectingId = null
       rejectReason = ''
@@ -122,7 +107,7 @@
 
     const { error: err } = await supabase
       .from('profiles')
-      .update({ status: 'rejected', verification_status: 'rejected', verification_notes: rejectReason })
+      .update({ status: 'rejected', rejection_reason: rejectReason })
       .eq('id', rejectingId)
 
     if (!err) {
@@ -154,29 +139,29 @@
         <Card variant="elevated" className="p-4">
           <div class="flex justify-between items-start gap-4 flex-wrap">
             <div class="flex-1">
-              <h3 class="text-base font-semibold text-text mb-1">{user.full_name}</h3>
+              <div class="flex items-center gap-2 mb-1">
+                <h3 class="text-base font-semibold text-text">{user.full_name}</h3>
+                {#if user.rejection_reason && user.status === 'pending'}
+                  <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium" style="background: var(--info-light); color: var(--info);">
+                    <Icon name="refresh-cw" size={12} />
+                    Resubmitted
+                  </span>
+                {/if}
+              </div>
               <p class="text-text-secondary text-sm mb-1">{user.email}</p>
               <p class="text-text-muted text-sm">{user.student_id}</p>
 
-              <!-- Photo Thumbnails -->
-              <div class="flex gap-4 mt-3">
-                <button
-                  type="button"
-                  on:click={() => openPhotoViewer($_('admin.view_id_photo'), user.id_photo_url, user.selfie_url)}
-                  class="hover:opacity-80 transition-opacity cursor-pointer"
-                  aria-label={$_('admin.view_id_photo')}
-                >
-                  <PhotoThumbnail photoUrl={user.id_photo_url} label={$_('admin.view_id_photo')} size="sm" />
-                </button>
-                <button
-                  type="button"
-                  on:click={() => openPhotoViewer($_('admin.view_selfie'), user.selfie_url, user.id_photo_url)}
-                  class="hover:opacity-80 transition-opacity cursor-pointer"
-                  aria-label={$_('admin.view_selfie')}
-                >
-                  <PhotoThumbnail photoUrl={user.selfie_url} label={$_('admin.view_selfie')} size="sm" />
-                </button>
-              </div>
+              {#if user.rejection_reason}
+                <div class="mt-2 rounded-lg p-3" style="background: var(--danger-light);">
+                  <div class="flex items-start gap-2">
+                    <Icon name="alert-triangle" size={16} className="text-danger mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p class="text-xs font-medium text-danger mb-0.5">Previously rejected</p>
+                      <p class="text-xs text-text-secondary">{user.rejection_reason}</p>
+                    </div>
+                  </div>
+                </div>
+              {/if}
             </div>
 
             <div class="flex flex-col gap-2">
@@ -201,11 +186,3 @@
     </div>
   {/if}
 </div>
-
-<PhotoViewerModal
-  open={showPhotoViewer}
-  title={viewerTitle}
-  photoUrl={viewerUrl}
-  nextPhotoUrl={viewerNextUrl}
-  on:close={() => (showPhotoViewer = false)}
-/>

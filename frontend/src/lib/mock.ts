@@ -11,9 +11,6 @@ export const mockProfile = {
   full_name: 'Test Student',
   role: 'admin',
   status: 'approved',
-  verification_status: 'verified',
-  id_photo_url: null,
-  selfie_url: null,
   verification_notes: null,
   rejection_reason: null,
   created_at: new Date().toISOString(),
@@ -40,8 +37,8 @@ export const mockSlots = [
 
 export const mockUsers = [
   mockProfile,
-  { id: 'mock-user-2', email: 'pending@unem.edu', student_id: 'S987654321', full_name: 'Pending Student', role: 'student', status: 'pending', verification_status: 'pending', id_photo_url: null, selfie_url: null, verification_notes: null, rejection_reason: null as string | null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: 'mock-user-3', email: 'student@unem.edu', student_id: 'S111222333', full_name: 'Regular Student', role: 'student', status: 'approved', verification_status: 'verified', id_photo_url: null, selfie_url: null, verification_notes: null, rejection_reason: null as string | null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+  { id: 'mock-user-2', email: 'pending@unem.edu', student_id: 'S987654321', full_name: 'Pending Student', role: 'student', status: 'pending', verification_notes: null, rejection_reason: null as string | null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+  { id: 'mock-user-3', email: 'student@unem.edu', student_id: 'S111222333', full_name: 'Regular Student', role: 'student', status: 'approved', verification_notes: null, rejection_reason: null as string | null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
 ]
 
 export function mockDelay(ms = 300) {
