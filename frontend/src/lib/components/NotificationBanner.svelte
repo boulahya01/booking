@@ -77,34 +77,32 @@
 {:else if notifications.length > 0}
   <div class="space-y-3">
     {#each notifications as notification (notification.key)}
-      <div class="relative rounded-xl p-4 pr-10 rtl:pr-4 rtl:pl-10 transition-all duration-300"
-           style="background: var(--info-light/40); box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12), inset 3px 0 0 var(--primary);">
+      <div class="group relative overflow-hidden rounded-xl bg-surface shadow-sm p-4 pe-10 rtl:pe-4 rtl:ps-10 transition-all duration-300"
+           style="border-left: 3px solid var(--primary);">
         <!-- Dismiss button -->
         <button
-          class="absolute top-3 end-3 p-1 rounded-full transition-colors"
-          style="color: var(--info);"
+          class="absolute top-3 end-3 p-1.5 rounded-lg hover:bg-surface-level-1 transition-colors"
           on:click={() => dismissNotification(notification.key)}
           title={$_('notification_banner.dismiss')}
         >
-          <Icon name="x" size={16} />
+          <Icon name="x" size={14} />
         </button>
 
         <!-- Content -->
         <div class="flex items-start gap-3">
           <div class="flex-shrink-0 mt-0.5">
-            <div class="w-8 h-8 rounded-full flex items-center justify-center"
-                 style="background: var(--info-light/60); color: var(--info);">
-              <Icon name="bell" size={16} />
+            <div class="w-9 h-9 rounded-lg flex items-center justify-center bg-primary-light/50 text-primary">
+              <Icon name="bell" size={18} />
             </div>
           </div>
           <div class="flex-1 min-w-0">
-            <h3 class="text-sm font-semibold" style="color: var(--info);">
+            <h3 class="text-sm font-semibold text-text">
               {isArabic ? notification.title_ar : notification.title_en}
             </h3>
-            <p class="text-sm mt-1 whitespace-pre-wrap" style="color: var(--text-secondary);">
+            <p class="text-sm mt-0.5 leading-relaxed whitespace-pre-wrap text-text-secondary">
               {isArabic ? notification.message_ar : notification.message_en}
             </p>
-            <p class="text-xs mt-2" style="color: var(--text-muted);">
+            <p class="text-xs mt-2 text-text-muted">
               {new Date(notification.created_at).toLocaleDateString(isArabic ? 'ar' : 'en', { month: 'short', day: 'numeric', year: 'numeric' })}
             </p>
           </div>

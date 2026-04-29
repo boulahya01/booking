@@ -18,6 +18,18 @@
   let formData = { name: '', location: '', sport_type: '', capacity: 10, open_time: '08:00', close_time: '18:00', sort_order: 0, booking_frequency_enabled: false, booking_frequency_days: 7 }
   let error = ''
 
+  // Normalize time from DB (HH:mm:ss) to input format (HH:mm), handling 24:00
+  function normalizeTime(time: string): string {
+    if (!time) return '08:00'
+    const t = time.slice(0, 5) // strip seconds
+    return t.startsWith('24:') ? '00:00' : t
+  }
+
+  // Convert back to DB format on save: 00:00 with open time before it means midnight
+  function toDbCloseTime(open: string, close: string): string {
+    return close === '00:00' && open !== '00:00' ? '24:00' : close
+  }
+
   onMount(async () => {
     await checkAdmin()
     await loadPitches()
@@ -55,7 +67,11 @@
 
   function openEditForm(pitch: any) {
     editingId = pitch.id
-    formData = { ...pitch }
+    formData = {
+      ...pitch,
+      open_time: normalizeTime(pitch.open_time),
+      close_time: normalizeTime(pitch.close_time)
+    }
     showForm = true
   }
 
@@ -66,15 +82,20 @@
       return
     }
 
+    const payload = {
+      ...formData,
+      close_time: toDbCloseTime(formData.open_time, formData.close_time)
+    }
+
     try {
       if (USE_MOCK) {
         await mockDelay()
         if (editingId) {
           const p = mockPitches.find(x => x.id === editingId)
-          if (p) Object.assign(p, formData)
+          if (p) Object.assign(p, payload)
           uiState.addToast($_('admin.pitch_updated'), 'success')
         } else {
-          const newPitch = { ...formData, id: 'mock-pitch-' + Date.now(), created_at: new Date().toISOString() }
+          const newPitch = { ...payload, id: 'mock-pitch-' + Date.now(), created_at: new Date().toISOString() }
           mockPitches.push(newPitch)
           uiState.addToast($_('admin.pitch_created'), 'success')
         }
@@ -84,11 +105,11 @@
       }
 
       if (editingId) {
-        const { error: err } = await supabase.from('pitches').update(formData).eq('id', editingId)
+        const { error: err } = await supabase.from('pitches').update(payload).eq('id', editingId)
         if (err) { error = $_('admin.pitch_update_failed'); return }
         uiState.addToast($_('admin.pitch_updated'), 'success')
       } else {
-        const { error: err } = await supabase.from('pitches').insert([formData])
+        const { error: err } = await supabase.from('pitches').insert([payload])
         if (err) { error = $_('admin.pitch_create_failed'); return }
         uiState.addToast($_('admin.pitch_created'), 'success')
       }
@@ -115,6 +136,9 @@
     if (!err) {
       uiState.addToast($_('admin.pitch_deleted'), 'success')
       await loadPitches()
+    } else if (err.code === '23503') {
+      // Foreign key constraint violation — pitch has bookings
+      uiState.addToast('Cannot delete this pitch because it has existing bookings. Cancel or complete all bookings first.', 'error')
     } else {
       uiState.addToast($_('admin.pitch_delete_failed'), 'error')
     }
@@ -204,7 +228,7 @@
                   </span>
                   |
                 {/if}
-                {pitch.open_time} - {pitch.close_time} | {$_('admin.capacity_label')}: {pitch.capacity}
+                {normalizeTime(pitch.open_time)} - {pitch.close_time === '24:00' || pitch.close_time === '24:00:00' ? '00:00 (Midnight)' : normalizeTime(pitch.close_time)} | {$_('admin.capacity_label')}: {pitch.capacity}
               </p>
               {#if pitch.booking_frequency_enabled}
                 <p class="text-xs text-text-muted mt-1">

@@ -91,8 +91,19 @@
       const startTime = new Date(slot.datetime_start)
       const endTime = new Date(startTime.getTime() + 60 * 60 * 1000)
 
-      // Use the security definer RPC function - validates approval, pitch existence,
-      // past slots, duplicates, and booking frequency server-side
+      console.log('[BookingModal] Booking params:')
+      console.log('  p_pitch_id:', slot.pitch_id)
+      console.log('  p_slot_datetime:', slot.datetime_start)
+      console.log('  p_slot_datetime_end:', endTime.toISOString())
+      console.log('  startTime local:', startTime.toLocaleString())
+      console.log('  startTime UTC:', startTime.toUTCString())
+      console.log('  NOW:', new Date().toISOString())
+      console.log('  Is slot in past?:', startTime < new Date())
+
+      const { data: { session } } = await supabase.auth.getSession()
+      console.log('[BookingModal] Session:', session?.access_token ? 'exists' : 'NO SESSION')
+
+      // Use the security definer RPC function
       const { data, error: bookingErr } = await supabase.rpc('create_booking_with_approval', {
         p_pitch_id: slot.pitch_id,
         p_slot_datetime: slot.datetime_start,
@@ -100,6 +111,9 @@
       })
 
       if (bookingErr) {
+        console.error('[BookingModal] FULL RPC error:', bookingErr)
+        console.error('[BookingModal] Error details:', JSON.stringify(bookingErr, null, 2))
+
         // Show user-friendly error messages
         if (bookingErr.message?.includes('already have an active booking')) {
           error = 'You already have an active booking for this time slot.'
