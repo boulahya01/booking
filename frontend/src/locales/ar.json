@@ -75,7 +75,9 @@
     "hint_password_uppercase": "حرف كبير واحد على الأقل (A-Z)",
     "hint_password_number": "رقم واحد على الأقل (0-9)",
     "hint_password_special": "رمز خاص واحد على الأقل (!@#$%^&*)",
-    "hint_password_match": "يجب أن تتطابق كلمتا المرور"
+    "hint_password_match": "يجب أن تتطابق كلمتا المرور",
+    "checking_email": "جارٍ التحقق من البريد...",
+    "checking_student_id": "جارٍ التحقق من رقم الطالب..."
   },
   "forgot_password": {
     "title": "نسيت كلمة المرور",

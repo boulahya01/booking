@@ -9,6 +9,7 @@
   import { _ } from 'svelte-i18n'
   import { isValidEmail, isValidStudentId, isValidPassword } from '$lib/utils/cn'
   import { sanitizeInput, sanitizeName, sanitizeStudentId } from '$lib/validation'
+  import { supabase } from '$lib/supabaseClient'
 
   let fullName = ''
   let email = ''
@@ -17,6 +18,12 @@
   let confirmPassword = ''
   let submitError = ''
   let loading = false
+
+  // Duplicate check state
+  let emailDuplicateError = ''
+  let studentIdDuplicateError = ''
+  let checkingEmail = false
+  let checkingStudentId = false
 
   // Password validation state
   let passwordFocused = false
@@ -56,6 +63,50 @@
   $: fullNameValid = fullName.trim().length >= 2
   $: fullNameTouched = fullName.length > 0 && !fullNameFocused
 
+  async function checkEmailDuplicate(value: string): Promise<string> {
+    if (!value || !isValidEmail(value)) return ''
+    const { data, error } = await supabase
+      .rpc('check_registration_duplicate', {
+        p_email: value.toLowerCase().trim(),
+        p_student_id: ''
+      })
+    if (error) return ''
+    return (data === 'email' || data === 'both') ? $_('register.error_email_exists') : ''
+  }
+
+  async function checkStudentIdDuplicate(value: string): Promise<string> {
+    if (!value || !isValidStudentId(value)) return ''
+    const normalized = value.replace(/\s+/g, '').toUpperCase()
+    const { data, error } = await supabase
+      .rpc('check_registration_duplicate', {
+        p_email: '',
+        p_student_id: normalized
+      })
+    if (error) return ''
+    return (data === 'student_id' || data === 'both') ? $_('register.error_student_id_exists') : ''
+  }
+
+  async function handleEmailBlur() {
+    emailFocused = false
+    emailDuplicateError = ''
+    if (email && isValidEmail(email) && email.endsWith('@usmba.ac.ma')) {
+      checkingEmail = true
+      emailDuplicateError = await checkEmailDuplicate(email)
+      checkingEmail = false
+    }
+  }
+
+  async function handleStudentIdBlur() {
+    studentIdFocused = false
+    studentIdDuplicateError = ''
+    const normalized = studentId.toUpperCase()
+    if (studentId && isValidStudentId(normalized)) {
+      checkingStudentId = true
+      studentIdDuplicateError = await checkStudentIdDuplicate(normalized)
+      checkingStudentId = false
+    }
+  }
+
   function validate(): boolean {
     if (!fullName || !email || !studentId || !password || !confirmPassword) {
       return false
@@ -83,11 +134,31 @@
 
     loading = true
     submitError = ''
+    emailDuplicateError = ''
+    studentIdDuplicateError = ''
     try {
       const cleanFullName = sanitizeName(fullName)
       const cleanEmail = sanitizeInput(email).trim().toLowerCase()
       const cleanStudentId = sanitizeStudentId(studentId).toUpperCase()
       const cleanPassword = sanitizeInput(password)
+
+      // Pre-submit duplicate check as a safety net (single RPC call)
+      const { data: dupType, error } = await supabase
+        .rpc('check_registration_duplicate', {
+          p_email: cleanEmail,
+          p_student_id: cleanStudentId
+        })
+      if (error) {
+        // RPC failed silently, proceed with registration (DB will catch duplicates)
+      } else if (dupType === 'email' || dupType === 'both') {
+        emailDuplicateError = $_('register.error_email_exists')
+        submitError = $_('register.error_email_exists')
+        return
+      } else if (dupType === 'student_id' || dupType === 'both') {
+        studentIdDuplicateError = $_('register.error_student_id_exists')
+        submitError = $_('register.error_student_id_exists')
+        return
+      }
 
       const result = await register(cleanEmail, cleanPassword, cleanStudentId, cleanFullName)
       if (result.error) {
@@ -97,7 +168,14 @@
       uiState.addToast($_('register.created'), 'success')
       await goto('/verify-email')
     } catch (err: any) {
-      submitError = err?.message || $_('register.error_registration_failed')
+      const msg = err?.message?.toLowerCase() || ''
+      if (msg.includes('profiles_student_id_key') || (msg.includes('duplicate') && msg.includes('student'))) {
+        submitError = $_('register.error_student_id_exists')
+      } else if (msg.includes('user already registered') || (msg.includes('duplicate') && msg.includes('email'))) {
+        submitError = $_('register.error_email_exists')
+      } else {
+        submitError = err?.message || $_('register.error_registration_failed')
+      }
     } finally {
       loading = false
     }
@@ -165,11 +243,16 @@
             placeholder={$_('register.email_placeholder')}
             bind:value={email}
             disabled={loading}
-            error={email.length > 0 && (!emailValid || !emailUsmba) ? (emailValid && !emailUsmba ? $_('register.error_invalid_email_domain') : $_('register.error_invalid_email')) : ''}
-            on:focus={() => emailFocused = true}
-            on:blur={() => emailFocused = false}
+            error={emailDuplicateError || (email.length > 0 && (!emailValid || !emailUsmba) ? (emailValid && !emailUsmba ? $_('register.error_invalid_email_domain') : $_('register.error_invalid_email')) : '')}
+            on:focus={() => { emailFocused = true; emailDuplicateError = '' }}
+            on:blur={handleEmailBlur}
           />
-          {#if emailFocused || (emailTouched && (!emailValid || !emailUsmba))}
+          {#if checkingEmail}
+            <div class="flex items-center gap-2 text-xs px-1">
+              <Icon name="loader" size={14} className="text-text-muted animate-spin" />
+              <span class="text-text-muted">{$_('register.checking_email')}</span>
+            </div>
+          {:else if emailFocused || (emailTouched && (!emailValid || !emailUsmba))}
             <div class="space-y-1 px-1">
               <div class="flex items-center gap-2 text-xs">
                 <Icon name={emailValid ? 'check' : 'x'} size={14} className={emailValid ? 'text-success' : 'text-text-muted'} />
@@ -194,11 +277,16 @@
             placeholder={$_('register.student_id_placeholder')}
             bind:value={studentId}
             disabled={loading}
-            error={studentId.length > 0 && !studentIdValid ? $_('register.error_invalid_student') : ''}
-            on:focus={() => studentIdFocused = true}
-            on:blur={() => studentIdFocused = false}
+            error={studentIdDuplicateError || (studentId.length > 0 && !studentIdValid ? $_('register.error_invalid_student') : '')}
+            on:focus={() => { studentIdFocused = true; studentIdDuplicateError = '' }}
+            on:blur={handleStudentIdBlur}
           />
-          {#if studentIdFocused || (studentIdTouched && !studentIdValid)}
+          {#if checkingStudentId}
+            <div class="flex items-center gap-2 text-xs px-1">
+              <Icon name="loader" size={14} className="text-text-muted animate-spin" />
+              <span class="text-text-muted">{$_('register.checking_student_id')}</span>
+            </div>
+          {:else if studentIdFocused || (studentIdTouched && !studentIdValid)}
             <div class="space-y-1 px-1">
               <div class="flex items-center gap-2 text-xs">
                 <Icon name={studentIdFormat ? 'check' : 'x'} size={14} className={studentIdFormat ? 'text-success' : 'text-text-muted'} />

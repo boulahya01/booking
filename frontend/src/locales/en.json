@@ -75,7 +75,9 @@
     "hint_password_uppercase": "At least one uppercase letter (A-Z)",
     "hint_password_number": "At least one number (0-9)",
     "hint_password_special": "At least one special character (!@#$%^&*)",
-    "hint_password_match": "Passwords must match"
+    "hint_password_match": "Passwords must match",
+    "checking_email": "Checking email...",
+    "checking_student_id": "Checking student ID..."
   },
   "forgot_password": {
     "title": "Forgot Password",
