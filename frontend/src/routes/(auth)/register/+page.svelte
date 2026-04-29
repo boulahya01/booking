@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
-  import { register } from '$lib/auth'
+  import { register, mapAuthError } from '$lib/auth'
   import { uiState, language } from '$lib/stores/ui'
   import TextField from '$lib/components/TextField.svelte'
   import Button from '$lib/components/Button.svelte'
@@ -168,14 +168,7 @@
       uiState.addToast($_('register.created'), 'success')
       await goto('/verify-email')
     } catch (err: any) {
-      const msg = err?.message?.toLowerCase() || ''
-      if (msg.includes('profiles_student_id_key') || (msg.includes('duplicate') && msg.includes('student'))) {
-        submitError = $_('register.error_student_id_exists')
-      } else if (msg.includes('user already registered') || (msg.includes('duplicate') && msg.includes('email'))) {
-        submitError = $_('register.error_email_exists')
-      } else {
-        submitError = err?.message || $_('register.error_registration_failed')
-      }
+      submitError = mapAuthError(err?.message, err?.status)
     } finally {
       loading = false
     }

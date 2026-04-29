@@ -49,49 +49,111 @@ export async function register(
     })
 
     if (error) {
-      const msg = error.message?.toLowerCase() || ''
-
-      // Duplicate email or user already registered
-      if (
-        msg.includes('user already registered') ||
-        msg.includes('duplicate') && msg.includes('email') ||
-        msg.includes('email') && msg.includes('already')
-      ) {
-        return { data, error: { message: t('register.error_email_exists') } }
-      }
-
-      // Database error from trigger (profile insert failure) — usually duplicate student_id
-      if (
-        msg.includes('database error') ||
-        msg.includes('profiles_student_id_key') ||
-        msg.includes('duplicate key') && msg.includes('student') ||
-        (msg.includes('constraint') && msg.includes('student'))
-      ) {
-        return { data, error: { message: t('register.error_student_id_exists') } }
-      }
-
-      // Generic 500 / server error
-      if (msg.includes('500') || msg.includes('internal server error')) {
-        return { data, error: { message: t('register.error_support_contact') } }
-      }
-
-      return { data, error: { message: error.message } }
+      return { data, error: { message: mapAuthError(error.message, error.status) } }
     }
 
     return { data, error: undefined }
   } catch (err: any) {
-    const msg = err.message?.toLowerCase() || ''
-
-    if (msg.includes('profiles_student_id_key') || (msg.includes('duplicate') && msg.includes('student'))) {
-      return { error: { message: t('register.error_student_id_exists') } }
-    }
-
-    if (msg.includes('user already registered') || (msg.includes('duplicate') && msg.includes('email'))) {
-      return { error: { message: t('register.error_email_exists') } }
-    }
-
-    return { error: { message: t('register.error_support_contact') } }
+    const msg = err?.message || ''
+    return { error: { message: mapAuthError(msg, err?.status) } }
   }
+}
+
+/**
+ * Map Supabase auth errors to user-friendly translated messages.
+ * Covers: duplicate email, duplicate student_id (from trigger),
+ * domain violations, rate limits, weak passwords, network errors.
+ */
+export function mapAuthError(message: string, status?: number): string {
+  if (!message) return t('register.error_registration_failed')
+
+  const lower = message.toLowerCase()
+
+  // --- Duplicate email (Supabase auth layer) ---
+  if (
+    lower.includes('user already registered') ||
+    (lower.includes('duplicate') && lower.includes('email')) ||
+    (lower.includes('email') && lower.includes('already')) ||
+    (lower.includes('already been registered'))
+  ) {
+    return t('register.error_email_exists')
+  }
+
+  // --- Duplicate student_id (from DB trigger) ---
+  if (
+    lower.includes('student id is already registered') ||
+    lower.includes('student_id is already registered') ||
+    lower.includes('profiles_student_id_key') ||
+    (lower.includes('duplicate') && lower.includes('student')) ||
+    (lower.includes('unique') && lower.includes('student')) ||
+    (lower.includes('duplicate key') && lower.includes('student_id')) ||
+    (lower.includes('constraint') && lower.includes('student')) ||
+    lower.includes('this student id is already')
+  ) {
+    return t('register.error_student_id_exists')
+  }
+
+  // --- Domain violation (from DB trigger) ---
+  if (
+    lower.includes('usmba') ||
+    lower.includes('university email') ||
+    lower.includes('domain not allowed') ||
+    lower.includes('check_violation')
+  ) {
+    return t('register.error_invalid_email_domain')
+  }
+
+  // --- Weak password ---
+  if (
+    lower.includes('password') && (
+      lower.includes('should be') ||
+      lower.includes('too short') ||
+      lower.includes('weak') ||
+      lower.includes('length')
+    )
+  ) {
+    return t('register.error_password_short')
+  }
+
+  // --- Rate limiting ---
+  if (
+    lower.includes('rate limit') ||
+    lower.includes('too many requests') ||
+    lower.includes('security purposes') ||
+    lower.includes('for security') ||
+    status === 429
+  ) {
+    return t('verify_email.resend_error_rate_limit')
+  }
+
+  // --- Network / connection errors ---
+  if (
+    lower.includes('fetcherror') ||
+    lower.includes('network') ||
+    lower.includes('connection') ||
+    lower.includes('failed to fetch')
+  ) {
+    return t('register.error_support_contact')
+  }
+
+  // --- Generic 500 / server error ---
+  if (
+    lower.includes('500') ||
+    lower.includes('internal server error') ||
+    lower.includes('database error') ||
+    status === 500
+  ) {
+    return t('register.error_support_contact')
+  }
+
+  // --- Fallback: return original message if it looks like a real error ---
+  // But wrap known raw Postgres error codes
+  if (lower.includes('23505') || lower.includes('unique_violation')) {
+    return t('register.error_student_id_exists')
+  }
+
+  // Default
+  return t('register.error_registration_failed')
 }
 
 export async function loginWithEmail(email: string, password: string): Promise<AuthResponse> {
