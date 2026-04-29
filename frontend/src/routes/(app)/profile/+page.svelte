@@ -27,6 +27,19 @@
   let error = ''
   let message = ''
   let saving = false
+  let showPasswordHints = false
+
+  // Password validation checks
+  $: passwordLength = newPassword.length >= 8
+  $: passwordNumber = /\d/.test(newPassword)
+  $: passwordSpecial = /[!@#$%^&*()-+]/.test(newPassword)
+  $: passwordUppercase = /[A-Z]/.test(newPassword)
+  $: passwordAllMet = passwordLength && passwordNumber && passwordSpecial && passwordUppercase
+
+  function checkMark(valid: boolean, active: boolean) {
+    if (!active) return 'text-text-muted'
+    return valid ? 'text-success' : 'text-text-muted'
+  }
 
   onMount(async () => {
     await loadProfile()
@@ -266,8 +279,8 @@
         {getInitials(profile.full_name)}
       </div>
       <div>
-        <h1 class="text-2xl font-serif font-medium" style="color: var(--text);">{profile.full_name}</h1>
-        <p class="text-sm" style="color: var(--text-secondary);">{email}</p>
+        <h1 class="text-2xl font-serif font-medium" style="color: var(--text);">{profile.full_name.replace(/\b\w/g, (c: string) => c.toUpperCase())}</h1>
+        <p class="text-sm break-all max-w-[280px] sm:max-w-none" style="color: var(--text-secondary);">{email}</p>
         <div class="flex items-center gap-2 mt-1.5">
           <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold border" style={statusStyle}>
             {profile.status === 'approved' ? 'Approved' : profile.status === 'pending' ? 'Pending' : profile.status === 'rejected' ? 'Rejected' : profile.status}
@@ -336,11 +349,11 @@
             <div class="space-y-0">
               <div class="flex justify-between items-center py-2.5" style="border-bottom: 1px solid var(--border);">
                 <span class="text-sm" style="color: var(--text-muted);">{$_('profile.full_name_label')}</span>
-                <span class="font-medium" style="color: var(--text);">{profile.full_name}</span>
+                <span class="font-medium max-w-[180px] truncate" style="color: var(--text);">{profile.full_name.replace(/\b\w/g, (c: string) => c.toUpperCase())}</span>
               </div>
               <div class="flex justify-between items-center py-2.5" style="border-bottom: 1px solid var(--border);">
                 <span class="text-sm" style="color: var(--text-muted);">{$_('profile.email_label')}</span>
-                <span class="font-medium" style="color: var(--text);">{email}</span>
+                <span class="font-medium max-w-[180px] truncate" style="color: var(--text);">{email}</span>
               </div>
               <div class="flex justify-between items-center py-2.5" style="border-bottom: 1px solid var(--border);">
                 <span class="text-sm" style="color: var(--text-muted);">{$_('profile.student_id_label')}</span>
@@ -371,13 +384,46 @@
               </div>
             {/if}
             <div class="space-y-4">
-              <TextField label={$_('reset_password.new_password_label')} type="password" bind:value={newPassword} disabled={saving} />
+              <div class="space-y-1.5">
+                <TextField label={$_('reset_password.new_password_label')} type="password" bind:value={newPassword} disabled={saving}
+                  on:focus={() => showPasswordHints = true}
+                  on:blur={() => showPasswordHints = newPassword.length === 0} />
+                {#if showPasswordHints}
+                  <div class="bg-surface-level-1/50 rounded-lg p-3 space-y-1.5">
+                    <p class="text-xs font-medium text-text-secondary mb-2">{$_('register.password_requirements')}</p>
+                    <div class="flex items-center gap-2 text-xs">
+                      <Icon name={passwordLength ? 'check' : 'x'} size={14} className={checkMark(passwordLength, newPassword.length > 0)} />
+                      <span class={passwordLength ? 'text-success' : 'text-text-secondary'}>
+                        {$_('register.hint_password_length')}
+                      </span>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs">
+                      <Icon name={passwordUppercase ? 'check' : 'x'} size={14} className={checkMark(passwordUppercase, newPassword.length > 0)} />
+                      <span class={passwordUppercase ? 'text-success' : 'text-text-secondary'}>
+                        {$_('register.hint_password_uppercase')}
+                      </span>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs">
+                      <Icon name={passwordNumber ? 'check' : 'x'} size={14} className={checkMark(passwordNumber, newPassword.length > 0)} />
+                      <span class={passwordNumber ? 'text-success' : 'text-text-secondary'}>
+                        {$_('register.hint_password_number')}
+                      </span>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs">
+                      <Icon name={passwordSpecial ? 'check' : 'x'} size={14} className={checkMark(passwordSpecial, newPassword.length > 0)} />
+                      <span class={passwordSpecial ? 'text-success' : 'text-text-secondary'}>
+                        {$_('register.hint_password_special')}
+                      </span>
+                    </div>
+                  </div>
+                {/if}
+              </div>
               <TextField label={$_('reset_password.confirm_password_label')} type="password" bind:value={confirmPassword} disabled={saving} />
               <div class="flex gap-3 pt-1">
                 <Button variant="primary" size="md" loading={saving} className="flex-1" on:click={changePassword}>
                   {saving ? $_('profile.update_password_saving') : $_('common.save')}
                 </Button>
-                <Button variant="secondary" size="md" disabled={saving} className="flex-1" on:click={() => { editingPassword = false; error = '' }}>
+                <Button variant="secondary" size="md" disabled={saving} className="flex-1" on:click={() => { editingPassword = false; error = ''; newPassword = ''; confirmPassword = ''; showPasswordHints = false }}>
                   {$_('common.cancel')}
                 </Button>
               </div>

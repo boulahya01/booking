@@ -56,7 +56,7 @@
         </h1>
         {#if $authState.user?.full_name}
           <p class="text-sm" style="color: var(--text-secondary);">
-            {$_('home.welcome_back')}, {$authState.user.full_name}
+            {$_('home.welcome_back')}, {$authState.user.full_name.replace(/\b\w/g, (c: string) => c.toUpperCase())}
           </p>
         {/if}
       </div>
@@ -70,7 +70,7 @@
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-serif font-medium" style="color: var(--text);">{$_('home.available_pitches')}</h2>
         {#if !pitchesLoading}
-          <span class="text-xs font-medium uppercase tracking-wider" style="color: var(--text-muted);">{pitches.length} {$_('home.pitches_count')}</span>
+          <span class="text-xs text-text-muted">{pitches.length} {$_('home.pitches_count')}</span>
         {/if}
       </div>
 

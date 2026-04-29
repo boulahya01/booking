@@ -28,11 +28,13 @@
       }
       loading = true
       try {
+        const now = new Date().toISOString()
         const { data, error } = await supabase
           .from('bookings')
           .select('id,pitch_id,slot_datetime,status')
           .eq('user_id', u.id)
           .eq('status', 'active')
+          .gt('slot_datetime', now)
           .order('slot_datetime', { ascending: true })
           .limit(1)
 
@@ -99,11 +101,12 @@
       <!-- Empty icon -->
       <div class="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
            style="background: var(--surface-level-1); color: var(--text-muted);">
-        <Icon name="calendar-days" size={24} />
+        <Icon name="calendar-x" size={24} />
       </div>
       <!-- Info -->
       <div class="flex-1 min-w-0">
-        <p class="font-semibold" style="color: var(--text);">{$_('home.no_bookings')}</p>
+        <p class="font-semibold" style="color: var(--text);">{$_('home.no_upcoming_bookings')}</p>
+        <p class="text-sm" style="color: var(--text-muted);">{$_('home.no_upcoming_bookings_hint')}</p>
       </div>
     </div>
   {/if}

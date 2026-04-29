@@ -19,16 +19,19 @@
     adminOnly?: boolean
   }
 
-  const navItems: NavItem[] = [
+  const regularItems: NavItem[] = [
     { labelKey: 'nav.home', href: '/home', icon: 'home' },
     { labelKey: 'nav.bookings', href: '/bookings', icon: 'calendar-days' },
     { labelKey: 'nav.profile', href: '/profile', icon: 'user' },
-    { labelKey: 'nav.notifications', href: '/notifications', icon: 'bell' },
-    { labelKey: 'nav.all_bookings', href: '/admin/bookings', icon: 'calendar-check', adminOnly: true },
-    { labelKey: 'nav.manage_pitches', href: '/admin/pitches', icon: 'map-pin', adminOnly: true },
-    { labelKey: 'nav.manage_users', href: '/admin/manage-users', icon: 'users', adminOnly: true },
-    { labelKey: 'nav.notifications_admin', href: '/admin/notifications', icon: 'bell-dot', adminOnly: true },
-    { labelKey: 'nav.admin', href: '/admin/users', icon: 'shield', adminOnly: true }
+    { labelKey: 'nav.notifications', href: '/notifications', icon: 'bell' }
+  ]
+
+  const adminItems: NavItem[] = [
+    { labelKey: 'nav.all_bookings', href: '/admin/bookings', icon: 'calendar-check' },
+    { labelKey: 'nav.manage_pitches', href: '/admin/pitches', icon: 'map-pin' },
+    { labelKey: 'nav.manage_users', href: '/admin/manage-users', icon: 'users' },
+    { labelKey: 'nav.notifications_admin', href: '/admin/notifications', icon: 'bell-dot' },
+    { labelKey: 'nav.admin', href: '/admin/users', icon: 'shield' }
   ]
 
   function isActive(href: string): boolean {
@@ -93,8 +96,32 @@
 
     <!-- Navigation Links -->
     <div class="flex-1 overflow-y-auto py-3">
-      {#each navItems as item}
-        {#if !item.adminOnly || $isAdmin}
+      <!-- Regular items -->
+      {#each regularItems as item}
+        <button
+          on:click={() => navigate(item.href)}
+          class={cn(
+            'w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors',
+            isActive(item.href)
+              ? 'text-primary bg-primary-light'
+              : 'text-text-secondary hover:text-text hover:bg-surface-level-1'
+          )}
+          aria-label={$_(item.labelKey)}
+        >
+          <Icon name={item.icon} size={20} strokeWidth={isActive(item.href) ? 2.5 : 2} />
+          <span>{$_(item.labelKey)}</span>
+        </button>
+      {/each}
+
+      <!-- Admin section -->
+      {#if $isAdmin}
+        <div class="flex items-center gap-3 px-5 py-3 mt-1">
+          <div class="flex-1 h-[1px] bg-border/60"></div>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-text-muted/70">Admin</span>
+          <div class="flex-1 h-[1px] bg-border/60"></div>
+        </div>
+
+        {#each adminItems as item}
           <button
             on:click={() => navigate(item.href)}
             class={cn(
@@ -108,8 +135,8 @@
             <Icon name={item.icon} size={20} strokeWidth={isActive(item.href) ? 2.5 : 2} />
             <span>{$_(item.labelKey)}</span>
           </button>
-        {/if}
-      {/each}
+        {/each}
+      {/if}
     </div>
 
     <!-- Footer Actions -->

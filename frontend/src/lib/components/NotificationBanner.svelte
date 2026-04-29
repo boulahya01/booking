@@ -77,11 +77,16 @@
 {:else if notifications.length > 0}
   <div class="space-y-3">
     {#each notifications as notification (notification.key)}
-      <div class="group relative overflow-hidden rounded-xl bg-surface shadow-sm p-4 pe-10 rtl:pe-4 rtl:ps-10 transition-all duration-300"
-           style="border-left: 3px solid var(--primary);">
+      <div class="group relative overflow-hidden rounded-xl bg-gradient-to-br from-primary-light/30 via-surface to-surface shadow-md hover:shadow-lg transition-all duration-300">
+        <!-- Decorative glow -->
+        <div class="absolute -top-4 -start-4 w-20 h-20 rounded-full bg-primary/10 blur-xl"></div>
+
+        <!-- Accent bar -->
+        <div class="absolute inset-y-0 start-0 w-1 bg-gradient-to-b from-primary via-primary/80 to-primary/40"></div>
+
         <!-- Dismiss button -->
         <button
-          class="absolute top-3 end-3 p-1.5 rounded-lg hover:bg-surface-level-1 transition-colors"
+          class="absolute top-3 end-3 p-1.5 rounded-lg text-text-muted/60 hover:text-text hover:bg-surface-raised/60 transition-all duration-200"
           on:click={() => dismissNotification(notification.key)}
           title={$_('notification_banner.dismiss')}
         >
@@ -89,22 +94,27 @@
         </button>
 
         <!-- Content -->
-        <div class="flex items-start gap-3">
+        <div class="relative flex items-start gap-3.5 p-4 ps-5 rtl:ps-4 rtl:pe-5">
           <div class="flex-shrink-0 mt-0.5">
-            <div class="w-9 h-9 rounded-lg flex items-center justify-center bg-primary-light/50 text-primary">
+            <div class="relative w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5 text-primary shadow-sm">
+              <!-- Pulse ring -->
+              <span class="absolute inset-0 rounded-xl bg-primary/20 animate-ping opacity-40"></span>
               <Icon name="bell" size={18} />
             </div>
           </div>
           <div class="flex-1 min-w-0">
-            <h3 class="text-sm font-semibold text-text">
+            <h3 class="text-[15px] font-semibold text-text leading-snug">
               {isArabic ? notification.title_ar : notification.title_en}
             </h3>
-            <p class="text-sm mt-0.5 leading-relaxed whitespace-pre-wrap text-text-secondary">
+            <p class="text-sm mt-1 leading-relaxed whitespace-pre-wrap text-text-secondary">
               {isArabic ? notification.message_ar : notification.message_en}
             </p>
-            <p class="text-xs mt-2 text-text-muted">
-              {new Date(notification.created_at).toLocaleDateString(isArabic ? 'ar' : 'en', { month: 'short', day: 'numeric', year: 'numeric' })}
-            </p>
+            <div class="flex items-center gap-1.5 mt-2.5">
+              <div class="w-1 h-1 rounded-full bg-primary/40"></div>
+              <time class="text-xs text-text-muted">
+                {new Date(notification.created_at).toLocaleDateString(isArabic ? 'ar' : 'en', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </time>
+            </div>
           </div>
         </div>
       </div>

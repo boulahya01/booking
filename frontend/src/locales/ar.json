@@ -138,6 +138,8 @@
     "welcome_back": "مرحباً بعودتك",
     "next_booking": "الحجز القادم",
     "no_bookings": "لا توجد حجوزات قادمة",
+    "no_upcoming_bookings": "لا توجد حجوزات قادمة",
+    "no_upcoming_bookings_hint": "تصفح الملاعب المتاحة لحجز موعدك القادم",
     "book_something": "احجز ملعباً للبدء",
     "browse_pitches": "تصفح الملاعب",
     "available_pitches": "الملاعب المتاحة",
