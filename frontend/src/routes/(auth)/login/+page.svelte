@@ -70,8 +70,7 @@
       if (profile.status === 'rejected') {
         goto('/pending-approval')
       } else if (profile.status === 'pending') {
-        // Unverified users go to verify-email page
-        goto('/verify-email')
+        goto('/pending-approval')
       } else {
         goto('/home')
       }

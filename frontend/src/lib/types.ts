@@ -4,7 +4,6 @@ export type Profile = {
   full_name: string
   email?: string
   rejection_reason?: string | null
-  verification_notes?: string | null
   role: 'student' | 'admin' | 'moderator'
   status: 'pending' | 'approved' | 'rejected' | 'suspended'
   created_at: string

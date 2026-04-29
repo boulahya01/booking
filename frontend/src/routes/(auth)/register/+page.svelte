@@ -82,7 +82,7 @@
     if (!validate()) return
 
     loading = true
-    let submitError = ''
+    submitError = ''
     try {
       const cleanFullName = sanitizeName(fullName)
       const cleanEmail = sanitizeInput(email).trim().toLowerCase()
@@ -97,7 +97,7 @@
       uiState.addToast($_('register.created'), 'success')
       await goto('/verify-email')
     } catch (err: any) {
-      submitError = $_('register.error_registration_failed')
+      submitError = err?.message || $_('register.error_registration_failed')
     } finally {
       loading = false
     }
@@ -131,8 +131,18 @@
       </div>
 
       {#if submitError}
-        <div class="bg-danger-light border border-danger/20 text-danger p-3 rounded-lg text-sm">
-          {submitError}
+        <div class="bg-danger-light border border-danger/30 rounded-xl p-4 text-danger">
+          <div class="flex items-start gap-3">
+            <Icon name="alert-circle" size={20} className="text-danger flex-shrink-0 mt-0.5" />
+            <div>
+              <p class="font-medium text-sm">{submitError}</p>
+              {#if submitError.includes('sign in') || submitError.includes('تسجيل الدخول')}
+                <a href="/login" class="text-sm font-semibold mt-1 inline-block underline">
+                  {$_('login.sign_in')}
+                </a>
+              {/if}
+            </div>
+          </div>
         </div>
       {/if}
 

@@ -2,6 +2,21 @@ import { supabase } from './supabaseClient'
 import { USE_MOCK, mockProfile, mockDelay } from './mock'
 import type { Profile } from './types'
 import { logger } from './logger'
+import { get } from 'svelte/store'
+import { locale } from 'svelte-i18n'
+import en from '../locales/en.json'
+import ar from '../locales/ar.json'
+
+function t(key: string): string {
+  const currentLocale = get(locale) || 'en'
+  const dict = currentLocale === 'ar' ? ar : en
+  const parts = key.split('.')
+  let obj: any = dict
+  for (const p of parts) {
+    if (obj && typeof obj === 'object') obj = obj[p]
+  }
+  return typeof obj === 'string' ? obj : key
+}
 
 export interface AuthResponse {
   data?: any
@@ -23,20 +38,60 @@ export async function register(
     return { data: { user: { id: profile.id, email: profile.email }, profile } }
   }
 
-  const normalizedStudentId = studentId.replace(/\s+/g, '').toUpperCase()
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { student_id: normalizedStudentId, full_name: fullName }
+  try {
+    const normalizedStudentId = studentId.replace(/\s+/g, '').toUpperCase()
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { student_id: normalizedStudentId, full_name: fullName }
+      }
+    })
+
+    if (error) {
+      const msg = error.message?.toLowerCase() || ''
+
+      // Duplicate email or user already registered
+      if (
+        msg.includes('user already registered') ||
+        msg.includes('duplicate') && msg.includes('email') ||
+        msg.includes('email') && msg.includes('already')
+      ) {
+        return { data, error: { message: t('register.error_email_exists') } }
+      }
+
+      // Database error from trigger (profile insert failure) — usually duplicate student_id
+      if (
+        msg.includes('database error') ||
+        msg.includes('profiles_student_id_key') ||
+        msg.includes('duplicate key') && msg.includes('student') ||
+        (msg.includes('constraint') && msg.includes('student'))
+      ) {
+        return { data, error: { message: t('register.error_student_id_exists') } }
+      }
+
+      // Generic 500 / server error
+      if (msg.includes('500') || msg.includes('internal server error')) {
+        return { data, error: { message: t('register.error_support_contact') } }
+      }
+
+      return { data, error: { message: error.message } }
     }
-  })
 
-  if (error) {
-    logger.error('[register] supabase.auth.signUp error:', error)
+    return { data, error: undefined }
+  } catch (err: any) {
+    const msg = err.message?.toLowerCase() || ''
+
+    if (msg.includes('profiles_student_id_key') || (msg.includes('duplicate') && msg.includes('student'))) {
+      return { error: { message: t('register.error_student_id_exists') } }
+    }
+
+    if (msg.includes('user already registered') || (msg.includes('duplicate') && msg.includes('email'))) {
+      return { error: { message: t('register.error_email_exists') } }
+    }
+
+    return { error: { message: t('register.error_support_contact') } }
   }
-
-  return { data, error: error ? { message: error.message } : undefined }
 }
 
 export async function loginWithEmail(email: string, password: string): Promise<AuthResponse> {

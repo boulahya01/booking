@@ -43,14 +43,14 @@
       // Check auth before booking
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        error = 'Authentication required'
+        error = $_('common.error')
         return
       }
 
       // Check if user has verified their email (status='pending' means not verified yet)
       const userStatus = $authState.user?.status
       if (userStatus === 'pending') {
-        error = 'Please verify your email before booking. Check your inbox for the verification link.'
+        error = $_('verify_email.subtitle')
         return
       }
 
@@ -63,7 +63,7 @@
         .eq('status', 'active')
 
       if (activeErr) {
-        error = 'Failed to check existing bookings'
+        error = $_('common.error')
         return
       }
 
@@ -102,15 +102,15 @@
       if (bookingErr) {
         // Show user-friendly error messages
         if (bookingErr.message?.includes('already have an active booking')) {
-          error = 'You already booked this slot'
+          error = 'You already have an active booking for this time slot.'
         } else if (bookingErr.message?.includes('approved')) {
-          error = 'Your account must be approved before booking'
+          error = $_('pending.title')
         } else if (bookingErr.message?.includes('past')) {
-          error = 'Cannot book a slot in the past'
+          error = $_('pitch.no_slots')
         } else if (bookingErr.message?.includes('frequency')) {
           error = bookingErr.message
         } else {
-          error = bookingErr.message || 'Failed to create booking'
+          error = $_('common.error')
         }
         return
       }
@@ -120,7 +120,7 @@
       uiState.addToast($_('common.success'), 'success')
       onClose()
     } catch (e: any) {
-      error = 'An error occurred while creating your booking'
+      error = $_('common.error')
     } finally {
       loading = false
     }

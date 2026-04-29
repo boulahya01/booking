@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { goto } from '$app/navigation'
   import { supabase } from '$lib/supabaseClient'
   import Button from '$lib/components/Button.svelte'
   import LoadingSkeleton from '$lib/components/LoadingSkeleton.svelte'

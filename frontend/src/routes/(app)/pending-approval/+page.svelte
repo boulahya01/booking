@@ -73,8 +73,7 @@
       }
 
       const updateData: any = {
-        status: 'pending',
-        verification_notes: appealMessage || null
+        status: 'pending'
       }
 
       const { error: err } = await supabase
