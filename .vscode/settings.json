@@ -1,0 +1,23 @@
+{
+    "chat.mcp.serverSampling": {
+        "booking/.vscode/mcp.json: my-mcp-server-fa23f3fa": {
+            "allowedModels": [
+                "copilot/auto",
+                "copilotcli/claude-haiku-4.5",
+                "claude-code/claude-haiku-4.5",
+                "copilot/claude-haiku-4.5",
+                "gemini/Google/models/gemini-2.5-flash",
+                "gemini/Google/models/gemini-2.5-pro",
+                "gemini/Google/models/gemini-3-flash-preview",
+                "gemini/Google/models/gemini-3-pro-preview",
+                "gemini/Google/models/gemini-3.1-pro-preview",
+                "copilotcli/gpt-4.1",
+                "copilot/gpt-4.1",
+                "copilot/gpt-4o",
+                "copilotcli/gpt-5-mini",
+                "copilot/gpt-5-mini",
+                "copilot/oswe-vscode-prime"
+            ]
+        }
+    }
+}
