@@ -61,3 +61,5 @@ skills-lock.json
 # DESIGN-*.md
 # PROGRESS.md
 # SYSTEM-ARCHITECTURE.md
+.vercel
+supabase/.temp/
