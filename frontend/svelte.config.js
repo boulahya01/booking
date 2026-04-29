@@ -20,7 +20,7 @@ const config = {
         'style-src': ['self', 'unsafe-inline', 'https://fonts.googleapis.com'],
         'img-src': ['self', 'data:', 'https:', 'blob:'],
         'font-src': ['self', 'https://fonts.gstatic.com'],
-        'connect-src': ['self', 'https:', 'http://localhost:*', 'wss://'],
+        'connect-src': ['self', 'https:', 'http://localhost:*', 'wss://*.supabase.co'],
         'frame-ancestors': ['none']
       }
     }
