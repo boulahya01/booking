@@ -1,6 +1,6 @@
 {
   "buildCommand": "cd frontend && npm install && npm run build",
-  "outputDirectory": ".vercel/output",
+  "outputDirectory": "frontend/.vercel/output",
   "installCommand": "npm install",
   "crons": []
 }
