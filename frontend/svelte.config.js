@@ -8,7 +8,9 @@ const config = {
     csrf: {
       trustedOrigins: [
         'http://localhost:5173',
-        'https://test-bookings-two.vercel.app'
+        'https://test-bookings-two.vercel.app',
+        'https://uneem.site',
+        'https://www.uneem.site'
       ]
     },
     csp: {
