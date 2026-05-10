@@ -61,5 +61,12 @@ skills-lock.json
 # DESIGN-*.md
 # PROGRESS.md
 # SYSTEM-ARCHITECTURE.md
+
+# Local and experimental artifacts
+.idea/
 .vercel
 supabase/.temp/
+old-bad-frontend/
+frontend/project struct/
+db/next-app/
+*.prompt.md

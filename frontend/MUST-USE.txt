@@ -1,1 +1,0 @@
-https://www.skeleton.dev/docs/svelte/get-started/installation
