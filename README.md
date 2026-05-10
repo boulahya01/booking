@@ -16,6 +16,10 @@ A comprehensive sports facility booking platform built with modern web technolog
 
 ---
 
+> **Note**: This `dev` branch contains the current SvelteKit implementation. The `main` branch contains the previous React-based implementation. [View main branch](https://github.com/your-username/booking-system/tree/main) for the legacy codebase.
+
+---
+
 ## Overview
 
 This is a full-stack booking application designed for educational institutions to manage sports facility reservations. The platform enables students to book pitches while providing administrators with comprehensive management tools.
