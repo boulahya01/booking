@@ -14,14 +14,17 @@ The V2 initialization order is:
 
 1. `schema.sql`
 2. `002_security_contract.sql`
-3. `tests/booking_contract.sql`
-4. `tests/security_contract.sql`
+3. `003_onboarding_booking_rules.sql`
+4. `tests/booking_contract.sql`
+5. `tests/security_contract.sql`
 
-When the hosted V2 project is created, these schema layers should be recorded as the first real V2 migrations through the Supabase migration API/tooling rather than by replaying V1 history.
+When the hosted V2 project is created, the three schema layers should be recorded as the first real V2 migrations through the Supabase migration API/tooling rather than by replaying V1 history.
 
 ## Product rules represented here
 
 - new Auth users map one-to-one to `profiles`
+- application identities use the `@usmba.ac.ma` university email domain
+- Student IDs are normalized and validated server-side
 - email confirmation can move a pending account into the approved state
 - pending/suspended users retain their account/profile state but cannot browse shared facility availability
 - protected `student_id`, `role`, and `status` fields are not self-editable
@@ -30,6 +33,8 @@ When the hosted V2 project is created, these schema layers should be recorded as
 - no booking jobs / completion cron
 - bookings store `starts_at` / `ends_at`
 - completed state is derived from time
+- a student may hold only one active/upcoming scheduled booking at a time
+- concurrent booking attempts by the same user are serialized before that rule is checked
 - overlapping scheduled bookings for the same pitch are rejected by PostgreSQL
 - approved students can see booked-slot display names through the availability RPC
 - direct booking writes are not granted to clients; booking/cancellation use narrow RPCs
@@ -38,9 +43,10 @@ When the hosted V2 project is created, these schema layers should be recorded as
 
 ## Files
 
-- `schema.sql` — clean V2 schema, RLS and booking RPC baseline
+- `schema.sql` — clean V2 schema, RLS and core booking RPC baseline
 - `002_security_contract.sql` — approval boundary and safe self-profile mutation hardening
-- `tests/booking_contract.sql` — transactional booking behavior tests
+- `003_onboarding_booking_rules.sql` — university identity validation and one-active-booking race guard
+- `tests/booking_contract.sql` — transactional booking behavior tests against the final V2 rules
 - `tests/security_contract.sql` — transactional profile/approval boundary tests
 
 ## Zero-cost validation
@@ -52,6 +58,7 @@ For a free disposable Postgres/Supabase runtime:
 ```bash
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/schema.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/002_security_contract.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/003_onboarding_booking_rules.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/tests/booking_contract.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/tests/security_contract.sql
 ```
@@ -62,8 +69,9 @@ The contract suites cover:
 
 - successful booking creation
 - same-pitch overlap protection
+- one-active/upcoming-booking enforcement
 - peer display-name visibility
-- facility booking-frequency enforcement
+- facility booking-frequency enforcement after a previous booking is completed
 - blocking direct authenticated booking inserts
 - cancellation cutoff and successful cancellation
 - derived completed lifecycle without cron/jobs
