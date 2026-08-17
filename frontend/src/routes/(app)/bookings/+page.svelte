@@ -23,14 +23,14 @@
   async function fetchBookings() {
     loading = true
     error = null
-    
+
     if (USE_MOCK) {
       bookings = mockBookings
       applyFilter()
       loading = false
       return
     }
-    
+
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
@@ -51,18 +51,16 @@
           pitches (name, location)
         `)
         .eq('user_id', user.id)
+        .in('status', ['active', 'completed'])
         .order('slot_datetime', { ascending: false })
 
       if (fetchError) {
         error = fetchError.message
         return
       }
-      
-      if (data) {
-        // Only keep active and completed bookings
-        bookings = data.filter(b => b.status === 'active' || b.status === 'completed')
-        applyFilter()
-      }
+
+      bookings = data || []
+      applyFilter()
     } catch (e: any) {
       error = e.message || $_('common.error')
     } finally {
@@ -85,21 +83,27 @@
 
     if (USE_MOCK) {
       await mockDelay()
-      const b = bookings.find(x => x.id === id)
-      if (b) b.status = 'cancelled'
+      bookings = bookings.filter((booking) => booking.id !== id)
       applyFilter()
       uiState.addToast($_('common.success'), 'success')
       return
     }
 
-    const { error } = await supabase
+    const { error: cancelError } = await supabase
       .from('bookings')
       .update({ status: 'cancelled' })
       .eq('id', id)
 
-    if (!error) {
-      await fetchBookings()
+    if (cancelError) {
+      uiState.addToast($_('common.error'), 'error')
+      return
     }
+
+    // Keep the current list visible and update only the affected row instead of
+    // re-running auth + the complete booking-history query.
+    bookings = bookings.filter((booking) => booking.id !== id)
+    applyFilter()
+    uiState.addToast($_('common.success'), 'success')
   }
 
   function formatDate(dateString: string) {
@@ -140,7 +144,6 @@
     <p class="text-text-secondary text-sm">{$_('bookings.subtitle')}</p>
   </div>
 
-  <!-- Filter Pills -->
   <div class="flex gap-2 overflow-x-auto pb-2 mb-6 scrollbar-none">
     {#each filters as option}
       <button
@@ -199,13 +202,11 @@
         {@const endTime = booking.slot_datetime_end ? new Date(booking.slot_datetime_end).toLocaleTimeString($locale || 'en', { hour: '2-digit', minute: '2-digit', hour12: false }) : ''}
 
         <div class="group flex gap-4 p-4 rounded-xl bg-surface border border-border dark:border-white/6 shadow-xs hover:shadow-md transition-all">
-          <!-- Date Block -->
           <div class="flex-shrink-0 w-14 h-14 rounded-lg bg-primary-light flex flex-col items-center justify-center text-primary">
             <span class="text-[10px] font-semibold uppercase">{date.month}</span>
             <span class="text-lg font-bold leading-none">{date.day}</span>
           </div>
 
-          <!-- Content -->
           <div class="flex-1 min-w-0">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
@@ -228,7 +229,6 @@
             </div>
           </div>
 
-          <!-- Actions -->
           {#if booking.status === 'active'}
             <div class="flex-shrink-0 self-center">
               <button
