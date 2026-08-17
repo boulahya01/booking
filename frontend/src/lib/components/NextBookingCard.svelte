@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { user } from '$lib/stores/auth'
+  import { authState } from '$lib/stores/auth'
   import { supabase } from '$lib/supabaseClient'
   import { _ } from 'svelte-i18n'
   import { locale } from 'svelte-i18n'
@@ -9,6 +9,54 @@
 
   let booking: any = null
   let loading = true
+  let loadError = false
+  let requestVersion = 0
+  let currentUserId: string | null = null
+
+  async function loadNextBooking(userId: string) {
+    const version = ++requestVersion
+    currentUserId = userId
+    loadError = false
+    loading = booking === null
+
+    try {
+      const now = new Date().toISOString()
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('id,pitch_id,slot_datetime,status,pitches(name)')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .gt('slot_datetime', now)
+        .order('slot_datetime', { ascending: true })
+        .limit(1)
+
+      if (version !== requestVersion) return
+      if (error) throw error
+
+      if (data?.length) {
+        const row: any = data[0]
+        const relatedPitch = Array.isArray(row.pitches) ? row.pitches[0] : row.pitches
+        booking = {
+          id: row.id,
+          pitch_id: row.pitch_id,
+          slot_datetime: row.slot_datetime,
+          status: row.status,
+          pitch_name: relatedPitch?.name || row.pitch_id
+        }
+      } else {
+        booking = null
+      }
+    } catch {
+      if (version !== requestVersion) return
+      loadError = true
+    } finally {
+      if (version === requestVersion) loading = false
+    }
+  }
+
+  function retry() {
+    if (currentUserId) void loadNextBooking(currentUserId)
+  }
 
   onMount(() => {
     if (USE_MOCK) {
@@ -21,45 +69,27 @@
       return
     }
 
-    const unsub = user.subscribe(async (u) => {
-      if (!u) {
+    const unsubscribe = authState.subscribe((state) => {
+      if (state.loading) {
+        loading = true
+        return
+      }
+
+      if (!state.user?.id) {
+        requestVersion += 1
+        currentUserId = null
         booking = null
+        loadError = false
         loading = false
         return
       }
 
-      loading = true
-      try {
-        const now = new Date().toISOString()
-        const { data, error } = await supabase
-          .from('bookings')
-          .select('id,pitch_id,slot_datetime,status,pitches(name)')
-          .eq('user_id', u.id)
-          .eq('status', 'active')
-          .gt('slot_datetime', now)
-          .order('slot_datetime', { ascending: true })
-          .limit(1)
-
-        if (!error && data && data.length) {
-          const row: any = data[0]
-          const relatedPitch = Array.isArray(row.pitches) ? row.pitches[0] : row.pitches
-          booking = {
-            id: row.id,
-            pitch_id: row.pitch_id,
-            slot_datetime: row.slot_datetime,
-            status: row.status,
-            pitch_name: relatedPitch?.name || row.pitch_id
-          }
-        } else {
-          booking = null
-        }
-      } catch {
-        booking = null
+      if (state.user.id !== currentUserId || loadError) {
+        void loadNextBooking(state.user.id)
       }
-      loading = false
     })
 
-    return () => unsub()
+    return () => unsubscribe()
   })
 
   function formatBookingTime(dateString: string) {
@@ -79,9 +109,22 @@
        ? 'background: var(--primary-light/40); box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12);'
        : 'background: var(--surface-level-1/40); box-shadow: 0 0 0 1px var(--border);'}>
   {#if loading}
-    <div class="flex items-center gap-3" style="color: var(--text-muted);">
+    <div class="flex items-center gap-3" style="color: var(--text-muted);" aria-busy="true">
       <div class="w-10 h-10 rounded-full animate-pulse" style="background: var(--surface-level-1);"></div>
       <div class="h-4 w-32 animate-pulse rounded" style="background: var(--surface-level-1);"></div>
+    </div>
+  {:else if loadError}
+    <div class="flex items-center gap-4" role="alert">
+      <div class="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
+           style="background: var(--danger-light); color: var(--danger);">
+        <Icon name="alert-triangle" size={22} />
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="font-semibold" style="color: var(--text);">{$_('common.error')}</p>
+        <button type="button" on:click={retry} class="text-sm font-semibold mt-1 hover:underline" style="color: var(--primary);">
+          {$_('common.retry')}
+        </button>
+      </div>
     </div>
   {:else if booking}
     {@const time = formatBookingTime(booking.slot_datetime)}
