@@ -1,188 +1,96 @@
-# Booking V1 -> V2 Migration Plan
+# Booking V2 Fresh Deployment Plan
 
-Status: planning / read-only production audit complete
+Status: accepted reset strategy
 
-This document records the data-preservation and cutover rules for V2. It is intentionally separate from executable production migrations.
+V2 now targets a **new, clean Supabase project**. The previous Vercel-managed Supabase project is not treated as a migration source, and legacy Auth users / booking history are not requirements for launch.
 
-## Non-negotiable rule
+Users will register again in V2.
 
-V2 does not wipe production data.
+## Non-negotiable rules
 
-Existing authentication accounts, profile identities, facilities and booking history must be preserved or explicitly quarantined when the source data is inconsistent. No source row is silently discarded.
+- Do not replay the historical V1 migration directory into the new database.
+- Do not fabricate legacy Auth users, password hashes, profiles, or booking history.
+- Do not copy stale V1 RLS policies, Edge Functions, slot tables, booking jobs, or lifecycle cleanup code.
+- Do not spend money on Supabase branches or other validation infrastructure.
+- The database is created from the reviewed V2 contract only.
+- Once real V2 users/data exist, future schema changes are forward-only migrations.
 
-## Source audit snapshot
+## What the V1 audit is still useful for
 
-Read-only audit of the production `BOOKING` Supabase project on 2026-08-17:
+The 2026-08-17 audit remains useful as engineering evidence, not migration input. It showed the problems V2 must avoid:
 
-| Entity | Count |
-| --- | ---: |
-| Auth users | 63 |
-| Profiles | 62 |
-| Facilities | 5 |
-| Bookings | 109 |
-| Persistent slots | 0 |
-| Booking jobs | 0 |
+- Auth/profile drift
+- duplicated RLS generations
+- repository/production migration drift
+- stale `active` booking lifecycle state
+- slot/job lifecycle complexity
+- availability routed through an Edge Function
+- unnecessary client request waterfalls
 
-### Profile/auth state
+The old row counts and identities are **not** V2 acceptance criteria anymore.
 
-- 44 profiles are `approved`; all 44 belong to email-confirmed Auth users.
-- 18 profiles are `pending`; all 18 belong to unconfirmed Auth users.
-- There are no profile rows without an Auth user.
-- There is one unconfirmed Auth user without a profile.
-- That orphan Auth user's metadata Student ID already belongs to a different, approved, email-confirmed profile. It must not be auto-converted into a second profile. Treat it as a quarantined duplicate/stale signup until identity resolution is explicit.
+## V2 source of truth
 
-### Booking integrity
+The clean database contract lives in:
 
-- all 109 bookings reference an existing profile
-- all 109 bookings reference an existing facility
-- all 109 bookings have a start timestamp
-- all 109 bookings have an end timestamp
-- all 109 bookings are exactly one hour long
-- 30 are cancelled
-- 79 are still persisted as `active`, although every one of those 79 bookings has already ended
-- no duplicate active pitch/start-time groups were found during the audit
+1. `supabase/v2/schema.sql`
+2. `supabase/v2/002_security_contract.sql`
+3. `supabase/v2/tests/booking_contract.sql`
+4. `supabase/v2/tests/security_contract.sql`
 
-The 79 stale `active` rows are lifecycle drift, not lost bookings. V2 keeps them as history and derives `completed` from timestamps.
+The historical `supabase/migrations/` directory is legacy V1 reference only and must not be used to initialize V2.
 
-### Facility compatibility
+## Fresh identity strategy
 
-Existing facilities use:
+- students sign up again
+- each new Auth user receives a new V2 `profiles` row
+- Student ID remains unique
+- protected profile fields (`student_id`, `role`, `status`) are never self-writable through a permissive table policy
+- verified/approved account state controls access to the shared booking experience
+- old passwords are not reconstructed
+- old sessions are irrelevant
+- old booking history starts empty
 
-- one-hour slots
-- booking frequency limits of 3 or 7 days
-- opening times between `00:00` and `08:00`
-- closing times between `18:00` and the Postgres end-of-day value `24:00`
+The first administrator is bootstrapped explicitly after the administrator account is created; there is no public self-promotion path.
 
-V2 supports `24:00` as a valid end-of-day boundary. The MVP intentionally does not support arbitrary overnight windows where closing time is earlier than opening time.
+## Clean deployment sequence
 
-## Target strategy
+1. Create a new Supabase project on a $0-compatible plan only.
+2. Confirm the project is empty and healthy.
+3. Apply `supabase/v2/schema.sql` as the initial V2 database contract.
+4. Apply `supabase/v2/002_security_contract.sql`.
+5. Run the booking and security contract suites against the fresh project or a free disposable local Postgres runtime.
+6. Run Supabase security and performance advisors.
+7. Seed only intentional V2 configuration/facilities; do not import stale V1 operational rows.
+8. Create/sign up the first real administrator identity and promote it through an explicit privileged operation.
+9. Generate TypeScript database types from the resulting schema.
+10. Configure the Vercel project with the new Supabase URL and publishable key.
+11. Configure Auth redirect/site URLs for the Vercel production and preview domains.
+12. Smoke-test signup, verification, approval, facility browsing, shared availability, booking, conflict handling, cancellation, profile update, admin authorization and PWA behavior.
+13. Promote the validated V2 deployment to production.
 
-The preferred V2 target is a clean Supabase/Postgres environment validated from `supabase/v2/schema.sql` before production cutover.
+## Launch gates
 
-The current production migration history is not a trustworthy clean-room baseline, so V2 must not be created by replaying the historical V1 migration directory as-is.
+V2 does not go live until all of these are true:
 
-### Authentication preservation
+1. A new student can register and receive exactly one profile.
+2. Duplicate Student IDs are rejected.
+3. An unapproved account cannot read shared facility availability.
+4. An approved student can read active facilities and availability.
+5. Occupied slots expose only the intended peer display name.
+6. Students cannot alter `role`, `status`, or another user's booking.
+7. Two users racing for the same facility/time produce exactly one successful booking.
+8. User-level booking rules are enforced by the database/RPC, not only the UI.
+9. Cancellation cutoff is authoritative and admin override is deliberate.
+10. Completed lifecycle is derived from timestamps without cron cleanup jobs.
+11. Admin-only mutations reject students.
+12. Home / Pitch / My Bookings / Profile / Admin smoke flows pass.
+13. No live availability or booking mutation is served from stale PWA cache.
+14. Supabase security advisors contain no unresolved launch-blocking findings.
+15. Vercel production uses only the new V2 Supabase credentials.
 
-Supabase supports migrating Auth users between projects with their hashed passwords. User UUIDs can also be preserved. This allows existing credentials and profile foreign keys to survive a clean-project migration.
+## Rollback
 
-Reference: https://supabase.com/docs/guides/troubleshooting/migrating-auth-users-between-projects
+There is no legacy production database to roll back to.
 
-A new Supabase project normally has a different JWT signing secret, so existing browser sessions should be treated as invalid at cutover unless there is a deliberate secret-migration decision. The safer default for this small user base is:
-
-- preserve accounts, UUIDs and password hashes
-- require one fresh sign-in after cutover
-- do not require password resets or account recreation
-
-This is an authentication-session reset, not user-data loss.
-
-## Transform rules
-
-### Auth users
-
-- preserve UUID
-- preserve email identity and confirmation state
-- preserve password hash where applicable
-- preserve required metadata used by onboarding
-- quarantine the single duplicate/stale Auth-only account until resolved
-
-### Profiles
-
-V1 -> V2:
-
-- `id` -> `id`
-- `student_id` -> normalized `student_id`
-- `full_name` -> trimmed `full_name`
-- `role=admin` -> `admin`
-- all other currently valid user roles -> `student` unless a real product requirement is identified before cutover
-- `approved` -> `approved`
-- `pending` -> `pending`
-- any legacy rejected/suspended state found at the final snapshot requires an explicit mapping before import
-- preserve `created_at` where practical
-
-The migration must not create a profile for an Auth user when its Student ID conflicts with an existing profile.
-
-### Facilities
-
-Preserve facility IDs so historical booking relationships remain stable.
-
-V1 -> V2:
-
-- `name` -> trimmed `name`
-- `location` -> trimmed `location`
-- `sport_type` -> trimmed `sport_type`
-- `capacity` -> `capacity`
-- `open_time` -> `open_time`
-- `close_time` -> `close_time`
-- inferred `slot_duration_minutes` -> `60`
-- current availability window -> `booking_window_hours=24`
-- `booking_frequency_enabled` -> unchanged
-- `booking_frequency_days` -> unchanged
-- V1 cancellation behavior -> `cancellation_cutoff_minutes=60`
-- facility timezone -> `Africa/Casablanca`
-- `sort_order` -> unchanged
-- `is_active=true` unless a facility is explicitly retired before cutover
-
-`24:00` is preserved as the end-of-day boundary.
-
-### Bookings
-
-Preserve booking IDs.
-
-V1 -> V2:
-
-- `id` -> `id`
-- `user_id` -> `user_id`
-- `pitch_id` -> `pitch_id`
-- `slot_datetime` -> `starts_at`
-- `slot_datetime_end` -> `ends_at`
-- V1 `cancelled` -> V2 persisted `cancelled`
-- V1 `active` -> V2 persisted `scheduled`
-- cancelled rows receive the best available cancellation timestamp if recoverable; otherwise the migration must record that the historical timestamp is unknown rather than fabricate one
-- `created_at` -> `created_at`
-
-V2 derives display lifecycle:
-
-- scheduled + future -> `upcoming`
-- scheduled + currently running -> `in_progress`
-- scheduled + ended -> `completed`
-- cancelled -> `cancelled`
-
-This means the 79 stale V1 `active` rows become truthful completed history without a destructive status-cleanup job.
-
-## Pre-cutover validation gates
-
-A cutover is blocked unless all of these pass on the target:
-
-1. Auth user count matches the expected migration set plus the explicitly quarantined row policy.
-2. Profile count and IDs match the approved migration mapping.
-3. Facility count is 5 unless production changed after this snapshot.
-4. Booking count is 109 unless production changed after this snapshot.
-5. No booking has an orphan `user_id` or `pitch_id`.
-6. All migrated bookings have `ends_at > starts_at`.
-7. No overlapping scheduled bookings violate the exclusion constraint.
-8. Approved users can read facilities and availability.
-9. Availability returns only the intended peer display field for occupied slots.
-10. Students cannot update protected profile role/status fields.
-11. Students cannot modify another student's booking.
-12. Concurrent attempts for the same facility/time produce exactly one successful booking.
-13. Frequency-limit behavior matches each facility's configured rule.
-14. Cancellation cutoff behaves correctly at the boundary.
-15. Admin-only mutations reject normal students.
-16. Home, facility booking, My Booking and admin smoke flows pass against the target.
-
-## Cutover sequence
-
-1. Freeze schema changes on V1.
-2. Take a final read-only audit and export/backup.
-3. Recompute counts and anomaly list; do not assume the 2026-08-17 snapshot is still current.
-4. Import/migrate Auth identities.
-5. Apply the validated V2 schema and profile/facility/booking transform in the tested order.
-6. Run integrity and RLS tests.
-7. Deploy V2 application against the target.
-8. Run authenticated smoke tests with student and admin accounts.
-9. Switch production configuration only after all gates pass.
-10. Keep the V1 project/database available for rollback until the cutover is accepted.
-
-## Rollback rule
-
-The V1 source is never destroyed during initial cutover. If a blocking V2 issue appears, application traffic/configuration can be pointed back to the unchanged V1 source while the target is corrected.
+Before real V2 traffic, the clean project can be recreated from the V2 contract if necessary. After real users begin registering, database changes become forward-only and application rollback means deploying a known-good V2 application version against the same database rather than resetting user data.
