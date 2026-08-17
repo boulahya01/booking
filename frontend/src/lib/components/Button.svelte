@@ -11,32 +11,27 @@
   export let type: 'button' | 'submit' | 'reset' = 'button'
   export let className = ''
 
-  const baseClass = 'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info'
+  const baseClass = [
+    'inline-flex items-center justify-center gap-2 rounded-[14px] font-semibold',
+    'transition-colors duration-150',
+    'disabled:cursor-not-allowed disabled:opacity-45',
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background'
+  ].join(' ')
 
   const variants = {
-    primary:
-      'bg-primary hover:bg-primary-hover text-white shadow-sm hover:shadow-primary',
-    secondary:
-      'bg-primary-light text-primary hover:bg-primary-light/80 border border-primary/20',
-    danger:
-      'bg-danger hover:bg-danger/90 text-white shadow-sm',
-    ghost:
-      'text-primary hover:bg-primary-light'
+    primary: 'bg-primary text-text-inverse hover:bg-primary-hover',
+    secondary: 'border border-border bg-surface text-text hover:bg-surface-level-1',
+    danger: 'bg-danger text-white hover:bg-danger/90',
+    ghost: 'bg-transparent text-text-secondary hover:bg-surface-level-1 hover:text-text'
   }
 
   const sizes = {
-    sm: 'px-3 py-2 text-sm gap-2 min-h-[36px]',
-    md: 'px-4 py-2.5 text-base gap-2 min-h-[44px]',
-    lg: 'px-5 py-3 text-lg gap-3 min-h-[48px]'
+    sm: 'min-h-[40px] px-3.5 text-sm',
+    md: 'min-h-[46px] px-4 text-sm',
+    lg: 'min-h-[52px] px-5 text-base'
   }
 
-  $: buttonClass = cn(
-    baseClass,
-    variants[variant],
-    sizes[size],
-    'touch-target-min',
-    className
-  )
+  $: buttonClass = cn(baseClass, variants[variant], sizes[size], 'touch-target-min', className)
 </script>
 
 <button
@@ -47,7 +42,10 @@
   {...$$restProps}
 >
   {#if loading}
-    <span class="inline-block animate-spin">⟳</span>
+    <span
+      class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent opacity-80"
+      aria-hidden="true"
+    ></span>
   {/if}
   <slot />
 </button>
