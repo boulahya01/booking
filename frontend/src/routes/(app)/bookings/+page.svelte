@@ -38,18 +38,26 @@
   $: upcomingBookings = bookings.filter((booking) => upcoming(booking) && booking.status !== 'cancelled')
   $: joinedMatches = matches.filter((match) => match.member_role === 'player')
   $: history = bookings.filter((booking) => !upcoming(booking) || booking.status === 'cancelled')
+  $: maxReservedSpots = Math.max(0, (openTarget?.pitches?.capacity ?? 1) - 1)
 
   function dateParts(value: string) {
     const d = new Date(value); const lang = $locale || 'en'
     return { day: d.getDate(), month: d.toLocaleString(lang,{month:'short'}), weekday: d.toLocaleString(lang,{weekday:'short'}), time: d.toLocaleTimeString(lang,{hour:'2-digit',minute:'2-digit',hour12:false}) }
   }
 
+  function openMatchSheet(booking: MyBooking) {
+    openTarget = booking
+    reservedSpots = 0
+  }
+
   async function confirmCancel() {
     if (!cancelTarget) return
+    const bookingId = cancelTarget.id
     working = true
     try {
-      await cancelBookingRpc(cancelTarget.id)
-      bookings = bookings.map((b) => b.id === cancelTarget?.id ? {...b,status:'cancelled',lifecycle_status:'cancelled',cancelled_at:new Date().toISOString()} : b)
+      await cancelBookingRpc(bookingId)
+      bookings = bookings.map((b) => b.id === bookingId ? {...b,status:'cancelled',lifecycle_status:'cancelled',cancelled_at:new Date().toISOString()} : b)
+      matches = matches.filter((match) => match.booking_id !== bookingId)
       cancelTarget = null; uiState.addToast('Booking cancelled', 'success')
     } catch (e) { uiState.addToast(bookingFailureMessage(e instanceof BookingApiError ? e.code : 'unknown', $locale), 'error') }
     finally { working = false }
@@ -59,7 +67,7 @@
     if (!openTarget) return
     working = true
     try {
-      await createOpenMatch(openTarget.id, reservedSpots)
+      await createOpenMatch(openTarget.id, Math.min(reservedSpots, maxReservedSpots))
       matches = await listMyMatches()
       openTarget = null; reservedSpots = 0; uiState.addToast('Match is open', 'success')
     } catch (e) { uiState.addToast(matchErrorCopy(e instanceof MatchApiError ? e.code : 'unknown', $locale), 'error') }
@@ -95,7 +103,7 @@
             <article class="rounded-2xl bg-surface p-4 shadow-xs ring-1 ring-border/70">
               <div class="flex gap-4"><div class="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-primary-light text-primary"><span class="text-[10px] font-bold uppercase">{date.month}</span><span class="text-xl font-bold leading-none">{date.day}</span></div><div class="min-w-0 flex-1"><div class="flex items-start justify-between gap-2"><div><h3 class="truncate font-semibold text-text">{booking.pitches?.name || 'Facility'}</h3><p class="mt-1 text-sm text-text-muted">{date.weekday} · {date.time} · {booking.pitches?.location || 'USMBA'}</p></div><span class="rounded-full bg-surface-level-1 px-2.5 py-1 text-xs font-semibold text-text-secondary">{match ? (match.visibility === 'open' ? 'Open match' : 'Private') : 'Private'}</span></div></div></div>
               <div class="mt-4 flex flex-wrap gap-2 border-t border-border/70 pt-3">
-                {#if !match}<button class="min-h-11 rounded-xl bg-primary px-4 text-sm font-semibold text-white" on:click={() => { openTarget = booking; reservedSpots = 0 }}>Open to players</button>{:else}<a href="/matches" class="inline-flex min-h-11 items-center rounded-xl bg-primary-light px-4 text-sm font-semibold text-primary">View match</a>{/if}
+                {#if !match}<button class="min-h-11 rounded-xl bg-primary px-4 text-sm font-semibold text-white" on:click={() => openMatchSheet(booking)}>Open to players</button>{:else}<a href="/matches" class="inline-flex min-h-11 items-center rounded-xl bg-primary-light px-4 text-sm font-semibold text-primary">View match</a>{/if}
                 <button class="min-h-11 px-3 text-sm font-medium text-danger" on:click={() => cancelTarget = booking}>Cancel booking</button>
               </div>
             </article>
@@ -117,7 +125,7 @@
   <div class="fixed inset-0 z-50 flex items-end bg-black/45 sm:items-center sm:justify-center" role="presentation" on:click={() => !working && (openTarget = null)}>
     <div class="w-full rounded-t-3xl bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-3xl" role="dialog" aria-modal="true" on:click|stopPropagation>
       <h2 class="text-xl font-semibold text-text">Open this booking?</h2><p class="mt-2 text-sm leading-6 text-text-secondary">Other eligible students can join first-come-first-served. Keep spots for friends you are bringing offline.</p>
-      <label class="mt-5 block text-sm font-medium text-text">Reserved friends</label><div class="mt-2 flex items-center gap-3"><button class="h-12 w-12 rounded-xl bg-surface-level-1 text-xl text-text" on:click={() => reservedSpots = Math.max(0,reservedSpots-1)} aria-label="Remove reserved friend">−</button><span class="min-w-10 text-center text-xl font-semibold text-text">{reservedSpots}</span><button class="h-12 w-12 rounded-xl bg-surface-level-1 text-xl text-text" on:click={() => reservedSpots += 1} aria-label="Add reserved friend">+</button></div>
+      <div class="mt-5 flex items-end justify-between gap-4"><div><label class="block text-sm font-medium text-text">Reserved friends</label><p class="mt-1 text-xs text-text-muted">Up to {maxReservedSpots} of {openTarget.pitches?.capacity || 1} total places.</p></div><div class="flex items-center gap-2"><button class="h-12 w-12 rounded-xl bg-surface-level-1 text-xl text-text disabled:opacity-40" disabled={reservedSpots === 0 || working} on:click={() => reservedSpots = Math.max(0,reservedSpots-1)} aria-label="Remove reserved friend">−</button><span class="min-w-10 text-center text-xl font-semibold text-text">{reservedSpots}</span><button class="h-12 w-12 rounded-xl bg-surface-level-1 text-xl text-text disabled:opacity-40" disabled={reservedSpots >= maxReservedSpots || working} on:click={() => reservedSpots = Math.min(maxReservedSpots,reservedSpots+1)} aria-label="Add reserved friend">+</button></div></div>
       <div class="mt-6 flex gap-3"><button class="min-h-12 flex-1 rounded-xl bg-surface-level-1 font-semibold text-text" disabled={working} on:click={() => openTarget=null}>Not now</button><button class="min-h-12 flex-1 rounded-xl bg-primary font-semibold text-white disabled:opacity-60" disabled={working} on:click={confirmOpenMatch}>{working ? 'Opening…' : 'Open match'}</button></div>
     </div>
   </div>
@@ -125,6 +133,6 @@
 
 {#if cancelTarget}
   <div class="fixed inset-0 z-50 flex items-end bg-black/45 sm:items-center sm:justify-center" role="presentation" on:click={() => !working && (cancelTarget = null)}>
-    <div class="w-full rounded-t-3xl bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-3xl" role="dialog" aria-modal="true" on:click|stopPropagation><h2 class="text-xl font-semibold text-text">Cancel booking?</h2><p class="mt-2 text-sm leading-6 text-text-secondary">The facility slot will be released. This cannot be undone.</p><div class="mt-6 flex gap-3"><button class="min-h-12 flex-1 rounded-xl bg-surface-level-1 font-semibold text-text" disabled={working} on:click={() => cancelTarget=null}>Keep booking</button><button class="min-h-12 flex-1 rounded-xl bg-danger font-semibold text-white disabled:opacity-60" disabled={working} on:click={confirmCancel}>{working ? 'Cancelling…' : 'Cancel booking'}</button></div></div>
+    <div class="w-full rounded-t-3xl bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-3xl" role="dialog" aria-modal="true" on:click|stopPropagation><h2 class="text-xl font-semibold text-text">Cancel booking?</h2><p class="mt-2 text-sm leading-6 text-text-secondary">The facility slot will be released{matchFor(cancelTarget.id) ? ' and the open match will close for everyone' : ''}. This cannot be undone.</p><div class="mt-6 flex gap-3"><button class="min-h-12 flex-1 rounded-xl bg-surface-level-1 font-semibold text-text" disabled={working} on:click={() => cancelTarget=null}>Keep booking</button><button class="min-h-12 flex-1 rounded-xl bg-danger font-semibold text-white disabled:opacity-60" disabled={working} on:click={confirmCancel}>{working ? 'Cancelling…' : 'Cancel booking'}</button></div></div>
   </div>
 {/if}
