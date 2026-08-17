@@ -72,6 +72,14 @@ Examples:
 - A cancellation-limit error explains that the booking is too close to its start time.
 - An offline error distinguishes cached/read-only content from actions that require a connection.
 
+## Authentication boundary
+
+V2's target is verified cookie-backed Supabase SSR so server layouts can resolve the user/profile before protected route data is loaded.
+
+The current foundation branch deliberately does **not** treat cookie-name presence as authentication. Until the SSR dependency upgrade can be regenerated and runtime-tested, the browser session is restored first, `(app)` routes are not mounted while auth is unresolved, client navigation handles account-state routing, and database RLS remains the authorization boundary.
+
+This interim state is explicit technical debt, not the final V2 auth architecture.
+
 ## PWA direction
 
 V2 should be installable as a Progressive Web App.
@@ -90,6 +98,8 @@ Install UI should be contextual and non-blocking rather than shown as an aggress
 - `role` (`student`, `admin` initially)
 - `status`
 - timestamps
+
+Self-service profile editing must use narrow operations. Students may update safe display fields such as `full_name`; protected identity/access fields (`student_id`, `role`, `status`) are never writable through a permissive own-row policy.
 
 ### pitches
 
@@ -148,15 +158,17 @@ Expected database APIs:
 - `get_pitch_availability(...)`
 - `create_booking(...)`
 - `cancel_booking(...)`
+- `update_my_profile(...)`
 
 Internal trigger/helper functions must not be accidentally exposed as public RPC endpoints.
 
-Availability can return booked-user display information because peer booking visibility is an explicit product requirement. It must return only the minimum profile fields needed for that UI.
+Availability can return booked-user display information because peer booking visibility is an explicit product requirement. It must return only the minimum profile fields needed for that UI, and shared facility availability is restricted to approved accounts.
 
 ## Security model
 
 - RLS remains the database security boundary.
-- Students may read booking information required for the shared facility schedule, including the booked student's display name.
+- Approved students may read booking information required for the shared facility schedule, including the booked student's display name.
+- Pending/rejected/suspended accounts cannot query the shared facility schedule.
 - Students may not arbitrarily modify another user's booking or protected profile fields.
 - Self-profile updates must not permit role/status escalation.
 - Admin authorization is enforced server/database-side, not by hiding UI controls.
