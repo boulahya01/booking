@@ -17,9 +17,10 @@ The V2 initialization order is:
 3. `003_onboarding_booking_rules.sql`
 4. `004_availability_window.sql`
 5. `005_identity_verification_state.sql`
-6. `tests/booking_contract.sql`
-7. `tests/security_contract.sql`
-8. `tests/identity_contract.sql`
+6. `006_identity_verification_storage.sql`
+7. `tests/booking_contract.sql`
+8. `tests/security_contract.sql`
+9. `tests/identity_contract.sql`
 
 When the hosted V2 project is created, these schema layers become the first real V2 migration history. Do not replay historical V1 migrations.
 
@@ -38,6 +39,23 @@ Membership proof and Student ID proof are deliberately separate.
 - structured rejection reasons drive remediation instead of dead-end statuses
 - duplicate-identity conflicts return a generic error and must route to secure recovery/Help rather than exposing another account
 - `get_my_account_state()` is the narrow authoritative payload for routing/access/status UI
+- student-card evidence lives in the private `student-verification` bucket with a 5 MB image-only limit
+- evidence paths are scoped to the authenticated user; students can manage only their own evidence while authorized admins can read it for review
+- the submission RPC validates that the referenced storage object belongs to the submitting user before accepting the attempt
+- admin queue data is intentionally narrow and omits unrelated private profile/account fields
+
+## Recoverable verification contract
+
+A verification rejection is not a dead-end account state.
+
+- `student_id_incorrect` — Student ID may be corrected and evidence replaced
+- `student_card_unreadable` — replace the card image without rebuilding the account
+- `name_mismatch` — correct permitted profile information and resubmit evidence
+- `not_a_student_card` — replace the image with a valid student card
+- `student_card_expired` — submit current evidence or use Help
+- `duplicate_student_identity` — do not permit a self-service bypass; route to secure ownership recovery/Help
+
+Every resubmission creates a new attempt on the same Auth account. Prior attempts remain review/audit history.
 
 ## Booking rules
 
@@ -60,6 +78,7 @@ Membership proof and Student ID proof are deliberately separate.
 - `003_onboarding_booking_rules.sql` — original onboarding/booking guardrails; identity rules are superseded by layer 005
 - `004_availability_window.sql` — one-call facility availability window
 - `005_identity_verification_state.sql` — academic/personal access split, verified Student ID ownership, recoverable verification attempts and account-state RPC
+- `006_identity_verification_storage.sql` — private evidence bucket/policies, owned-path validation, structured remediation reasons and narrow admin review queue
 - `tests/booking_contract.sql` — transactional booking behavior tests
 - `tests/security_contract.sql` — transactional approval/RLS tests
 - `tests/identity_contract.sql` — academic fast path, personal restriction, verified-only uniqueness and reject → remediate → approve behavior
@@ -74,6 +93,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/002_security_contract.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/003_onboarding_booking_rules.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/004_availability_window.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/005_identity_verification_state.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/006_identity_verification_storage.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/tests/booking_contract.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/tests/security_contract.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/tests/identity_contract.sql
