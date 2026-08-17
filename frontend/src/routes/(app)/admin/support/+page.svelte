@@ -4,7 +4,9 @@
     adminReplySupportThread,
     adminSetSupportStatus,
     getAdminSupportMessages,
+    getAdminSupportThreadContext,
     listAdminSupportThreads,
+    type AdminSupportThreadContext,
     type SupportMessage,
     type SupportStatus,
     type SupportThreadSummary
@@ -13,6 +15,7 @@
   let filter: SupportStatus | 'all' = 'open'
   let threads: SupportThreadSummary[] = []
   let selected: SupportThreadSummary | null = null
+  let context: AdminSupportThreadContext | null = null
   let messages: SupportMessage[] = []
   let loading = true
   let loadingMessages = false
@@ -29,6 +32,7 @@
       threads = await listAdminSupportThreads(filter === 'all' ? null : filter)
       if (selected && !threads.some((item) => item.id === selected?.id)) {
         selected = null
+        context = null
         messages = []
       }
     } catch (e: any) {
@@ -41,16 +45,23 @@
   async function changeFilter(next: SupportStatus | 'all') {
     filter = next
     selected = null
+    context = null
     messages = []
     await loadThreads()
   }
 
   async function openThread(item: SupportThreadSummary) {
     selected = item
+    context = null
     loadingMessages = true
     error = ''
     try {
-      messages = await getAdminSupportMessages(item.id)
+      const [nextMessages, nextContext] = await Promise.all([
+        getAdminSupportMessages(item.id),
+        getAdminSupportThreadContext(item.id)
+      ])
+      messages = nextMessages
+      context = nextContext
     } catch (e: any) {
       error = e.message
     } finally {
@@ -67,6 +78,7 @@
       reply = ''
       messages = await getAdminSupportMessages(selected.id)
       selected = { ...selected, status: 'waiting' }
+      if (context) context = { ...context, status: 'waiting' }
       threads = threads.map((item) => item.id === selected?.id ? { ...item, status: 'waiting' } : item)
     } catch (e: any) {
       error = e.message
@@ -83,6 +95,7 @@
       await adminSetSupportStatus(selected.id, status)
       const id = selected.id
       selected = { ...selected, status }
+      if (context) context = { ...context, status }
       threads = filter !== 'all' && filter !== status
         ? threads.filter((item) => item.id !== id)
         : threads.map((item) => item.id === id ? { ...item, status } : item)
@@ -91,6 +104,11 @@
     } finally {
       saving = false
     }
+  }
+
+  function readableReason(reason: string | null | undefined) {
+    if (!reason) return ''
+    return reason.replaceAll('_', ' ').replace(/^./, (char) => char.toUpperCase())
   }
 </script>
 
@@ -164,15 +182,30 @@
         </div>
       {:else}
         <div class="flex min-h-[430px] flex-col">
-          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-border-light px-4 py-4 sm:px-5">
-            <div>
-              <p class="text-sm font-semibold text-text">{selected.subject || 'Support conversation'}</p>
-              <p class="mt-1 text-xs text-text-muted">{selected.kind} · {selected.status}</p>
+          <div class="border-b border-border-light px-4 py-4 sm:px-5">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p class="text-sm font-semibold text-text">{selected.subject || 'Support conversation'}</p>
+                <p class="mt-1 text-xs text-text-muted">{selected.kind} · {selected.status}</p>
+              </div>
+              <div class="flex gap-2">
+                {#if selected.status !== 'open'}<button disabled={saving} on:click={() => setStatus('open')} class="min-h-10 rounded-xl border border-border px-3 text-xs font-semibold text-text">Reopen</button>{/if}
+                {#if selected.status !== 'resolved'}<button disabled={saving} on:click={() => setStatus('resolved')} class="min-h-10 rounded-xl bg-success-light px-3 text-xs font-semibold text-success">Resolve</button>{/if}
+              </div>
             </div>
-            <div class="flex gap-2">
-              {#if selected.status !== 'open'}<button disabled={saving} on:click={() => setStatus('open')} class="min-h-10 rounded-xl border border-border px-3 text-xs font-semibold text-text">Reopen</button>{/if}
-              {#if selected.status !== 'resolved'}<button disabled={saving} on:click={() => setStatus('resolved')} class="min-h-10 rounded-xl bg-success-light px-3 text-xs font-semibold text-success">Resolve</button>{/if}
-            </div>
+
+            {#if context?.kind === 'report'}
+              <div class="mt-4 rounded-2xl bg-surface-level-1 px-4 py-3">
+                <p class="text-xs font-semibold uppercase tracking-wide text-text-muted">Report context</p>
+                <div class="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-text-secondary">
+                  <span><strong class="font-semibold text-text">Target:</strong> {context.target_type || 'unknown'}</span>
+                  <span><strong class="font-semibold text-text">Reason:</strong> {readableReason(context.reason_code)}</span>
+                </div>
+                {#if context.target_id}
+                  <p class="mt-2 break-all font-mono text-[11px] text-text-muted">{context.target_id}</p>
+                {/if}
+              </div>
+            {/if}
           </div>
 
           <div class="flex-1 space-y-3 overflow-y-auto px-4 py-5 sm:px-5">
