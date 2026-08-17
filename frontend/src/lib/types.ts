@@ -6,6 +6,7 @@ export type Profile = {
   id: string
   student_id: string | null
   full_name: string
+  username: string | null
   email?: string
   email_kind?: EmailKind
   identity_status?: IdentityStatus
