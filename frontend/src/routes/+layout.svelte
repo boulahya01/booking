@@ -4,6 +4,7 @@
   import { browser } from '$app/environment'
   import { page } from '$app/stores'
   import '$lib/styles/global.css'
+  import '$lib/styles/system.css'
   import TopBar from '$lib/components/TopBar.svelte'
   import SideNav from '$lib/components/SideNav.svelte'
   import Toast from '$lib/components/Toast.svelte'
@@ -65,9 +66,6 @@
     } else if (hasSession && isAuthPath) {
       targetPath = canUseSports ? '/home' : '/pending-approval'
     } else if (hasSession && !account && !isSupportPath) {
-      // A signed-in session without an authoritative account state must not
-      // receive optimistic access to protected product routes. Support remains
-      // reachable so an auth/profile bootstrap failure never becomes a dead end.
       targetPath = '/pending-approval'
     } else if (hasSession && isAdminPath && !isAdminAccount) {
       targetPath = canUseSports ? '/home' : '/pending-approval'
