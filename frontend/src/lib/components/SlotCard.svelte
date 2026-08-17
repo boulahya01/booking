@@ -22,7 +22,6 @@
 
 <article
   class="group rounded-2xl p-4 transition-colors"
-  class:ring-1={state !== 'available'}
   style={state === 'mine'
     ? 'background: var(--warning-light); border: 1px solid color-mix(in srgb, var(--warning) 28%, var(--border));'
     : state === 'available'
@@ -47,11 +46,11 @@
         {#if state === 'available'}
           <span class="inline-flex items-center gap-1.5 font-medium" style="color: var(--primary);">
             <span class="h-2 w-2 rounded-full" style="background: var(--primary);"></span>
-            {$_('pitch.available')}
+            {$_('pitch.book')}
           </span>
         {:else if state === 'mine'}
           <span class="inline-flex items-center gap-1.5 font-medium" style="color: var(--warning);">
-            <Icon name="check-circle" size={14} />
+            <Icon name="check" size={14} />
             {$_('pitch.booked_by_you')}
           </span>
         {:else}
