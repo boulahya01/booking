@@ -16,18 +16,6 @@
   let loading = false
   let error: string | null = null
 
-  function formatDateTime(dateString: string) {
-    const date = new Date(dateString)
-    return date.toLocaleString($locale || 'en', {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    })
-  }
-
   async function confirmBooking() {
     loading = true
     error = null
@@ -40,26 +28,25 @@
         return
       }
 
-      // Check auth before booking
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
+      // Auth state is already resolved by the application shell. The booking RPC
+      // still validates the JWT/database rules authoritatively.
+      const currentUser = $authState.user
+      if (!currentUser?.id) {
         error = $_('common.error')
         return
       }
 
-      // Check if user has verified their email (status='pending' means not verified yet)
-      const userStatus = $authState.user?.status
-      if (userStatus === 'pending') {
+      if (currentUser.status === 'pending') {
         error = $_('verify_email.subtitle')
         return
       }
 
-      // Check if user already has an active upcoming booking (any pitch)
-      // This prevents booking multiple slots while one is still in the future
+      // Preserve the current V1 product rule that a student cannot hold another
+      // active upcoming booking. V2 will move this rule into the database contract.
       const { data: activeBookings, error: activeErr } = await supabase
         .from('bookings')
         .select('slot_datetime, slot_datetime_end')
-        .eq('user_id', user.id)
+        .eq('user_id', currentUser.id)
         .eq('status', 'active')
 
       if (activeErr) {
@@ -69,17 +56,16 @@
 
       if (Array.isArray(activeBookings) && activeBookings.length > 0) {
         const now = Date.now()
-        for (const b of activeBookings) {
+        for (const booking of activeBookings) {
           let bookingEnd: number
-          if (b.slot_datetime_end) {
-            bookingEnd = new Date(b.slot_datetime_end).getTime()
-          } else if (b.slot_datetime) {
-            // Fallback: assume 1 hour slot
-            bookingEnd = new Date(b.slot_datetime).getTime() + 60 * 60 * 1000
+          if (booking.slot_datetime_end) {
+            bookingEnd = new Date(booking.slot_datetime_end).getTime()
+          } else if (booking.slot_datetime) {
+            bookingEnd = new Date(booking.slot_datetime).getTime() + 60 * 60 * 1000
           } else {
-            // No end time info - conservatively block
             bookingEnd = now + 1
           }
+
           if (bookingEnd > now) {
             error = 'You already have an active booking. Complete or cancel it before booking another slot.'
             return
@@ -87,23 +73,9 @@
         }
       }
 
-      // Calculate slot_datetime_end (1 hour after start)
       const startTime = new Date(slot.datetime_start)
       const endTime = new Date(startTime.getTime() + 60 * 60 * 1000)
 
-      console.log('[BookingModal] Booking params:')
-      console.log('  p_pitch_id:', slot.pitch_id)
-      console.log('  p_slot_datetime:', slot.datetime_start)
-      console.log('  p_slot_datetime_end:', endTime.toISOString())
-      console.log('  startTime local:', startTime.toLocaleString())
-      console.log('  startTime UTC:', startTime.toUTCString())
-      console.log('  NOW:', new Date().toISOString())
-      console.log('  Is slot in past?:', startTime < new Date())
-
-      const { data: { session } } = await supabase.auth.getSession()
-      console.log('[BookingModal] Session:', session?.access_token ? 'exists' : 'NO SESSION')
-
-      // Use the security definer RPC function
       const { data, error: bookingErr } = await supabase.rpc('create_booking_with_approval', {
         p_pitch_id: slot.pitch_id,
         p_slot_datetime: slot.datetime_start,
@@ -111,10 +83,6 @@
       })
 
       if (bookingErr) {
-        console.error('[BookingModal] FULL RPC error:', bookingErr)
-        console.error('[BookingModal] Error details:', JSON.stringify(bookingErr, null, 2))
-
-        // Show user-friendly error messages
         if (bookingErr.message?.includes('already have an active booking')) {
           error = 'You already have an active booking for this time slot.'
         } else if (bookingErr.message?.includes('approved')) {
@@ -133,7 +101,7 @@
       dispatch('booked', { booking })
       uiState.addToast($_('common.success'), 'success')
       onClose()
-    } catch (e: any) {
+    } catch {
       error = $_('common.error')
     } finally {
       loading = false
@@ -148,14 +116,11 @@
      role="dialog"
      tabindex="-1"
      aria-modal="true">
-  <!-- Backdrop with fade -->
   <div class="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm"></div>
 
-  <!-- Modal Panel -->
   <div class="relative w-full sm:max-w-sm bg-surface sm:rounded-2xl rounded-t-2xl shadow-2xl z-50 overflow-hidden
               animate-in">
 
-    <!-- Close Button -->
     <button on:click={onClose}
             class="absolute top-4 end-4 z-10 w-8 h-8 rounded-full flex items-center justify-center
                    bg-surface-level-1/80 hover:bg-surface-level-1 text-text-muted hover:text-text
@@ -164,9 +129,7 @@
       <Icon name="x" size={14} />
     </button>
 
-    <!-- Header — Icon + Title -->
     <div class="pt-8 pb-5 px-6 text-center border-b border-border">
-      <!-- Confirmation Icon -->
       <div class="mx-auto mb-4 w-14 h-14 rounded-2xl flex items-center justify-center
                   bg-primary-light/60 ring-1 ring-primary/20">
         <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24"
@@ -180,9 +143,7 @@
       <p class="text-sm text-text-secondary">You're about to reserve this slot</p>
     </div>
 
-    <!-- Body — Slot Details -->
     <div class="p-6 space-y-4">
-      <!-- Pitch Info Card -->
       <div class="rounded-xl p-4 bg-surface-level-1/50 ring-1 ring-border/50">
         <div class="flex items-start gap-3">
           <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0
@@ -210,7 +171,6 @@
         </div>
       </div>
 
-      <!-- Warnings -->
       {#if !slot.is_available}
         <div class="rounded-xl p-3.5 bg-warning-light/60 ring-1 ring-warning/15 flex items-center gap-2.5 text-sm text-warning">
           <Icon name="alert-triangle" size={16} />
@@ -226,9 +186,7 @@
       {/if}
     </div>
 
-    <!-- Footer — Action Buttons -->
     <div class="px-6 pb-6 pt-2 space-y-3">
-      <!-- Primary: Confirm Booking -->
       <button
         on:click={confirmBooking}
         disabled={loading || !slot.is_available}
@@ -246,7 +204,6 @@
         {/if}
       </button>
 
-      <!-- Secondary: Cancel (ghost style) -->
       <button
         on:click={onClose}
         disabled={loading}
