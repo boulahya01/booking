@@ -1,12 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { get } from 'svelte/store'
   import { authState } from '$lib/stores/auth'
   import {
+    addAuthenticatedSupportMessage,
     addGuestSupportMessage,
     createAuthenticatedSupportThread,
     createGuestSupportThread,
     getGuestSupportThread,
+    getMySupportThread,
+    listMySupportThreads,
+    type MySupportThreadSummary,
     type SupportThread
   } from '$lib/supportApi'
 
@@ -21,12 +24,20 @@
   let success = ''
   let guestToken = ''
   let thread: SupportThread | null = null
+  let myThreads: MySupportThreadSummary[] = []
+  let showingNewRequest = false
+  let initialized = false
+  let loadedAuthenticated = false
 
   $: signedIn = !!$authState.user
   $: restriction = $authState.account?.access_status === 'suspended'
   $: defaultKind = restriction ? 'appeal' : 'support'
+  $: if (initialized && signedIn && !loadedAuthenticated) void loadAuthenticatedThreads()
 
   onMount(async () => {
+    initialized = true
+    if (signedIn) return
+
     guestToken = localStorage.getItem(STORAGE_KEY) || ''
     if (!guestToken) {
       loadingThread = false
@@ -43,6 +54,46 @@
     }
   })
 
+  async function loadAuthenticatedThreads() {
+    loadedAuthenticated = true
+    loadingThread = true
+    error = ''
+    try {
+      myThreads = await listMySupportThreads()
+      const active = myThreads.find((item) => item.status !== 'resolved') ?? myThreads[0]
+      if (active) thread = await getMySupportThread(active.id)
+      showingNewRequest = !active
+    } catch (e: any) {
+      error = e.message
+    } finally {
+      loadingThread = false
+    }
+  }
+
+  async function openMyThread(threadId: string) {
+    loadingThread = true
+    error = ''
+    success = ''
+    showingNewRequest = false
+    try {
+      thread = await getMySupportThread(threadId)
+      if (!thread) error = 'This support conversation is no longer available.'
+    } catch (e: any) {
+      error = e.message
+    } finally {
+      loadingThread = false
+    }
+  }
+
+  function beginNewRequest() {
+    thread = null
+    showingNewRequest = true
+    subject = restriction ? 'Account restriction review' : ''
+    message = ''
+    error = ''
+    success = ''
+  }
+
   async function submitNewThread() {
     if (!message.trim()) return
     submitting = true
@@ -51,12 +102,15 @@
 
     try {
       if (signedIn) {
-        await createAuthenticatedSupportThread({ kind: defaultKind, subject, body: message })
-        success = restriction
-          ? 'Your appeal was sent. You can keep using account security while it is reviewed.'
-          : 'Your message was sent to the UNEEM support team.'
+        const threadId = await createAuthenticatedSupportThread({ kind: defaultKind, subject, body: message })
         message = ''
         subject = ''
+        myThreads = await listMySupportThreads()
+        thread = await getMySupportThread(threadId)
+        showingNewRequest = false
+        success = restriction
+          ? 'Your appeal was sent. You can continue here when the team replies.'
+          : 'Your conversation is open. You can return here anytime.'
       } else {
         const created = await createGuestSupportThread({ contactEmail, subject, body: message })
         guestToken = created.accessToken
@@ -72,14 +126,22 @@
     }
   }
 
-  async function replyToGuestThread() {
-    if (!guestToken || !message.trim()) return
+  async function replyToThread() {
+    if (!thread || !message.trim()) return
     submitting = true
     error = ''
+    success = ''
     try {
-      await addGuestSupportMessage(guestToken, message)
-      message = ''
-      thread = await getGuestSupportThread(guestToken)
+      if (signedIn) {
+        await addAuthenticatedSupportMessage(thread.id, message)
+        message = ''
+        thread = await getMySupportThread(thread.id)
+        myThreads = await listMySupportThreads()
+      } else if (guestToken) {
+        await addGuestSupportMessage(guestToken, message)
+        message = ''
+        thread = await getGuestSupportThread(guestToken)
+      }
     } catch (e: any) {
       error = e.message
     } finally {
@@ -95,6 +157,12 @@
     subject = ''
     error = ''
   }
+
+  function statusLabel(status: SupportThread['status']) {
+    if (status === 'resolved') return 'Resolved'
+    if (status === 'waiting') return 'Waiting for you'
+    return 'Open'
+  }
 </script>
 
 <svelte:head>
@@ -103,21 +171,48 @@
 </svelte:head>
 
 <div class="min-h-screen bg-bg px-4 pb-10 pt-6 sm:px-6 sm:pt-10">
-  <main class="mx-auto w-full max-w-xl">
+  <main class="mx-auto w-full max-w-2xl">
     <header class="mb-7">
       <a href={signedIn ? '/profile' : '/login'} class="inline-flex min-h-11 items-center text-sm font-semibold text-text-secondary hover:text-text">← Back</a>
-      <p class="mt-5 text-sm font-semibold text-primary">UNEEM Support</p>
-      <h1 class="mt-1 text-3xl font-semibold tracking-[-0.03em] text-text">How can we help?</h1>
-      <p class="mt-3 max-w-lg text-sm leading-6 text-text-secondary">
+      <div class="mt-5 flex items-end justify-between gap-4">
+        <div>
+          <p class="text-sm font-semibold text-primary">UNEEM Support</p>
+          <h1 class="mt-1 text-3xl font-semibold tracking-[-0.03em] text-text">How can we help?</h1>
+        </div>
+        {#if signedIn && !showingNewRequest}
+          <button on:click={beginNewRequest} class="uneem-secondary-action shrink-0">New request</button>
+        {/if}
+      </div>
+      <p class="mt-3 max-w-xl text-sm leading-6 text-text-secondary">
         {#if restriction}
           Your account restriction does not block support. Tell us what happened and the team can review your appeal.
         {:else if signedIn}
-          Ask about your account, student verification, booking or a match. Your conversation stays linked to this account.
+          Your support conversations stay linked to your account, so you can leave and continue later without losing context.
         {:else}
           You can contact support even if you cannot sign in. This browser keeps a private key for your conversation.
         {/if}
       </p>
     </header>
+
+    {#if error}<div class="mb-4 rounded-2xl bg-danger-light px-4 py-3 text-sm leading-6 text-danger" role="alert">{error}</div>{/if}
+    {#if success}<div class="mb-4 rounded-2xl bg-success-light px-4 py-3 text-sm leading-6 text-success" role="status">{success}</div>{/if}
+
+    {#if signedIn && myThreads.length > 1 && !showingNewRequest}
+      <section class="mb-4 overflow-x-auto pb-1" aria-label="Your support conversations">
+        <div class="flex min-w-max gap-2">
+          {#each myThreads as item}
+            <button
+              on:click={() => openMyThread(item.id)}
+              class:active-thread={thread?.id === item.id}
+              class="support-thread-tab min-h-11 max-w-[15rem] rounded-2xl px-4 text-left"
+            >
+              <span class="block truncate text-sm font-semibold">{item.subject || (item.kind === 'appeal' ? 'Account review' : 'Support request')}</span>
+              <span class="mt-0.5 block text-xs opacity-60">{statusLabel(item.status)}</span>
+            </button>
+          {/each}
+        </div>
+      </section>
+    {/if}
 
     {#if loadingThread}
       <section class="uneem-panel space-y-3 p-5" aria-busy="true">
@@ -125,15 +220,17 @@
         <div class="h-16 animate-pulse rounded-2xl bg-surface-level-1"></div>
         <div class="h-12 animate-pulse rounded-2xl bg-surface-level-1"></div>
       </section>
-    {:else if !signedIn && thread}
+    {:else if thread && !showingNewRequest}
       <section class="uneem-panel overflow-hidden">
         <div class="border-b border-border-light px-5 py-4">
           <div class="flex items-center justify-between gap-4">
-            <div>
-              <p class="text-sm font-semibold text-text">{thread.subject || 'Support conversation'}</p>
-              <p class="mt-1 text-xs text-text-muted">{thread.status === 'resolved' ? 'Resolved' : thread.status === 'waiting' ? 'Waiting for you' : 'Open'}</p>
+            <div class="min-w-0">
+              <p class="truncate text-sm font-semibold text-text">{thread.subject || (thread.kind === 'appeal' ? 'Account review' : 'Support conversation')}</p>
+              <p class="mt-1 text-xs text-text-muted">{statusLabel(thread.status)}</p>
             </div>
-            <button on:click={startAnotherGuestThread} class="min-h-11 rounded-xl px-3 text-sm font-semibold text-text-secondary hover:bg-surface-level-1">New request</button>
+            {#if !signedIn}
+              <button on:click={startAnotherGuestThread} class="min-h-11 shrink-0 rounded-xl px-3 text-sm font-semibold text-text-secondary hover:bg-surface-level-1">New request</button>
+            {/if}
           </div>
         </div>
 
@@ -146,7 +243,7 @@
           {/each}
         </div>
 
-        <form on:submit|preventDefault={replyToGuestThread} class="border-t border-border-light p-4 sm:p-5">
+        <form on:submit|preventDefault={replyToThread} class="border-t border-border-light p-4 sm:p-5">
           <label class="text-sm font-semibold text-text" for="reply">Reply</label>
           <textarea id="reply" bind:value={message} rows="3" maxlength="4000" class="uneem-field mt-2 resize-none" placeholder="Write your message…"></textarea>
           <button disabled={submitting || !message.trim()} class="uneem-primary-action mt-3 w-full">{submitting ? 'Sending…' : 'Send reply'}</button>
@@ -154,20 +251,21 @@
       </section>
     {:else}
       <form on:submit|preventDefault={submitNewThread} class="uneem-panel p-5 sm:p-6">
+        {#if signedIn && myThreads.length > 0}
+          <button type="button" on:click={() => openMyThread(myThreads[0].id)} class="mb-5 inline-flex min-h-11 items-center text-sm font-semibold text-text-secondary hover:text-text">← Existing conversations</button>
+        {/if}
+
         {#if !signedIn}
           <label class="text-sm font-semibold text-text" for="email">Contact email <span class="font-normal text-text-muted">(optional)</span></label>
           <input id="email" bind:value={contactEmail} type="email" autocomplete="email" class="uneem-field mt-2" placeholder="you@example.com" />
           <p class="mt-2 text-xs leading-5 text-text-muted">Useful if you lose this browser. It is not used to grant platform access.</p>
         {/if}
 
-        <label class="mt-5 block text-sm font-semibold text-text" for="subject">What is this about?</label>
+        <label class="block text-sm font-semibold text-text" for="subject">What is this about?</label>
         <input id="subject" bind:value={subject} maxlength="120" class="uneem-field mt-2" placeholder={restriction ? 'Account restriction review' : 'Booking, verification, account…'} />
 
         <label class="mt-5 block text-sm font-semibold text-text" for="message">Message</label>
         <textarea id="message" bind:value={message} rows="5" maxlength="4000" class="uneem-field mt-2 resize-none" placeholder="Explain what you need help with…"></textarea>
-
-        {#if error}<div class="mt-4 rounded-2xl bg-danger-light px-4 py-3 text-sm leading-6 text-danger" role="alert">{error}</div>{/if}
-        {#if success}<div class="mt-4 rounded-2xl bg-success-light px-4 py-3 text-sm leading-6 text-success" role="status">{success}</div>{/if}
 
         <button disabled={submitting || !message.trim()} class="uneem-primary-action mt-5 w-full">
           {submitting ? 'Sending…' : restriction ? 'Send appeal' : 'Start conversation'}
@@ -180,3 +278,19 @@
     </p>
   </main>
 </div>
+
+<style>
+  .support-thread-tab {
+    border: 1px solid var(--border-light);
+    background: var(--surface);
+    color: var(--text-secondary);
+    transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+  }
+
+  .support-thread-tab:hover,
+  .support-thread-tab.active-thread {
+    border-color: color-mix(in srgb, var(--primary) 36%, var(--border-light));
+    background: var(--surface-level-1);
+    color: var(--text);
+  }
+</style>

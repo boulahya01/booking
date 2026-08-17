@@ -16,6 +16,7 @@ export type SupportThread = {
   status: SupportStatus
   subject: string | null
   created_at: string
+  updated_at?: string
   messages: SupportMessage[]
 }
 
@@ -30,6 +31,14 @@ export type SupportThreadSummary = {
   updated_at: string
   message_count: number
   last_message_at: string | null
+}
+
+export type MySupportThreadSummary = Pick<
+  SupportThread,
+  'id' | 'kind' | 'status' | 'subject' | 'created_at'
+> & {
+  updated_at: string
+  last_message: SupportMessage | null
 }
 
 function normalizeError(error: unknown): Error {
@@ -53,6 +62,90 @@ export async function createAuthenticatedSupportThread(input: {
   })
   if (error) throw normalizeError(error)
   return data as string
+}
+
+export async function listMySupportThreads(): Promise<MySupportThreadSummary[]> {
+  const { data: threads, error } = await supabase
+    .from('support_threads')
+    .select('id, kind, status, subject, created_at, updated_at')
+    .order('updated_at', { ascending: false })
+    .limit(30)
+
+  if (error) throw normalizeError(error)
+  if (!threads?.length) return []
+
+  const ids = threads.map((thread) => thread.id)
+  const { data: messages, error: messagesError } = await supabase
+    .from('support_messages')
+    .select('id, thread_id, sender_role, body, created_at')
+    .in('thread_id', ids)
+    .order('created_at', { ascending: false })
+
+  if (messagesError) throw normalizeError(messagesError)
+
+  const latestByThread = new Map<string, SupportMessage>()
+  for (const row of messages ?? []) {
+    if (!latestByThread.has(row.thread_id)) {
+      latestByThread.set(row.thread_id, {
+        id: row.id,
+        sender_role: row.sender_role as SupportMessage['sender_role'],
+        body: row.body,
+        created_at: row.created_at
+      })
+    }
+  }
+
+  return threads.map((thread) => ({
+    id: thread.id,
+    kind: thread.kind as SupportKind,
+    status: thread.status as SupportStatus,
+    subject: thread.subject,
+    created_at: thread.created_at,
+    updated_at: thread.updated_at,
+    last_message: latestByThread.get(thread.id) ?? null
+  }))
+}
+
+export async function getMySupportThread(threadId: string): Promise<SupportThread | null> {
+  const { data: thread, error } = await supabase
+    .from('support_threads')
+    .select('id, kind, status, subject, created_at, updated_at')
+    .eq('id', threadId)
+    .maybeSingle()
+
+  if (error) throw normalizeError(error)
+  if (!thread) return null
+
+  const { data: messages, error: messagesError } = await supabase
+    .from('support_messages')
+    .select('id, sender_role, body, created_at')
+    .eq('thread_id', threadId)
+    .order('created_at', { ascending: true })
+
+  if (messagesError) throw normalizeError(messagesError)
+
+  return {
+    id: thread.id,
+    kind: thread.kind as SupportKind,
+    status: thread.status as SupportStatus,
+    subject: thread.subject,
+    created_at: thread.created_at,
+    updated_at: thread.updated_at,
+    messages: (messages ?? []).map((row) => ({
+      id: row.id,
+      sender_role: row.sender_role as SupportMessage['sender_role'],
+      body: row.body,
+      created_at: row.created_at
+    }))
+  }
+}
+
+export async function addAuthenticatedSupportMessage(threadId: string, body: string): Promise<void> {
+  const { error } = await supabase.rpc('add_my_support_message', {
+    p_thread_id: threadId,
+    p_body: body
+  })
+  if (error) throw normalizeError(error)
 }
 
 export async function createGuestSupportThread(input: {
