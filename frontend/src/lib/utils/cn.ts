@@ -63,7 +63,7 @@ export function getDayName(date: Date | string, locale = 'en'): string {
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
   delay: number
-): (...args: Parameters<T>) => void {
+): (...args: Parameters<T>) {
   let timeout: ReturnType<typeof setTimeout>
 
   return function (...args: Parameters<T>) {
@@ -77,6 +77,13 @@ export function debounce<T extends (...args: any[]) => any>(
  */
 export function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
+/**
+ * Validate public username: 3-24 lowercase letters, numbers, or underscores.
+ */
+export function isValidUsername(username: string): boolean {
+  return /^[a-z0-9_]{3,24}$/.test(username.trim().toLowerCase())
 }
 
 /**
