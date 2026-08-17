@@ -16,8 +16,9 @@
   const dispatch = createEventDispatcher()
 
   let focused = false
+  let showPassword = false
+
   $: isPassword = type === 'password'
-  $: showPassword = false
   $: inputType = isPassword && showPassword ? 'text' : type
 
   function handleFocus() {
@@ -37,17 +38,15 @@
 
 <div class="w-full">
   {#if label}
-    <label for={label} class="block text-sm font-medium text-text-secondary mb-1.5">
+    <label for={label} class="mb-1.5 block text-sm font-semibold text-text">
       {label}
-      {#if required}
-        <span class="text-danger">*</span>
-      {/if}
+      {#if required}<span class="text-danger"> *</span>{/if}
     </label>
   {/if}
 
   <div class={cn('relative', className)}>
     {#if icon}
-      <span class="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">
+      <span class="absolute start-3 top-1/2 -translate-y-1/2 text-text-muted">
         {icon}
       </span>
     {/if}
@@ -59,21 +58,20 @@
       bind:value
       {disabled}
       {required}
+      aria-invalid={error ? 'true' : undefined}
       on:focus={handleFocus}
       on:blur={handleBlur}
       class={cn(
-        'w-full px-4 py-2.5 rounded-lg border transition-all duration-200',
-        'bg-surface text-text',
-        'placeholder:text-text-muted',
-        'min-h-[44px]',
-        icon && 'pl-10',
-        isPassword && 'pr-12',
+        'min-h-[50px] w-full rounded-[14px] border bg-surface px-4 py-3 text-[15px] text-text outline-none',
+        'placeholder:text-text-muted/90 transition-colors duration-150',
+        icon && 'ps-10',
+        isPassword && 'pe-12',
         error
-          ? 'border-danger focus:ring-2 focus:ring-danger-light'
+          ? 'border-danger focus:ring-2 focus:ring-danger/15'
           : focused
-            ? 'border-info focus:ring-2 focus:ring-info-light'
-            : 'border-border dark:border-white/8',
-        disabled && 'opacity-50 cursor-not-allowed bg-surface-level-1'
+            ? 'border-primary ring-2 ring-primary/15'
+            : 'border-border',
+        disabled && 'cursor-not-allowed bg-surface-level-1 text-text-muted opacity-70'
       )}
     />
 
@@ -81,7 +79,7 @@
       <button
         type="button"
         on:click={togglePasswordVisibility}
-        class="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text transition-colors p-1"
+        class="absolute end-2.5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-surface-level-1 hover:text-text"
         aria-label={showPassword ? 'Hide password' : 'Show password'}
       >
         <Icon name={showPassword ? 'eye-off' : 'eye'} size={18} />
@@ -90,9 +88,6 @@
   </div>
 
   {#if error}
-    <div class="flex items-center gap-2 text-xs px-1 mt-1.5">
-      <Icon name="x" size={14} className="text-danger" />
-      <span class="text-danger">{error}</span>
-    </div>
+    <p class="mt-1.5 px-1 text-xs font-medium leading-5 text-danger">{error}</p>
   {/if}
 </div>
