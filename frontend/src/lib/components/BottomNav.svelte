@@ -3,27 +3,19 @@
   import { isAdmin } from '$lib/stores/auth'
   import { cn } from '$lib/utils/cn'
   import Icon from './Icon.svelte'
-  import { _ } from 'svelte-i18n'
+  import { language } from '$lib/stores/ui'
 
-  type NavItem = {
-    labelKey: string
-    href: string
-    icon: string
-    adminOnly?: boolean
-  }
+  type NavItem = { label: [string, string]; href: string; icon: string }
 
   const regularItems: NavItem[] = [
-    { labelKey: 'nav.home', href: '/home', icon: 'home' },
-    { labelKey: 'nav.bookings', href: '/bookings', icon: 'calendar-days' },
-    { labelKey: 'nav.notifications', href: '/notifications', icon: 'bell' },
-    { labelKey: 'nav.profile', href: '/profile', icon: 'user' }
+    { label: ['Home', 'الرئيسية'], href: '/home', icon: 'home' },
+    { label: ['Matches', 'المباريات'], href: '/matches', icon: 'users' },
+    { label: ['My Sports', 'رياضتي'], href: '/bookings', icon: 'calendar-days' },
+    { label: ['Profile', 'حسابي'], href: '/profile', icon: 'user' }
   ]
 
   const adminItems: NavItem[] = [
-    { labelKey: 'admin.bookings_title', href: '/admin/bookings', icon: 'calendar-check' },
-    { labelKey: 'nav.manage_pitches', href: '/admin/pitches', icon: 'map-pin' },
-    { labelKey: 'nav.manage_users', href: '/admin/manage-users', icon: 'users' },
-    { labelKey: 'nav.notifications_admin', href: '/admin/notifications', icon: 'bell-dot' }
+    { label: ['Admin', 'الإدارة'], href: '/admin/bookings', icon: 'shield' }
   ]
 
   function isActive(href: string): boolean {
@@ -31,61 +23,25 @@
   }
 </script>
 
-<!-- Mobile Bottom Navigation -->
-<nav
-  class={cn(
-    'fixed bottom-0 left-0 right-0 z-40 md:hidden',
-    'bg-surface border-t border-border dark:border-white/6',
-    'safe-bottom'
-  )}
-  aria-label="Mobile navigation"
->
-  <div class="flex items-stretch">
-    <!-- Regular items -->
+<nav class={cn('fixed bottom-0 left-0 right-0 z-40 md:hidden','bg-surface/95 backdrop-blur border-t border-border dark:border-white/6','safe-bottom')} aria-label="Mobile navigation">
+  <div class="mx-auto flex max-w-lg items-stretch px-1">
     {#each regularItems as item}
-      <a
-        href={item.href}
-        class={cn(
-          'flex-1 flex flex-col items-center justify-center py-2.5 px-1 text-xs font-medium',
-          'transition-colors duration-200',
-          isActive(item.href)
-            ? 'text-primary bg-primary-light/60 border-t-2 border-primary'
-            : 'text-text-muted hover:text-text'
-        )}
-      >
-        <Icon name={item.icon} size={20} strokeWidth={isActive(item.href) ? 2.5 : 2} />
-        <span class="text-[10px] mt-0.5 truncate w-full text-center">{$_(item.labelKey)}</span>
+      <a href={item.href} class={cn('flex-1 min-h-[58px] flex flex-col items-center justify-center px-1 text-xs font-medium transition-colors',isActive(item.href) ? 'text-primary' : 'text-text-muted hover:text-text')} aria-current={isActive(item.href) ? 'page' : undefined}>
+        <div class={cn('grid h-8 min-w-12 place-items-center rounded-full transition-colors', isActive(item.href) ? 'bg-primary-light' : '')}>
+          <Icon name={item.icon} size={20} strokeWidth={isActive(item.href) ? 2.5 : 2} />
+        </div>
+        <span class="mt-0.5 max-w-full truncate text-[10px]">{item.label[$language === 'ar' ? 1 : 0]}</span>
       </a>
     {/each}
-
-    <!-- Admin separator -->
     {#if $isAdmin}
-      <div class="flex items-center px-0.5" style="min-width: 0; flex: 0 0 auto;">
-        <div class="w-[1px] h-6 self-center bg-border/60"></div>
-      </div>
-
-      <!-- Admin items -->
       {#each adminItems as item}
-        <a
-          href={item.href}
-          class={cn(
-            'flex-1 flex flex-col items-center justify-center py-2.5 px-1 text-xs font-medium',
-            'transition-colors duration-200',
-            isActive(item.href)
-              ? 'text-primary bg-primary-light/60 border-t-2 border-primary'
-              : 'text-text-muted hover:text-text'
-          )}
-        >
-          <Icon name={item.icon} size={20} strokeWidth={isActive(item.href) ? 2.5 : 2} />
-          <span class="text-[10px] mt-0.5 truncate w-full text-center">{$_(item.labelKey)}</span>
+        <a href={item.href} class={cn('flex-1 min-h-[58px] flex flex-col items-center justify-center px-1 text-xs font-medium transition-colors',isActive(item.href) ? 'text-primary' : 'text-text-muted hover:text-text')}>
+          <div class={cn('grid h-8 min-w-12 place-items-center rounded-full', isActive(item.href) ? 'bg-primary-light' : '')}><Icon name={item.icon} size={20} /></div>
+          <span class="mt-0.5 text-[10px]">{item.label[$language === 'ar' ? 1 : 0]}</span>
         </a>
       {/each}
     {/if}
   </div>
 </nav>
 
-<style>
-  :global(.safe-bottom) {
-    padding-bottom: var(--safe-area-inset-bottom, 0);
-  }
-</style>
+<style>:global(.safe-bottom){padding-bottom:var(--safe-area-inset-bottom,0)}</style>
