@@ -14,15 +14,20 @@
   let email = ''
   let password = ''
   let loading = false
-  let errors: Record<string, string> = {}
+  let loginAttempted = false
   let submitError = ''
   let authFailureKind: AuthFailureKind | null = null
 
   $: cleanEmail = email.trim().toLowerCase()
-  $: registerHref = cleanEmail && isValidEmail(cleanEmail)
+  $: emailValid = isValidEmail(cleanEmail)
+  $: emailState = email.length > 0 || loginAttempted
+    ? (emailValid ? 'valid' : 'invalid')
+    : 'idle'
+  $: passwordError = loginAttempted && !password ? copy.passwordRequired : ''
+  $: registerHref = emailValid
     ? `/register?email=${encodeURIComponent(cleanEmail)}`
     : '/register'
-  $: forgotHref = cleanEmail && isValidEmail(cleanEmail)
+  $: forgotHref = emailValid
     ? `/forgot-password?email=${encodeURIComponent(cleanEmail)}`
     : '/forgot-password'
 
@@ -30,8 +35,10 @@
     ? {
         title: 'تسجيل الدخول',
         email: 'البريد الإلكتروني',
-        emailPlaceholder: 'name@usmba.ac.ma',
+        emailPlaceholder: 'mehdi@usmba.ac.ma',
+        emailReady: 'البريد صحيح',
         password: 'كلمة المرور',
+        passwordPlaceholder: 'كلمة المرور',
         signIn: 'دخول',
         forgot: 'نسيت كلمة المرور؟',
         create: 'إنشاء حساب',
@@ -45,8 +52,10 @@
     : {
         title: 'Sign in',
         email: 'Email',
-        emailPlaceholder: 'name@usmba.ac.ma',
+        emailPlaceholder: 'mehdi@usmba.ac.ma',
+        emailReady: 'Valid email',
         password: 'Password',
+        passwordPlaceholder: 'Your password',
         signIn: 'Sign in',
         forgot: 'Forgot password?',
         create: 'Create account',
@@ -75,20 +84,12 @@
   }
 
   async function handleLogin() {
-    errors = {}
+    loginAttempted = true
     submitError = ''
     authFailureKind = null
 
     email = sanitizeInput(email).trim().toLowerCase()
-
-    if (!isValidEmail(email)) {
-      errors.email = copy.invalidEmail
-      return
-    }
-    if (!password) {
-      errors.password = copy.passwordRequired
-      return
-    }
+    if (!emailValid || !password) return
 
     loading = true
     authState.setLoading(true)
@@ -174,8 +175,12 @@
             label={copy.email}
             type="email"
             placeholder={copy.emailPlaceholder}
+            icon="mail"
+            autocomplete="email"
             bind:value={email}
-            error={errors.email}
+            validation={emailState}
+            hint={emailState === 'invalid' ? copy.invalidEmail : ''}
+            validHint={copy.emailReady}
             disabled={loading}
           />
 
@@ -183,8 +188,11 @@
             <TextField
               label={copy.password}
               type="password"
+              placeholder={copy.passwordPlaceholder}
+              icon="lock"
+              autocomplete="current-password"
               bind:value={password}
-              error={errors.password}
+              error={passwordError}
               disabled={loading}
             />
             <div class="text-end">
@@ -192,7 +200,14 @@
             </div>
           </div>
 
-          <Button type="submit" variant="primary" size="lg" {loading} className="mt-2 w-full">
+          <Button
+            type="submit"
+            variant="primary"
+            size="lg"
+            {loading}
+            disabled={!emailValid || !password}
+            className="mt-2 w-full"
+          >
             {copy.signIn}
           </Button>
         </form>
