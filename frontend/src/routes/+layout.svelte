@@ -13,6 +13,7 @@
   import { supabase } from '$lib/supabaseClient'
   import { authState } from '$lib/stores/auth'
   import { getMyAccountState, getUserProfile } from '$lib/auth'
+  import { getMySessionContext } from '$lib/sessionApi'
   import { locale } from 'svelte-i18n'
   import { USE_MOCK } from '$lib/mock'
 
@@ -33,10 +34,8 @@
   $: isPublicSupportPage = publicSupportPaths.includes($page.url.pathname)
   $: chromeFreePage = isAuthPage || isPublicSupportPage
 
-  // Routing is driven by the authoritative account-state RPC rather than the
-  // legacy profile status alone. Help is intentionally outside the access gate:
-  // a student must still be able to appeal or recover when normal sports access
-  // is restricted, and a guest must be able to ask for help before login.
+  // Routing is driven by the authoritative account-state payload. Help stays
+  // outside the access gate so restricted users and signed-out users can recover.
   $: if (
     browser &&
     !$authState.loading &&
@@ -51,10 +50,11 @@
     const isPendingPath = pathname === '/pending-approval'
     const isProfilePath = pathname === '/profile'
     const isVerificationPath = pathname === '/verification'
-    const isAdminPath = pathname.startsWith('/admin/')
+    const isAdminPath = pathname === '/admin' || pathname.startsWith('/admin/')
     const isSportsPath = pathname.startsWith('/home') ||
                          pathname.startsWith('/bookings') ||
                          pathname.startsWith('/pitch/') ||
+                         pathname.startsWith('/matches') ||
                          pathname.startsWith('/notifications')
     const canUseSports = account?.can_use_sports === true
     const isAdminAccount = account?.role === 'admin'
@@ -117,16 +117,14 @@
       }
 
       try {
-        const [profile, account] = await Promise.all([
-          getUserProfile(session.user.id),
-          getMyAccountState()
-        ])
-
-        if (!profile || !account) {
+        // One authoritative DB read resolves profile + access/identity routing.
+        const context = await getMySessionContext()
+        if (!context) {
           authState.clear()
           return
         }
 
+        const { profile, account } = context
         authState.setSessionContext({
           id: profile.id,
           email: session.user.email ?? undefined,
