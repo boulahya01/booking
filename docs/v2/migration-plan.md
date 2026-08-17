@@ -1,96 +1,125 @@
-# Booking V2 Fresh Deployment Plan
+# UNEEM V2 Fresh Deployment Plan
 
 Status: accepted reset strategy
 
-V2 now targets a **new, clean Supabase project**. The previous Vercel-managed Supabase project is not treated as a migration source, and legacy Auth users / booking history are not requirements for launch.
-
-Users will register again in V2.
+UNEEM V2 targets a **new, clean Supabase project**. The previous database/Auth/users/history are not migration inputs. Students register again after the complete V2 contract is installed and validated.
 
 ## Non-negotiable rules
 
-- Do not replay the historical V1 migration directory into the new database.
-- Do not fabricate legacy Auth users, password hashes, profiles, or booking history.
-- Do not copy stale V1 RLS policies, Edge Functions, slot tables, booking jobs, or lifecycle cleanup code.
-- Do not spend money on Supabase branches or other validation infrastructure.
-- The database is created from the reviewed V2 contract only.
-- Once real V2 users/data exist, future schema changes are forward-only migrations.
+- Never replay historical `supabase/migrations/` into V2.
+- Never reconstruct legacy Auth users, password hashes, profiles or booking history.
+- Stay on $0 infrastructure; no paid Supabase branch/add-on is required for validation.
+- Apply the complete reviewed `supabase/v2` stack before accepting real registration or application traffic.
+- Once real V2 users exist, schema changes become forward-only and user data is never reset as routine deployment work.
 
-## What the V1 audit is still useful for
+## Identity deployment contract
 
-The 2026-08-17 audit remains useful as engineering evidence, not migration input. It showed the problems V2 must avoid:
+- Academic email verification proves university affiliation, **not ownership of a typed Student ID**.
+- Academic signup may omit Student ID and receives the sports fast path after academic-email confirmation.
+- Personal-email signup requires a Student ID claim and private student-card review before sports access.
+- Student ID is private and authoritative only after verification; only verified IDs are globally unique.
+- Public username is separate from Student ID and is case-insensitively unique.
+- Verification/remediation stays on the same account. A future academic email should be linked to the existing identity rather than used to create a duplicate account.
+- No physical/in-person verification workflow is part of V2.
 
-- Auth/profile drift
-- duplicated RLS generations
-- repository/production migration drift
-- stale `active` booking lifecycle state
-- slot/job lifecycle complexity
-- availability routed through an Edge Function
-- unnecessary client request waterfalls
+## Source of truth
 
-The old row counts and identities are **not** V2 acceptance criteria anymore.
+The deployable contract is the ordered stack documented in `supabase/v2/README.md`:
 
-## V2 source of truth
+- `schema.sql`
+- layers `002` through `018`
+- booking/security/identity/support/match/admin/backend-read transactional contract suites
 
-The clean database contract lives in:
+The application must be configured against the resulting schema, not against an intermediate layer.
 
-1. `supabase/v2/schema.sql`
-2. `supabase/v2/002_security_contract.sql`
-3. `supabase/v2/tests/booking_contract.sql`
-4. `supabase/v2/tests/security_contract.sql`
+## Deployment sequence
 
-The historical `supabase/migrations/` directory is legacy V1 reference only and must not be used to initialize V2.
+1. Confirm the target Supabase project is the intended fresh **Free** V2 project and contains no V1 production data.
+2. Apply `schema.sql` then layers `002` → `018` in order with fail-fast execution.
+3. Run all V2 transactional contract suites:
+   - booking
+   - security/RLS
+   - identity verification
+   - support/reports
+   - matches
+   - admin operations
+   - authoritative backend reads/session
+4. Run Supabase security and performance advisors and resolve launch-blocking findings.
+5. Generate TypeScript database types from the resulting hosted schema and compare them with the frontend API boundary.
+6. Configure Auth site/redirect URLs for UNEEM production and preview domains.
+7. Seed only reviewed facility configuration; do not copy stale V1 operational rows.
+8. Create the first real administrator identity and promote it through an explicit privileged/bootstrap operation; there is no public self-promotion path.
+9. Configure Vercel with the fresh Supabase URL and publishable key.
+10. Smoke-test both identity paths and all core RPC workflows on preview.
+11. Perform responsive/rendered UI review and runtime log review.
+12. Promote only after all launch gates pass.
 
-## Fresh identity strategy
+## Required smoke flows
 
-- students sign up again
-- each new Auth user receives a new V2 `profiles` row
-- Student ID remains unique
-- protected profile fields (`student_id`, `role`, `status`) are never self-writable through a permissive table policy
-- verified/approved account state controls access to the shared booking experience
-- old passwords are not reconstructed
-- old sessions are irrelevant
-- old booking history starts empty
+### Academic identity
+- register with `@usmba.ac.ma` without requiring Student ID
+- confirm email
+- exactly one profile exists
+- sports access becomes available
+- optional later Student ID verification does not change the meaning of academic affiliation
 
-The first administrator is bootstrapped explicitly after the administrator account is created; there is no public self-promotion path.
+### Personal identity
+- register with personal email + Student ID claim
+- sports access remains blocked
+- upload private student-card evidence
+- admin review approves/rejects with structured remediation reason
+- verified ID becomes authoritative only on approval
+- duplicate verified identity cannot be claimed by another account
 
-## Clean deployment sequence
+### Booking
+- active facilities/availability load in the facility timezone
+- peer occupied slot exposes only intended public display information
+- availability exposes booking UUID only for the current user's own booking
+- one active/upcoming booking globally per student
+- frequency/window/alignment/cutoff rules are database authoritative
+- same-slot race produces one winner
+- lifecycle is derived from timestamps
+- user cancellation closes a linked match through the booking lifecycle contract
 
-1. Create a new Supabase project on a $0-compatible plan only.
-2. Confirm the project is empty and healthy.
-3. Apply `supabase/v2/schema.sql` as the initial V2 database contract.
-4. Apply `supabase/v2/002_security_contract.sql`.
-5. Run the booking and security contract suites against the fresh project or a free disposable local Postgres runtime.
-6. Run Supabase security and performance advisors.
-7. Seed only intentional V2 configuration/facilities; do not import stale V1 operational rows.
-8. Create/sign up the first real administrator identity and promote it through an explicit privileged operation.
-9. Generate TypeScript database types from the resulting schema.
-10. Configure the Vercel project with the new Supabase URL and publishable key.
-11. Configure Auth redirect/site URLs for the Vercel production and preview domains.
-12. Smoke-test signup, verification, approval, facility browsing, shared availability, booking, conflict handling, cancellation, profile update, admin authorization and PWA behavior.
-13. Promote the validated V2 deployment to production.
+### Matches
+- booking owner opens a match without creating another booking
+- organizer/reserved/joined capacity arithmetic is correct
+- concurrent joins cannot exceed capacity
+- organizer cannot make a populated public match private or displace public participants via reserved spots
+- participant can leave according to the current match lifecycle rule
+- roster/discovery expose public name/username only
+
+### Help / reports
+- guest support works without Auth using a capability token
+- authenticated support/appeal is account-owned
+- structured reports require target + reason and reject self-report where applicable
+- students cannot read another student's conversation
+- admin inbox/replies/status changes are authorized and audited where defined
+
+### Admin
+- non-admin RPC calls reject
+- booking cancellation requires a structured reason and audit row
+- facility create/update/archive is RPC-only and audited
+- direct authenticated facility writes are denied
+- user directory search/status pagination is server-side and admin-only
 
 ## Launch gates
 
-V2 does not go live until all of these are true:
+UNEEM does not go live until all are true:
 
-1. A new student can register and receive exactly one profile.
-2. Duplicate Student IDs are rejected.
-3. An unapproved account cannot read shared facility availability.
-4. An approved student can read active facilities and availability.
-5. Occupied slots expose only the intended peer display name.
-6. Students cannot alter `role`, `status`, or another user's booking.
-7. Two users racing for the same facility/time produce exactly one successful booking.
-8. User-level booking rules are enforced by the database/RPC, not only the UI.
-9. Cancellation cutoff is authoritative and admin override is deliberate.
-10. Completed lifecycle is derived from timestamps without cron cleanup jobs.
-11. Admin-only mutations reject students.
-12. Home / Pitch / My Bookings / Profile / Admin smoke flows pass.
-13. No live availability or booking mutation is served from stale PWA cache.
-14. Supabase security advisors contain no unresolved launch-blocking findings.
-15. Vercel production uses only the new V2 Supabase credentials.
+1. Fresh V2 stack through layer 018 applies without error.
+2. Every committed V2 SQL contract suite passes on the confirmed fresh target or equivalent disposable runtime.
+3. Security/RLS negative tests pass.
+4. Booking and match concurrency invariants are validated.
+5. Supabase advisors have no unresolved launch-blocking findings.
+6. Generated hosted DB types match the application contract.
+7. Vercel preview uses only the new V2 credentials and builds successfully.
+8. Academic and personal verification flows both pass end-to-end.
+9. Core booking/match/help/admin smoke tests pass.
+10. The real UNEEM logo/PWA icon assets and responsive product review are complete before production promotion.
 
 ## Rollback
 
-There is no legacy production database to roll back to.
+Before real V2 traffic, the fresh project can be recreated from the reviewed V2 stack if necessary.
 
-Before real V2 traffic, the clean project can be recreated from the V2 contract if necessary. After real users begin registering, database changes become forward-only and application rollback means deploying a known-good V2 application version against the same database rather than resetting user data.
+After real users begin registering, rollback means deploying a known-good V2 application version against the same database and using forward corrective migrations. Do not reset live V2 user data.

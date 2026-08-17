@@ -1,7 +1,7 @@
--- Booking V2 clean database baseline.
+-- UNEEM V2 clean database baseline.
 --
--- IMPORTANT: this file is intentionally outside supabase/migrations.
--- Validate it in an isolated database before creating any production migration.
+-- Fresh-project source of truth. Do not replay historical V1 migrations.
+-- Apply the complete V2 stack before accepting real registrations or traffic.
 
 begin;
 
@@ -14,15 +14,28 @@ grant usage on schema private to authenticated;
 
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
-  student_id text not null unique,
+  -- A Student ID claim is private identity data and is not authoritative until
+  -- identity_status='verified'. Academic-email accounts may leave it null.
+  student_id text,
   full_name text not null,
   role text not null default 'student' check (role in ('student', 'admin')),
   status text not null default 'pending' check (status in ('pending', 'approved', 'suspended')),
+  email_kind text not null default 'personal' check (email_kind in ('academic', 'personal')),
+  identity_status text not null default 'required'
+    check (identity_status in ('required', 'pending', 'verified', 'rejected', 'conflict')),
+  restriction_reason text,
+  verified_student_id_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint profiles_student_id_not_blank check (btrim(student_id) <> ''),
+  constraint profiles_student_id_not_blank check (student_id is null or btrim(student_id) <> ''),
   constraint profiles_full_name_not_blank check (btrim(full_name) <> '')
 );
+
+-- Only verified ownership reserves a Student ID globally. Unverified claims may
+-- collide until an administrator resolves ownership from private evidence.
+create unique index profiles_verified_student_id_unique_idx
+  on public.profiles (student_id)
+  where identity_status = 'verified' and student_id is not null;
 
 create table public.pitches (
   id uuid primary key default gen_random_uuid(),
@@ -151,6 +164,9 @@ $$;
 revoke all on function private.is_admin() from public, anon;
 grant execute on function private.is_admin() to authenticated;
 
+-- Baseline signup is already compatible with the academic/personal identity
+-- split. Layer 013 later replaces this function to additionally require the
+-- public username. The complete stack must be installed before real signup.
 create or replace function private.handle_new_user()
 returns trigger
 language plpgsql
@@ -160,20 +176,39 @@ as $$
 declare
   v_student_id text;
   v_full_name text;
+  v_email text := lower(btrim(coalesce(new.email, '')));
+  v_email_kind text;
 begin
-  v_student_id := upper(regexp_replace(coalesce(new.raw_user_meta_data ->> 'student_id', ''), '\s+', '', 'g'));
+  if v_email = '' or position('@' in v_email) = 0 then
+    raise exception 'invalid_email';
+  end if;
+
+  v_email_kind := case
+    when split_part(v_email, '@', 2) = 'usmba.ac.ma' then 'academic'
+    else 'personal'
+  end;
+
   v_full_name := btrim(coalesce(new.raw_user_meta_data ->> 'full_name', ''));
+  if char_length(v_full_name) < 2 or char_length(v_full_name) > 120 then
+    raise exception 'invalid_full_name';
+  end if;
 
+  v_student_id := upper(regexp_replace(coalesce(new.raw_user_meta_data ->> 'student_id', ''), '\s+', '', 'g'));
   if v_student_id = '' then
-    raise exception 'student_id_required';
+    v_student_id := null;
+  elsif v_student_id !~ '^[A-Z][0-9]{9}$' then
+    raise exception 'invalid_student_id';
   end if;
 
-  if v_full_name = '' then
-    raise exception 'full_name_required';
+  if v_email_kind = 'personal' and v_student_id is null then
+    raise exception 'student_id_required_for_personal_email';
   end if;
 
-  insert into public.profiles (id, student_id, full_name, role, status)
-  values (new.id, v_student_id, v_full_name, 'student', 'pending');
+  insert into public.profiles (
+    id, student_id, full_name, role, status, email_kind, identity_status
+  ) values (
+    new.id, v_student_id, v_full_name, 'student', 'pending', v_email_kind, 'required'
+  );
 
   return new;
 end;
@@ -194,9 +229,12 @@ as $$
 begin
   if old.email_confirmed_at is null and new.email_confirmed_at is not null then
     update public.profiles
-    set status = 'approved'
-    where id = new.id
-      and status = 'pending';
+    set status = case
+          when email_kind = 'academic' and status = 'pending' then 'approved'
+          else status
+        end,
+        updated_at = now()
+    where id = new.id;
   end if;
 
   return new;
@@ -416,6 +454,9 @@ $$;
 revoke all on function public.get_pitch_availability(uuid, date) from public, anon;
 grant execute on function public.get_pitch_availability(uuid, date) to authenticated;
 
+-- Layer 003 replaces this baseline implementation with the serialized one-active
+-- booking invariant. Keeping the baseline operation here makes the schema
+-- self-contained while the ordered V2 stack remains the deployable contract.
 create or replace function public.create_booking(
   p_pitch_id uuid,
   p_starts_at timestamptz

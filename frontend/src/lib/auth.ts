@@ -2,6 +2,7 @@ import { supabase } from './supabaseClient'
 import { USE_MOCK, mockProfile, mockDelay } from './mock'
 import type { AccountState, Profile } from './types'
 import { logger } from './logger'
+import { getMySessionContext } from './sessionApi'
 import { get } from 'svelte/store'
 import { locale } from 'svelte-i18n'
 import en from '../locales/en.json'
@@ -239,17 +240,20 @@ export async function loginWithEmail(email: string, password: string): Promise<A
     if (signInError) return { error: { message: signInError.message } }
     if (!data.user) return { error: { message: 'Login failed' } }
 
-    const [profile, accountState] = await Promise.all([
-      getUserProfile(data.user.id),
-      getMyAccountState()
-    ])
-
-    if (!profile || !accountState) {
+    // Restore profile + access/identity routing from one authoritative RPC.
+    const context = await getMySessionContext()
+    if (!context) {
       await supabase.auth.signOut()
       return { error: { message: 'Unable to restore account' } }
     }
 
-    return { data: { user: data.user, profile, accountState } }
+    return {
+      data: {
+        user: data.user,
+        profile: context.profile,
+        accountState: context.account
+      }
+    }
   } catch (err: any) {
     return { error: { message: err.message || 'Login failed' } }
   }
