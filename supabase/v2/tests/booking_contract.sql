@@ -1,6 +1,10 @@
 -- Booking V2 database contract tests.
 --
--- Run only against a disposable/local database after supabase/v2/schema.sql.
+-- Run against a disposable/local database after:
+--   1. supabase/v2/schema.sql
+--   2. supabase/v2/002_security_contract.sql
+--   3. supabase/v2/003_onboarding_booking_rules.sql
+--
 -- The entire suite is transactional and rolls back its fixtures.
 -- It assumes a privileged local Postgres connection so fixtures can be seeded
 -- without creating real Auth identities.
@@ -11,15 +15,15 @@ begin;
 
 set local timezone = 'UTC';
 
--- Stable fixture identifiers make failures easy to reproduce.
--- Profile/auth FK triggers are disabled only while local test fixtures are seeded.
 set local session_replication_role = replica;
 
 insert into public.profiles (id, student_id, full_name, role, status)
 values
   ('10000000-0000-4000-8000-000000000001', 'T000000001', 'Student One', 'student', 'approved'),
   ('10000000-0000-4000-8000-000000000002', 'T000000002', 'Student Two', 'student', 'approved'),
-  ('10000000-0000-4000-8000-000000000003', 'T000000003', 'Test Admin', 'admin', 'approved');
+  ('10000000-0000-4000-8000-000000000003', 'T000000003', 'Test Admin', 'admin', 'approved'),
+  ('10000000-0000-4000-8000-000000000004', 'T000000004', 'Student Four', 'student', 'approved'),
+  ('10000000-0000-4000-8000-000000000005', 'T000000005', 'Student Five', 'student', 'approved');
 
 set local session_replication_role = origin;
 
@@ -116,7 +120,7 @@ begin
 end;
 $$;
 
--- 2. A second student cannot take the same pitch/time, even under a race.
+-- 2. A second student cannot take the same pitch/time.
 select set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000000002', true);
 set local role authenticated;
 
@@ -165,21 +169,25 @@ $$;
 
 reset role;
 
--- 4. Booking frequency is authoritative in the database.
-select set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000000001', true);
-set local role authenticated;
-
-select public.create_booking(
+-- 4. Frequency limits still apply after a previous booking is completed.
+insert into public.bookings (user_id, pitch_id, starts_at, ends_at, status)
+values (
+  '10000000-0000-4000-8000-000000000004',
   '20000000-0000-4000-8000-000000000002',
-  date_trunc('hour', now()) + interval '6 hours'
+  date_trunc('hour', now()) - interval '24 hours',
+  date_trunc('hour', now()) - interval '23 hours',
+  'scheduled'
 );
+
+select set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000000004', true);
+set local role authenticated;
 
 do $$
 begin
   begin
     perform public.create_booking(
       '20000000-0000-4000-8000-000000000002',
-      date_trunc('hour', now()) + interval '30 hours'
+      date_trunc('hour', now()) + interval '6 hours'
     );
     raise exception 'FAIL: frequency-limited booking unexpectedly succeeded';
   exception
@@ -193,7 +201,35 @@ $$;
 
 reset role;
 
--- 5. Students cannot bypass RPC rules with direct booking INSERTs.
+-- 5. A student can hold only one active/upcoming booking at a time.
+select set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000000005', true);
+set local role authenticated;
+
+select public.create_booking(
+  '20000000-0000-4000-8000-000000000001',
+  date_trunc('hour', now()) + interval '10 hours'
+);
+
+do $$
+begin
+  begin
+    perform public.create_booking(
+      '20000000-0000-4000-8000-000000000003',
+      date_trunc('hour', now()) + interval '12 hours'
+    );
+    raise exception 'FAIL: second active booking unexpectedly succeeded';
+  exception
+    when others then
+      if sqlerrm <> 'active_booking_exists' then
+        raise;
+      end if;
+  end;
+end;
+$$;
+
+reset role;
+
+-- 6. Students cannot bypass RPC rules with direct booking INSERTs.
 select set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000000001', true);
 set local role authenticated;
 
@@ -204,8 +240,8 @@ begin
     values (
       '10000000-0000-4000-8000-000000000001',
       '20000000-0000-4000-8000-000000000001',
-      date_trunc('hour', now()) + interval '10 hours',
-      date_trunc('hour', now()) + interval '11 hours',
+      date_trunc('hour', now()) + interval '14 hours',
+      date_trunc('hour', now()) + interval '15 hours',
       'scheduled'
     );
     raise exception 'FAIL: authenticated user unexpectedly wrote directly to bookings';
@@ -218,7 +254,7 @@ $$;
 
 reset role;
 
--- 6. Cancellation is blocked inside the configured cutoff.
+-- 7. Cancellation is blocked inside the configured cutoff.
 insert into public.bookings (id, user_id, pitch_id, starts_at, ends_at, status)
 values (
   '30000000-0000-4000-8000-000000000001',
@@ -248,14 +284,14 @@ $$;
 
 reset role;
 
--- 7. Cancellation succeeds outside the cutoff and records who cancelled it.
+-- 8. Cancellation succeeds outside the cutoff and records who cancelled it.
 insert into public.bookings (id, user_id, pitch_id, starts_at, ends_at, status)
 values (
   '30000000-0000-4000-8000-000000000002',
   '10000000-0000-4000-8000-000000000001',
   '20000000-0000-4000-8000-000000000003',
-  date_trunc('hour', now()) + interval '4 hours',
-  date_trunc('hour', now()) + interval '5 hours',
+  date_trunc('hour', now()) + interval '6 hours',
+  date_trunc('hour', now()) + interval '7 hours',
   'scheduled'
 );
 
@@ -279,7 +315,7 @@ begin
 end;
 $$;
 
--- 8. Lifecycle status is derived from timestamps rather than completion jobs.
+-- 9. Lifecycle status is derived from timestamps rather than completion jobs.
 insert into public.bookings (id, user_id, pitch_id, starts_at, ends_at, status)
 values (
   '30000000-0000-4000-8000-000000000003',
