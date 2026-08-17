@@ -10,10 +10,10 @@
   import { theme, toasts, uiState } from '$lib/stores/ui'
   import { initializeI18n } from '$lib/i18n'
   import { supabase } from '$lib/supabaseClient'
-  import { authState, isAuthenticated } from '$lib/stores/auth'
+  import { authState } from '$lib/stores/auth'
   import { getUserProfile } from '$lib/auth'
   import { locale } from 'svelte-i18n'
-  import { USE_MOCK, mockProfile } from '$lib/mock'
+  import { USE_MOCK } from '$lib/mock'
 
   let sideNavOpen = false
   let routeGuardProcessing = false
@@ -29,15 +29,22 @@
   const authPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/logout']
   $: isAuthPage = authPaths.includes($page.url.pathname)
 
-  // Route guard: redirect based on auth state and profile status
-  // Uses a guard flag to prevent navigation loops from goto() re-triggering the block
-  $: if (browser && !routeGuardProcessing && !$page.url.pathname.startsWith('/verify-email')) {
+  // Never make a routing decision while the persisted session is still being
+  // restored. V1 previously treated this short window as "signed out", which
+  // caused returning users to bounce through /login and made the app feel slow.
+  $: if (
+    browser &&
+    !$authState.loading &&
+    !routeGuardProcessing &&
+    !$page.url.pathname.startsWith('/verify-email')
+  ) {
     const pathname = $page.url.pathname
     const hasSession = $authState.user !== null
     const userStatus = $authState.user?.status
     const isAuthPath = authPaths.includes(pathname)
     const isPendingPath = pathname === '/pending-approval'
     const isProfilePath = pathname === '/profile'
+    const isRestrictedStatus = userStatus === 'pending' || userStatus === 'rejected' || userStatus === 'suspended'
     const isAppPath = pathname.startsWith('/home') ||
                       pathname.startsWith('/bookings') ||
                       pathname.startsWith('/pitch/') ||
@@ -47,23 +54,14 @@
     let targetPath: string | null = null
 
     if (!hasSession && !isAuthPath) {
-      // No session, redirect to login
       targetPath = '/login'
     } else if (hasSession && isAuthPath) {
-      // Has session but on auth page, redirect based on status
-      if (userStatus === 'pending' || userStatus === 'rejected') {
-        targetPath = '/pending-approval'
-      } else {
-        targetPath = '/home'
-      }
+      targetPath = isRestrictedStatus ? '/pending-approval' : '/home'
     } else if (hasSession && userStatus === 'approved' && isPendingPath) {
-      // Approved users shouldn't access pending page
       targetPath = '/home'
-    } else if (hasSession && (userStatus === 'pending' || userStatus === 'rejected') && isAppPath) {
-      // Pending/rejected users shouldn't access app pages
+    } else if (hasSession && isRestrictedStatus && isAppPath) {
       targetPath = '/pending-approval'
-    } else if (hasSession && (userStatus === 'pending' || userStatus === 'rejected') && !isPendingPath && !isProfilePath && !isAuthPath) {
-      // Pending/rejected users can only access pending-approval and profile
+    } else if (hasSession && isRestrictedStatus && !isPendingPath && !isProfilePath && !isAuthPath) {
       targetPath = '/pending-approval'
     }
 
@@ -79,20 +77,65 @@
     const storedTheme = localStorage.getItem('theme') as 'light' | 'dark' | 'auto' | null
     const storedLang = localStorage.getItem('language') as 'en' | 'ar' | null
 
-    // Apply stored theme or default to 'auto' (system preference)
     if (storedTheme) {
       uiState.setTheme(storedTheme)
     } else {
-      // Default to auto which respects system preference
       uiState.setTheme('auto')
     }
-    
+
     if (storedLang) {
       uiState.setLanguage(storedLang)
       locale.set(storedLang)
     }
 
-    if (USE_MOCK && typeof localStorage !== 'undefined') {
+    let processingAuth = false
+
+    async function applySession(session: any) {
+      if (!session?.user) {
+        authState.clear()
+        return
+      }
+
+      try {
+        const profile = await getUserProfile(session.user.id)
+        if (!profile) {
+          authState.clear()
+          return
+        }
+
+        authState.setUser({
+          id: profile.id,
+          email: session.user.email ?? undefined,
+          student_id: profile.student_id,
+          full_name: profile.full_name,
+          role: profile.role === 'admin' ? 'admin' : 'user',
+          status: profile.status as import('$lib/stores/auth').UserStatus
+        })
+      } catch {
+        // A failed profile request should not leave the whole application in an
+        // unresolved loading state. RLS remains the authorization boundary.
+        authState.clear()
+      }
+    }
+
+    async function syncSession() {
+      if (processingAuth) return
+      processingAuth = true
+      authState.setLoading(true)
+
+      try {
+        const { data, error } = await supabase.auth.getSession()
+        if (error) throw error
+        await applySession(data?.session)
+      } catch {
+        authState.clear()
+      } finally {
+        processingAuth = false
+        authState.setLoading(false)
+      }
+    }
+
+    if (USE_MOCK) {
       const stored = localStorage.getItem('mock_auth_user')
       if (stored) {
         try {
@@ -105,83 +148,39 @@
             role: user.role === 'admin' ? 'admin' : 'user',
             status: user.status
           })
-        } catch (e) {
-          // silent - mock auth parse error
+        } catch {
+          authState.clear()
         }
-      }
-    }
-
-    // Track if we're currently processing auth to prevent concurrent operations
-    let processingAuth = false
-
-    async function syncSession() {
-      if (processingAuth) return
-      processingAuth = true
-      
-      try {
-        const { data } = await supabase.auth.getSession()
-        const session = data?.session
-
-        if (session?.user) {
-          try {
-            const profile = await getUserProfile(session.user.id)
-            if (profile) {
-              authState.setUser({
-                id: profile.id,
-                email: session.user.email ?? undefined,
-                student_id: profile.student_id,
-                full_name: profile.full_name,
-                role: profile.role === 'admin' ? 'admin' : 'user',
-                status: profile.status as import('$lib/stores/auth').UserStatus
-              })
-            }
-          } catch (e) {
-            // silent - profile load error
-          }
-        }
-      } catch (e) {
-        // silent - session sync error
-      } finally {
-        processingAuth = false
-      }
-    }
-
-    syncSession()
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Skip processing if we're already handling auth or if this is just a token refresh
-      if (processingAuth || event === 'TOKEN_REFRESHED') return
-      
-      if (event === 'SIGNED_IN' && session?.user) {
-        processingAuth = true
-        try {
-          const profile = await getUserProfile(session.user.id)
-          if (profile) {
-            authState.setUser({
-              id: profile.id,
-              email: session.user.email ?? undefined,
-              student_id: profile.student_id,
-              full_name: profile.full_name,
-              role: profile.role === 'admin' ? 'admin' : 'user',
-              status: profile.status as import('$lib/stores/auth').UserStatus
-            })
-          }
-        } catch (e) {
-            // silent - auth state change error
-          } finally {
-            processingAuth = false
-          }
-      } else if (event === 'SIGNED_OUT') {
+      } else {
         authState.clear()
       }
-    })
+    } else {
+      const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_OUT') {
+          authState.clear()
+          return
+        }
 
-    unsubAuth = () => authListener?.subscription?.unsubscribe()
+        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+          if (!processingAuth) {
+            processingAuth = true
+            authState.setLoading(true)
+            void applySession(session).finally(() => {
+              processingAuth = false
+              authState.setLoading(false)
+            })
+          }
+        }
+      })
+
+      unsubAuth = () => authListener?.subscription?.unsubscribe()
+      void syncSession()
+    }
 
     applyTheme($theme)
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    const handleChange = (e: MediaQueryListEvent) => {
+    const handleChange = () => {
       if ($theme === 'auto') applyTheme('auto')
     }
     mediaQuery.addEventListener('change', handleChange)
