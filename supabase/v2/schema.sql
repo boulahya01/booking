@@ -43,7 +43,8 @@ create table public.pitches (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint pitches_name_not_blank check (btrim(name) <> ''),
-  constraint pitches_location_not_blank check (btrim(location) <> '')
+  constraint pitches_location_not_blank check (btrim(location) <> ''),
+  constraint pitches_same_day_hours check (close_time > open_time)
 );
 
 create table public.bookings (
@@ -220,7 +221,6 @@ revoke all on public.bookings from anon, authenticated;
 revoke all on public.announcements from anon, authenticated;
 revoke all on public.announcement_dismissals from anon, authenticated;
 
--- Profiles: students can read themselves. Admins can read/update all profiles.
 grant select, update on public.profiles to authenticated;
 
 create policy profiles_select
@@ -239,7 +239,6 @@ to authenticated
 using ((select private.is_admin()))
 with check ((select private.is_admin()));
 
--- Facilities are visible to signed-in users; mutations are admin-only.
 grant select, insert, update, delete on public.pitches to authenticated;
 
 create policy pitches_select
@@ -279,7 +278,6 @@ using (
   or (select private.is_admin())
 );
 
--- Announcements are public to signed-in users while active/published. Admins see all rows.
 grant select, insert, update, delete on public.announcements to authenticated;
 
 create policy announcements_select
@@ -314,7 +312,6 @@ for delete
 to authenticated
 using ((select private.is_admin()));
 
--- Dismissals are always scoped to the signed-in student.
 grant select, insert, delete on public.announcement_dismissals to authenticated;
 
 create policy announcement_dismissals_select
@@ -351,8 +348,8 @@ from public.bookings b;
 
 grant select on public.booking_timeline to authenticated;
 
--- Returns one local facility day. Peer display names are intentionally visible
--- because shared booking visibility is a product requirement.
+-- Peer display names are intentionally visible because shared booking visibility
+-- is a product requirement. No extra profile fields are returned here.
 create or replace function public.get_pitch_availability(
   p_pitch_id uuid,
   p_local_date date
@@ -390,10 +387,6 @@ begin
   v_step := make_interval(mins => v_pitch.slot_duration_minutes);
   v_open := (p_local_date::timestamp + v_pitch.open_time) at time zone v_pitch.timezone;
   v_close := (p_local_date::timestamp + v_pitch.close_time) at time zone v_pitch.timezone;
-
-  if v_pitch.close_time <= v_pitch.open_time then
-    v_close := v_close + interval '1 day';
-  end if;
 
   return query
   with generated as (
@@ -480,16 +473,12 @@ begin
   v_open := (v_local_date::timestamp + v_pitch.open_time) at time zone v_pitch.timezone;
   v_close := (v_local_date::timestamp + v_pitch.close_time) at time zone v_pitch.timezone;
 
-  if v_pitch.close_time <= v_pitch.open_time then
-    v_close := v_close + interval '1 day';
-  end if;
-
   if p_starts_at < v_open or v_ends_at > v_close then
     raise exception 'invalid_slot';
   end if;
 
   v_offset_seconds := extract(epoch from (p_starts_at - v_open))::bigint;
-  if mod(v_offset_seconds, v_pitch.slot_duration_minutes * 60) <> 0 then
+  if mod(v_offset_seconds, (v_pitch.slot_duration_minutes * 60)::bigint) <> 0 then
     raise exception 'invalid_slot';
   end if;
 
@@ -541,7 +530,7 @@ begin
 
   v_is_admin := private.is_admin();
 
-  select b.*, p.cancellation_cutoff_minutes
+  select b, p.cancellation_cutoff_minutes
   into v_booking, v_cutoff_minutes
   from public.bookings b
   join public.pitches p on p.id = b.pitch_id
