@@ -1,5 +1,5 @@
 -- UNEEM V2 support/report security contract tests.
--- Run after schema layers 001-011. All fixtures roll back.
+-- Run after schema layers 001-012. All fixtures roll back.
 
 \set ON_ERROR_STOP on
 
@@ -84,13 +84,14 @@ end;
 $$;
 reset role;
 
--- 4. Authenticated creation is throttled after three threads within 30 minutes.
+-- 4. New thread creation is throttled after three recent threads, but that throttle
+-- must not prevent a normal reply to an existing thread.
 set local session_replication_role = replica;
-insert into public.support_threads (user_id, kind, subject, created_at)
+insert into public.support_threads (id, user_id, kind, subject, created_at)
 values
-  ('61000000-0000-4000-8000-000000000003', 'support', 'one', now()),
-  ('61000000-0000-4000-8000-000000000003', 'support', 'two', now()),
-  ('61000000-0000-4000-8000-000000000003', 'support', 'three', now());
+  ('62000000-0000-4000-8000-000000000001', '61000000-0000-4000-8000-000000000003', 'support', 'one', now()),
+  ('62000000-0000-4000-8000-000000000002', '61000000-0000-4000-8000-000000000003', 'support', 'two', now()),
+  ('62000000-0000-4000-8000-000000000003', '61000000-0000-4000-8000-000000000003', 'support', 'three', now());
 set local session_replication_role = origin;
 
 select set_config('request.jwt.claim.sub', '61000000-0000-4000-8000-000000000003', true);
@@ -105,6 +106,20 @@ begin
     when others then
       if sqlerrm not like '%support_rate_limited%' then raise; end if;
   end;
+
+  perform public.add_my_support_message(
+    '62000000-0000-4000-8000-000000000001',
+    'A legitimate reply must remain possible.'
+  );
+
+  if not exists (
+    select 1 from public.support_messages
+    where thread_id = '62000000-0000-4000-8000-000000000001'
+      and sender_role = 'user'
+      and body = 'A legitimate reply must remain possible.'
+  ) then
+    raise exception 'FAIL: reply was not persisted while thread creation was throttled';
+  end if;
 end;
 $$;
 reset role;
