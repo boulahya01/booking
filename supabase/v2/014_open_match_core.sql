@@ -45,7 +45,7 @@ declare
   v_uid uuid:=auth.uid(); v_booking public.bookings%rowtype; v_capacity integer; v_joined integer; v_match public.matches;
 begin
   perform private.require_sports_access(v_uid);
-  select b.*,p.capacity into v_booking,v_capacity from public.bookings b join public.pitches p on p.id=b.pitch_id where b.id=p_booking_id for update of b;
+  select b,p.capacity into v_booking,v_capacity from public.bookings b join public.pitches p on p.id=b.pitch_id where b.id=p_booking_id for update of b;
   if not found then raise exception 'booking_not_found'; end if;
   if v_booking.user_id<>v_uid then raise exception 'booking_not_owned'; end if;
   if v_booking.status<>'scheduled' or v_booking.starts_at<=now() then raise exception 'booking_not_matchable'; end if;
@@ -72,7 +72,7 @@ declare
   v_uid uuid:=auth.uid(); v_match public.matches%rowtype; v_capacity integer; v_joined integer;
 begin
   perform private.require_sports_access(v_uid);
-  select m.*,p.capacity into v_match,v_capacity from public.matches m join public.bookings b on b.id=m.booking_id join public.pitches p on p.id=b.pitch_id where m.id=p_match_id for update of m;
+  select m,p.capacity into v_match,v_capacity from public.matches m join public.bookings b on b.id=m.booking_id join public.pitches p on p.id=b.pitch_id where m.id=p_match_id for update of m;
   if not found then raise exception 'match_not_found'; end if;
   if v_match.organizer_id<>v_uid then raise exception 'organizer_required'; end if;
   if v_match.status<>'active' then raise exception 'match_not_active'; end if;
@@ -106,7 +106,7 @@ declare
   v_uid uuid:=auth.uid(); v_match public.matches%rowtype; v_start timestamptz; v_booking_status text; v_capacity integer; v_joined integer; v_participant public.match_participants;
 begin
   perform private.require_sports_access(v_uid);
-  select m.*,b.starts_at,b.status,p.capacity into v_match,v_start,v_booking_status,v_capacity
+  select m,b.starts_at,b.status,p.capacity into v_match,v_start,v_booking_status,v_capacity
   from public.matches m join public.bookings b on b.id=m.booking_id join public.pitches p on p.id=b.pitch_id where m.id=p_match_id for update of m;
   if not found then raise exception 'match_not_found'; end if;
   if v_match.visibility<>'open' or v_match.status<>'active' then raise exception 'match_not_open'; end if;
