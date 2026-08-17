@@ -4,10 +4,11 @@
   import { page } from '$app/stores'
   import { supabase } from '$lib/supabaseClient'
   import { authState } from '$lib/stores/auth'
-  import { uiState, language } from '$lib/stores/ui'
+  import { language } from '$lib/stores/ui'
   import { getMyAccountState, getUserProfile } from '$lib/auth'
   import { isValidEmail } from '$lib/utils/cn'
   import Button from '$lib/components/Button.svelte'
+  import AuthShell from '$lib/components/AuthShell.svelte'
   import Icon from '$lib/components/Icon.svelte'
 
   type Status = 'waiting' | 'verifying' | 'success' | 'error'
@@ -21,45 +22,19 @@
 
   $: copy = $language === 'ar'
     ? {
-        title: 'أكد بريدك الإلكتروني',
-        subtitle: 'أرسلنا رابط التأكيد إلى بريدك. بعد التأكيد سنفتح لك المسار المناسب تلقائياً.',
-        spam: 'إذا لم تجد الرسالة، تحقق من البريد غير المرغوب فيه أو أعد إرسالها.',
-        resend: 'إعادة إرسال الرابط',
-        sent: 'إذا كان البريد صالحاً للتسجيل، فسيصلك رابط جديد بعد قليل.',
-        verifying: 'جاري تأكيد البريد',
-        verifyingHelp: 'نؤكد هويتك ونجهز حساب UNEEM.',
-        success: 'تم تأكيد البريد',
-        successHelp: 'حسابك جاهز. سننقلك الآن إلى الخطوة المناسبة.',
-        continue: 'متابعة',
-        error: 'تعذر تأكيد الرابط',
-        expired: 'قد يكون الرابط منتهياً أو غير صالح. اطلب رابطاً جديداً.',
-        generic: 'تعذر تأكيد البريد الآن. أعد المحاولة أو تواصل مع الدعم.',
-        help: 'المساعدة',
-        signIn: 'تسجيل الدخول',
-        rateLimit: 'تم إرسال عدة طلبات. انتظر قليلاً قبل إعادة المحاولة.'
+        title: 'تحقق من بريدك', subtitle: 'أرسلنا رابط التأكيد إلى بريدك.', resend: 'إرسال رابط جديد', sent: 'إذا كان البريد صالحاً، سيصلك رابط جديد بعد قليل.',
+        verifying: 'جاري تأكيد البريد', verifyingHelp: 'لحظة واحدة فقط.', success: 'تم تأكيد البريد', successHelp: 'حسابك جاهز.', continue: 'متابعة',
+        error: 'تعذر تأكيد الرابط', expired: 'الرابط منتهي أو غير صالح. اطلب رابطاً جديداً.', generic: 'تعذر تأكيد البريد الآن.', help: 'تحتاج مساعدة؟', signIn: 'العودة لتسجيل الدخول',
+        rateLimit: 'طلبات كثيرة. انتظر قليلاً ثم حاول مجدداً.'
       }
     : {
-        title: 'Confirm your email',
-        subtitle: 'We sent a confirmation link to your email. After confirmation, UNEEM will take you to the right next step automatically.',
-        spam: 'If you do not see it, check spam or request a fresh link.',
-        resend: 'Resend confirmation',
-        sent: 'If this email is eligible for registration, a fresh link will arrive shortly.',
-        verifying: 'Confirming your email',
-        verifyingHelp: 'We are confirming your identity and preparing your UNEEM account.',
-        success: 'Email confirmed',
-        successHelp: 'Your account is ready. We will continue with the correct access path.',
-        continue: 'Continue',
-        error: 'This link could not be confirmed',
-        expired: 'The link may be expired or invalid. Request a fresh confirmation link.',
-        generic: 'We could not confirm your email right now. Try again or contact Help.',
-        help: 'Help',
-        signIn: 'Sign in',
-        rateLimit: 'Several requests were sent recently. Wait a moment before trying again.'
+        title: 'Check your email', subtitle: 'We sent a confirmation link to your email.', resend: 'Resend link', sent: 'If the email is eligible, a fresh link will arrive shortly.',
+        verifying: 'Confirming email', verifyingHelp: 'Just a moment.', success: 'Email confirmed', successHelp: 'Your account is ready.', continue: 'Continue',
+        error: 'Link not confirmed', expired: 'This link is expired or invalid. Request a fresh one.', generic: 'Couldn’t confirm your email.', help: 'Need help?', signIn: 'Back to sign in',
+        rateLimit: 'Too many requests. Wait a moment and try again.'
       }
 
-  function toggleLanguage() {
-    uiState.setLanguage($language === 'en' ? 'ar' : 'en')
-  }
+  $: loginHref = hintedEmail ? `/login?email=${encodeURIComponent(hintedEmail)}` : '/login'
 
   function safeVerificationError(raw = '') {
     const value = raw.toLowerCase()
@@ -71,11 +46,7 @@
     const { data: { user }, error } = await supabase.auth.getUser()
     if (error || !user) throw error || new Error('missing_session')
 
-    const [profile, account] = await Promise.all([
-      getUserProfile(user.id),
-      getMyAccountState()
-    ])
-
+    const [profile, account] = await Promise.all([getUserProfile(user.id), getMyAccountState()])
     if (!profile || !account) throw new Error('missing_account_state')
 
     authState.setSessionContext({
@@ -118,8 +89,6 @@
       const { data: { user } } = await supabase.auth.getUser()
       const email = user?.email?.trim().toLowerCase() || hintedEmail
 
-      // Keep the response non-enumerating. We do not tell the visitor whether
-      // this email already exists or whether Supabase accepted it.
       if (email && isValidEmail(email)) {
         const { error } = await supabase.auth.resend({ type: 'signup', email })
         if (error) {
@@ -140,80 +109,52 @@
   }
 </script>
 
-<svelte:head>
-  <title>{copy.title} · UNEEM</title>
-</svelte:head>
+<svelte:head><title>{status === 'success' ? copy.success : status === 'error' ? copy.error : copy.title} · UNEEM</title></svelte:head>
 
-<div class="min-h-screen bg-background px-4 py-8 flex items-center justify-center">
-  <button
-    type="button"
-    on:click={toggleLanguage}
-    class="fixed top-4 right-4 z-50 min-w-11 h-11 px-3 rounded-full bg-surface border border-border text-sm font-semibold text-text-secondary hover:text-text transition"
-    aria-label="Toggle language"
-  >
-    {$language === 'ar' ? 'EN' : 'ع'}
-  </button>
-
-  <main class="w-full max-w-md">
-    <section class="ui-panel p-6 sm:p-7 space-y-6" aria-live="polite">
-      <div class="space-y-4">
-        <div class={`w-12 h-12 rounded-2xl flex items-center justify-center ${status === 'error' ? 'bg-danger-light text-danger' : status === 'success' ? 'bg-success-light text-success' : 'bg-primary/10 text-primary'}`}>
-          {#if status === 'verifying'}
-            <span class="w-5 h-5 rounded-full border-2 border-current border-t-transparent animate-spin" aria-hidden="true"></span>
-          {:else}
-            <Icon name={status === 'success' ? 'check-circle' : status === 'error' ? 'alert-circle' : 'mail'} size={24} />
-          {/if}
-        </div>
-
-        <div>
-          <h1 class="text-3xl font-semibold tracking-tight text-text">
-            {status === 'verifying' ? copy.verifying : status === 'success' ? copy.success : status === 'error' ? copy.error : copy.title}
-          </h1>
-          <p class="mt-2 text-text-secondary leading-relaxed">
-            {status === 'verifying' ? copy.verifyingHelp : status === 'success' ? copy.successHelp : status === 'error' ? (errorMessage || copy.generic) : copy.subtitle}
-          </p>
-          {#if hintedEmail && status === 'waiting'}
-            <p class="mt-2 text-sm font-medium text-text break-all">{hintedEmail}</p>
-          {/if}
-        </div>
+<AuthShell backHref={status === 'success' || status === 'verifying' ? '' : loginHref} backLabel={copy.signIn}>
+  <section class="w-full text-center" aria-live="polite">
+    <div class="mb-8">
+      <div class="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-light text-primary">
+        {#if status === 'verifying'}
+          <span class="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true"></span>
+        {:else}
+          <Icon name={status === 'success' ? 'check' : status === 'error' ? 'alert-circle' : 'mail'} size={21} />
+        {/if}
       </div>
 
-      {#if status === 'waiting'}
-        <div class="rounded-2xl bg-surface-level-1 p-4 flex gap-3">
-          <Icon name="info" size={18} className="text-primary flex-shrink-0 mt-0.5" />
-          <p class="text-sm text-text-secondary leading-relaxed">{copy.spam}</p>
-        </div>
+      <h1 class="text-[30px] font-semibold tracking-[-0.035em] text-text">
+        {status === 'verifying' ? copy.verifying : status === 'success' ? copy.success : status === 'error' ? copy.error : copy.title}
+      </h1>
+      <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-text-secondary">
+        {status === 'verifying' ? copy.verifyingHelp : status === 'success' ? copy.successHelp : status === 'error' ? (errorMessage || copy.generic) : copy.subtitle}
+      </p>
 
-        {#if resendMessage}
-          <div class="rounded-2xl bg-success-light p-4 text-sm text-success" role="status">{resendMessage}</div>
-        {/if}
-        {#if errorMessage}
-          <div class="rounded-2xl bg-danger-light p-4 text-sm text-danger" role="alert">{errorMessage}</div>
-        {/if}
-
-        <Button on:click={resendEmail} loading={resendLoading} variant="primary" size="lg" className="w-full">
-          {copy.resend}
-        </Button>
-      {:else if status === 'success'}
-        <Button on:click={() => goto(nextPath)} variant="primary" size="lg" className="w-full">
-          {copy.continue}
-        </Button>
-      {:else if status === 'error'}
-        <div class="space-y-3">
-          <Button on:click={resendEmail} loading={resendLoading} variant="primary" size="lg" className="w-full">
-            {copy.resend}
-          </Button>
-          <a href="/help" class="ui-action-secondary w-full min-h-12">{copy.help}</a>
+      {#if hintedEmail && status === 'waiting'}
+        <div class="mt-5 rounded-[18px] border border-border bg-surface px-4 py-4">
+          <p class="break-all text-sm font-semibold text-text">{hintedEmail}</p>
         </div>
       {/if}
+    </div>
 
-      {#if status !== 'verifying' && status !== 'success'}
-        <div class="pt-1 text-center">
-          <a href={hintedEmail ? `/login?email=${encodeURIComponent(hintedEmail)}` : '/login'} class="text-sm font-semibold text-primary hover:underline">
-            {copy.signIn}
-          </a>
-        </div>
-      {/if}
-    </section>
-  </main>
-</div>
+    {#if resendMessage}
+      <div class="mb-4 rounded-[18px] bg-success-light p-4 text-sm font-medium text-success" role="status">{resendMessage}</div>
+    {/if}
+    {#if errorMessage && status !== 'error'}
+      <div class="mb-4 rounded-[18px] bg-danger-light p-4 text-sm font-medium text-danger" role="alert">{errorMessage}</div>
+    {/if}
+
+    {#if status === 'waiting'}
+      <Button on:click={resendEmail} loading={resendLoading} variant="primary" size="lg" className="w-full">{copy.resend}</Button>
+      <a href={loginHref} class="mt-5 inline-flex min-h-11 items-center justify-center px-3 text-sm font-medium text-text-secondary transition-colors hover:text-text">{copy.signIn}</a>
+    {:else if status === 'success'}
+      <Button on:click={() => goto(nextPath)} variant="primary" size="lg" className="w-full">{copy.continue}</Button>
+    {:else if status === 'error'}
+      <Button on:click={resendEmail} loading={resendLoading} variant="primary" size="lg" className="w-full">{copy.resend}</Button>
+      <a href={loginHref} class="mt-5 inline-flex min-h-11 items-center justify-center px-3 text-sm font-medium text-text-secondary transition-colors hover:text-text">{copy.signIn}</a>
+    {/if}
+  </section>
+
+  <div slot="footer" class="text-center">
+    <a href="/help" class="inline-flex min-h-11 items-center justify-center gap-2 px-3 text-sm text-text-muted transition-colors hover:text-text"><Icon name="info" size={17} /><span>{copy.help}</span></a>
+  </div>
+</AuthShell>

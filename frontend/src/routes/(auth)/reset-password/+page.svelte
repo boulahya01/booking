@@ -1,72 +1,58 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
   import { updatePassword } from '$lib/auth'
-  import { uiState, language } from '$lib/stores/ui'
+  import { language } from '$lib/stores/ui'
   import { isValidPassword } from '$lib/utils/cn'
   import TextField from '$lib/components/TextField.svelte'
   import Button from '$lib/components/Button.svelte'
+  import AuthShell from '$lib/components/AuthShell.svelte'
   import Icon from '$lib/components/Icon.svelte'
+
+  type FieldState = 'idle' | 'valid' | 'invalid'
 
   let newPassword = ''
   let confirmPassword = ''
   let loading = false
   let error = ''
   let complete = false
+  let attempted = false
+
+  $: passwordLength = newPassword.length >= 8
+  $: passwordNumber = /\d/.test(newPassword)
+  $: passwordSymbol = /[!@#$%^&*()\-+]/.test(newPassword)
+  $: passwordValid = isValidPassword(newPassword)
+  $: confirmValid = confirmPassword.length > 0 && confirmPassword === newPassword
+  $: passwordState = fieldState(newPassword.length > 0 || attempted, passwordValid)
+  $: confirmState = fieldState(confirmPassword.length > 0 || attempted, confirmValid)
 
   $: copy = $language === 'ar'
     ? {
-        title: 'عيّن كلمة مرور جديدة',
-        subtitle: 'اختر كلمة مرور قوية ومختلفة عن التي كنت تستخدمها سابقاً.',
-        password: 'كلمة المرور الجديدة',
-        confirm: 'تأكيد كلمة المرور',
-        help: 'استخدم 8 أحرف على الأقل مع رقم ورمز.',
-        update: 'تحديث كلمة المرور',
-        required: 'أدخل كلمة المرور الجديدة وأكدها.',
-        mismatch: 'كلمتا المرور غير متطابقتين.',
-        invalid: 'استخدم 8 أحرف على الأقل مع رقم ورمز.',
-        generic: 'تعذر تحديث كلمة المرور. قد يكون رابط الاسترجاع منتهياً؛ اطلب رابطاً جديداً أو تواصل مع الدعم.',
-        doneTitle: 'تم تحديث كلمة المرور',
-        doneBody: 'يمكنك الآن تسجيل الدخول بكلمة المرور الجديدة.',
-        signIn: 'تسجيل الدخول',
-        newLink: 'طلب رابط جديد',
-        support: 'المساعدة'
+        title: 'كلمة مرور جديدة', subtitle: 'اختر كلمة مرور جديدة لحسابك.', password: 'كلمة المرور الجديدة', passwordPlaceholder: 'كلمة مرور جديدة',
+        confirm: 'تأكيد كلمة المرور', confirmPlaceholder: 'أعد كتابة كلمة المرور', update: 'تحديث كلمة المرور', required: 'أنشئ كلمة مرور.', mismatch: 'غير متطابقة',
+        ready: 'جاهزة', match: 'متطابقة', ruleLength: '8+ أحرف', ruleNumber: 'رقم', ruleSymbol: 'رمز', generic: 'تعذر تحديث كلمة المرور. اطلب رابطاً جديداً وحاول مرة أخرى.',
+        doneTitle: 'تم تحديث كلمة المرور', doneBody: 'يمكنك الآن تسجيل الدخول بكلمة المرور الجديدة.', signIn: 'تسجيل الدخول', newLink: 'طلب رابط جديد', help: 'تحتاج مساعدة؟'
       }
     : {
-        title: 'Set a new password',
-        subtitle: 'Choose a strong password that you have not used for this account before.',
-        password: 'New password',
-        confirm: 'Confirm password',
-        help: 'Use at least 8 characters with a number and symbol.',
-        update: 'Update password',
-        required: 'Enter and confirm your new password.',
-        mismatch: 'Passwords do not match.',
-        invalid: 'Use at least 8 characters with a number and symbol.',
-        generic: 'We could not update your password. The recovery link may have expired; request a new link or contact support.',
-        doneTitle: 'Password updated',
-        doneBody: 'You can now sign in with your new password.',
-        signIn: 'Sign in',
-        newLink: 'Request a new link',
-        support: 'Help'
+        title: 'Reset password', subtitle: 'Choose a new password for your account.', password: 'New password', passwordPlaceholder: 'New password',
+        confirm: 'Confirm password', confirmPlaceholder: 'Confirm password', update: 'Update password', required: 'Create a password.', mismatch: 'Doesn’t match',
+        ready: 'Ready', match: 'Passwords match', ruleLength: '8+ chars', ruleNumber: '1 number', ruleSymbol: '1 symbol', generic: 'Couldn’t update your password. Request a fresh link and try again.',
+        doneTitle: 'Password updated', doneBody: 'You can now sign in with your new password.', signIn: 'Back to sign in', newLink: 'Request a new link', help: 'Need help?'
       }
 
-  function toggleLanguage() {
-    uiState.setLanguage($language === 'en' ? 'ar' : 'en')
+  function fieldState(active: boolean, valid: boolean): FieldState {
+    if (!active) return 'idle'
+    return valid ? 'valid' : 'invalid'
+  }
+
+  function ruleClass(passed: boolean) {
+    if (!newPassword.length) return 'text-text-muted'
+    return passed ? 'text-success' : 'text-danger'
   }
 
   async function handleReset() {
     error = ''
-    if (!newPassword || !confirmPassword) {
-      error = copy.required
-      return
-    }
-    if (newPassword !== confirmPassword) {
-      error = copy.mismatch
-      return
-    }
-    if (!isValidPassword(newPassword)) {
-      error = copy.invalid
-      return
-    }
+    attempted = true
+    if (!passwordValid || !confirmValid) return
 
     loading = true
     try {
@@ -76,81 +62,52 @@
         return
       }
       complete = true
-      uiState.addToast(copy.doneTitle, 'success')
     } catch {
       error = copy.generic
     } finally {
       loading = false
     }
   }
-
-  async function signIn() {
-    await goto('/login')
-  }
 </script>
 
-<svelte:head>
-  <title>{complete ? copy.doneTitle : copy.title} · UNEEM</title>
-</svelte:head>
+<svelte:head><title>{complete ? copy.doneTitle : copy.title} · UNEEM</title></svelte:head>
 
-<div class="min-h-screen bg-background px-4 py-8 flex items-center justify-center">
-  <button
-    type="button"
-    on:click={toggleLanguage}
-    class="fixed top-4 right-4 z-50 min-w-11 h-11 px-3 rounded-full bg-surface border border-border text-sm font-semibold text-text-secondary hover:text-text transition"
-    aria-label="Toggle language"
-  >
-    {$language === 'ar' ? 'EN' : 'ع'}
-  </button>
+<AuthShell backHref={complete ? '/login' : '/forgot-password'} backLabel={complete ? copy.signIn : copy.newLink}>
+  <section class="w-full">
+    <div class="mb-9 text-center">
+      <h1 class="text-[30px] font-semibold tracking-[-0.035em] text-text">{complete ? copy.doneTitle : copy.title}</h1>
+      <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-text-secondary">{complete ? copy.doneBody : copy.subtitle}</p>
+    </div>
 
-  <main class="w-full max-w-md">
-    <section class="ui-panel p-6 sm:p-7 space-y-6">
-      <div class="space-y-4">
-        <div class={`w-12 h-12 rounded-2xl flex items-center justify-center ${complete ? 'bg-success-light text-success' : 'bg-primary/10 text-primary'}`}>
-          <Icon name={complete ? 'check-circle' : 'key'} size={24} />
+    {#if error}
+      <div class="mb-5 rounded-[18px] bg-danger-light p-4 text-sm font-medium leading-6 text-danger" role="alert">{error}</div>
+    {/if}
+
+    {#if complete}
+      <Button on:click={() => goto('/login')} variant="primary" size="lg" className="w-full">{copy.signIn}</Button>
+    {:else}
+      <form on:submit|preventDefault={handleReset} class="space-y-4">
+        <TextField ariaLabel={copy.password} type="password" placeholder={copy.passwordPlaceholder} icon="lock" autocomplete="new-password" bind:value={newPassword} validation={passwordState} hint={passwordState === 'invalid' && attempted && !newPassword.length ? copy.required : ''} validHint={copy.ready} disabled={loading} />
+
+        <div class="grid grid-cols-3 gap-2 rounded-[16px] bg-surface-level-1 px-3 py-3" aria-live="polite">
+          {#each [{ label: copy.ruleLength, passed: passwordLength }, { label: copy.ruleNumber, passed: passwordNumber }, { label: copy.ruleSymbol, passed: passwordSymbol }] as rule}
+            <div class={`flex items-center justify-center gap-1.5 text-xs font-medium ${ruleClass(rule.passed)}`}>
+              <Icon name={rule.passed ? 'check' : 'x'} size={12} /><span>{rule.label}</span>
+            </div>
+          {/each}
         </div>
-        <div>
-          <h1 class="text-3xl font-semibold tracking-tight text-text">{complete ? copy.doneTitle : copy.title}</h1>
-          <p class="mt-2 text-text-secondary leading-relaxed">{complete ? copy.doneBody : copy.subtitle}</p>
-        </div>
+
+        <TextField ariaLabel={copy.confirm} type="password" placeholder={copy.confirmPlaceholder} icon="lock" autocomplete="new-password" bind:value={confirmPassword} validation={confirmState} hint={confirmState === 'invalid' ? copy.mismatch : ''} validHint={copy.match} disabled={loading} />
+        <Button type="submit" variant="primary" size="lg" {loading} className="mt-2 w-full">{copy.update}</Button>
+      </form>
+
+      <div class="mt-6 text-center">
+        <a href="/forgot-password" class="inline-flex min-h-11 items-center justify-center px-3 text-sm font-medium text-text-secondary transition-colors hover:text-text">{copy.newLink}</a>
       </div>
+    {/if}
+  </section>
 
-      {#if error}
-        <div class="rounded-2xl bg-danger-light p-4 text-sm text-danger leading-relaxed" role="alert">{error}</div>
-      {/if}
-
-      {#if complete}
-        <Button on:click={signIn} variant="primary" size="lg" className="w-full">{copy.signIn}</Button>
-      {:else}
-        <form on:submit|preventDefault={handleReset} class="space-y-5">
-          <div class="space-y-2">
-            <TextField
-              label={copy.password}
-              type="password"
-              bind:value={newPassword}
-              disabled={loading}
-              required
-            />
-            <p class="text-xs text-text-muted px-1">{copy.help}</p>
-          </div>
-          <TextField
-            label={copy.confirm}
-            type="password"
-            bind:value={confirmPassword}
-            disabled={loading}
-            required
-          />
-          <Button type="submit" variant="primary" size="lg" {loading} className="w-full">{copy.update}</Button>
-        </form>
-      {/if}
-
-      <div class="pt-1 flex flex-wrap items-center justify-center gap-4 text-sm font-semibold">
-        {#if !complete}
-          <a href="/forgot-password" class="text-primary hover:underline">{copy.newLink}</a>
-          <span class="text-border">•</span>
-        {/if}
-        <a href="/help" class="text-text-secondary hover:text-text">{copy.support}</a>
-      </div>
-    </section>
-  </main>
-</div>
+  <div slot="footer" class="text-center">
+    <a href="/help" class="inline-flex min-h-11 items-center justify-center gap-2 px-3 text-sm text-text-muted transition-colors hover:text-text"><Icon name="info" size={17} /><span>{copy.help}</span></a>
+  </div>
+</AuthShell>
