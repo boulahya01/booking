@@ -118,7 +118,7 @@
           )}
           aria-label={$language === 'ar' ? 'توثيق هوية الطالب' : 'Verify student identity'}
         >
-          <Icon name="shield-check" size={20} />
+          <Icon name="shield" size={20} />
           <div class="min-w-0 text-start">
             <div class="font-medium">{$language === 'ar' ? 'توثيق الطالب' : 'Student verification'}</div>
             <div class="text-xs text-text-muted mt-0.5">{$language === 'ar' ? 'أكمل توثيق بطاقتك' : 'Complete your student identity'}</div>
@@ -143,7 +143,7 @@
           )}
           aria-label={$language === 'ar' ? 'طلبات توثيق الطلبة' : 'Student verification queue'}
         >
-          <Icon name="shield-check" size={20} strokeWidth={isActive('/admin/verification') ? 2.5 : 2} />
+          <Icon name="shield" size={20} strokeWidth={isActive('/admin/verification') ? 2.5 : 2} />
           <span>{$language === 'ar' ? 'توثيق الطلبة' : 'Verification queue'}</span>
         </button>
 
