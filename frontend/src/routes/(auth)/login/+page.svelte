@@ -205,7 +205,7 @@
             variant="primary"
             size="lg"
             {loading}
-            disabled={!emailValid || !password}
+            disabled={loading}
             className="mt-2 w-full"
           >
             {copy.signIn}
