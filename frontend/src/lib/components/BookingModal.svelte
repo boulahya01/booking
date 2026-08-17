@@ -6,6 +6,7 @@
   import { USE_MOCK, mockDelay } from '$lib/mock'
   import { uiState } from '$lib/stores/ui'
   import { authState } from '$lib/stores/auth'
+  import { pwaInstall } from '$lib/stores/pwa'
   import Icon from './Icon.svelte'
 
   export let slotData: any
@@ -16,20 +17,23 @@
   let loading = false
   let error: string | null = null
 
+  function bookingSucceeded(booking: any) {
+    dispatch('booked', { booking })
+    pwaInstall.setEngaged(true)
+    uiState.addToast($_('common.success'), 'success')
+    onClose()
+  }
+
   async function confirmBooking() {
     loading = true
     error = null
     try {
       if (USE_MOCK) {
         await mockDelay()
-        dispatch('booked', { booking: { id: 'mock-booking-' + Date.now(), pitch_id: slot.pitch_id, slot_datetime: slot.datetime_start, status: 'active' } })
-        uiState.addToast($_('common.success'), 'success')
-        onClose()
+        bookingSucceeded({ id: 'mock-booking-' + Date.now(), pitch_id: slot.pitch_id, slot_datetime: slot.datetime_start, status: 'active' })
         return
       }
 
-      // Auth state is already resolved by the application shell. The booking RPC
-      // still validates the JWT/database rules authoritatively.
       const currentUser = $authState.user
       if (!currentUser?.id) {
         error = $_('common.error')
@@ -41,8 +45,6 @@
         return
       }
 
-      // Preserve the current V1 product rule that a student cannot hold another
-      // active upcoming booking. V2 will move this rule into the database contract.
       const { data: activeBookings, error: activeErr } = await supabase
         .from('bookings')
         .select('slot_datetime, slot_datetime_end')
@@ -98,9 +100,7 @@
       }
 
       const booking = Array.isArray(data) ? data[0] : data
-      dispatch('booked', { booking })
-      uiState.addToast($_('common.success'), 'success')
-      onClose()
+      bookingSucceeded(booking)
     } catch {
       error = $_('common.error')
     } finally {
