@@ -4,25 +4,22 @@
   import Card from '$lib/components/Card.svelte'
   import Icon from '$lib/components/Icon.svelte'
 
-  let dismissedCount = 0
+  let notificationCount: number | null = null
 
-  function handleDismissed() {
-    dismissedCount++
+  function handleCount(event: CustomEvent<{ count: number }>) {
+    notificationCount = event.detail.count
   }
 </script>
 
 <div class="max-w-3xl mx-auto p-4 min-h-screen">
-  <!-- Header -->
   <div class="mb-6">
     <h1 class="text-2xl font-medium font-serif text-text mb-1">{$_('notifications.title')}</h1>
     <p class="text-text-secondary text-sm">{$_('notifications.subtitle')}</p>
   </div>
 
-  <!-- Notifications -->
-  <NotificationBanner on:dismissed={handleDismissed} />
+  <NotificationBanner on:count={handleCount} />
 
-  <!-- Empty State (shown after all dismissed) -->
-  {#if dismissedCount > 0}
+  {#if notificationCount === 0}
     <Card variant="outlined" className="text-center py-12 mt-6">
       <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-surface-level-2 flex items-center justify-center text-text-muted">
         <Icon name="bell-off" size={28} />

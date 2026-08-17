@@ -30,9 +30,7 @@
       email = hintedEmail.trim().toLowerCase()
     }
 
-    if ($isAuthenticated) {
-      goto('/home')
-    }
+    if ($isAuthenticated) goto('/home')
   })
 
   function toggleLanguage() {
@@ -90,12 +88,12 @@
         status: profile.status
       })
 
-      uiState.addToast('Logged in successfully!', 'success')
+      uiState.addToast($_('common.success'), 'success')
 
-      if (profile.status === 'rejected' || profile.status === 'pending') {
-        goto('/pending-approval')
+      if (profile.status === 'pending' || profile.status === 'suspended') {
+        await goto('/pending-approval')
       } else {
-        goto('/home')
+        await goto('/home')
       }
     } catch (error: any) {
       authFailureKind = classifyAuthFailure(error?.message, error?.status)
@@ -133,12 +131,8 @@
 
               {#if authFailureKind === 'invalid_credentials'}
                 <div class="flex flex-wrap gap-x-4 gap-y-2 text-sm">
-                  <a href={`/forgot-password${authEmailQuery}`} class="font-semibold underline">
-                    {$_('login.forgot_password')}
-                  </a>
-                  <a href={`/register${authEmailQuery}`} class="font-semibold underline">
-                    {$_('register.create_button')}
-                  </a>
+                  <a href={`/forgot-password${authEmailQuery}`} class="font-semibold underline">{$_('login.forgot_password')}</a>
+                  <a href={`/register${authEmailQuery}`} class="font-semibold underline">{$_('register.create_button')}</a>
                 </div>
               {/if}
             </div>
@@ -167,29 +161,17 @@
           required
         />
 
-        <Button type="submit" variant="primary" size="lg" {loading} className="w-full">
-          {$_('login.sign_in')}
-        </Button>
+        <Button type="submit" variant="primary" size="lg" {loading} className="w-full">{$_('login.sign_in')}</Button>
       </form>
 
       <div class="space-y-3 text-sm text-center">
         <div>
-          <a
-            href={`/forgot-password${authEmailQuery}`}
-            class="text-primary hover:text-primary-hover font-medium"
-          >
-            {$_('login.forgot_password')}
-          </a>
+          <a href={`/forgot-password${authEmailQuery}`} class="text-primary hover:text-primary-hover font-medium">{$_('login.forgot_password')}</a>
         </div>
-        <div class="text-text-secondary">
+        <p class="text-text-secondary">
           {$_('login.no_account')}
-          <a
-            href={`/register${authEmailQuery}`}
-            class="text-primary hover:text-primary-hover font-medium"
-          >
-            {$_('login.sign_up')}
-          </a>
-        </div>
+          <a href={`/register${authEmailQuery}`} class="text-primary font-semibold hover:underline">{$_('login.create_account')}</a>
+        </p>
       </div>
     </div>
   </Card>

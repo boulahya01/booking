@@ -1,17 +1,23 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { goto } from '$app/navigation'
-  import { supabase } from '$lib/supabaseClient'
   import Button from '$lib/components/Button.svelte'
-  import LoadingSkeleton from '$lib/components/LoadingSkeleton.svelte'
   import Icon from '$lib/components/Icon.svelte'
   import { _ } from 'svelte-i18n'
   import { locale } from 'svelte-i18n'
-  import { USE_MOCK, mockBookings, mockDelay } from '$lib/mock'
+  import { USE_MOCK, mockDelay } from '$lib/mock'
   import { uiState } from '$lib/stores/ui'
+  import { authState } from '$lib/stores/auth'
+  import {
+    getMyBookings,
+    cancelBooking as cancelBookingRpc,
+    BookingApiError,
+    type MyBooking
+  } from '$lib/bookingApi'
+  import { bookingFailureMessage } from '$lib/ux/bookingFailure'
 
-  let bookings: any[] = []
-  let filtered: any[] = []
+  let bookings: MyBooking[] = []
+  let filtered: MyBooking[] = []
   let loading = true
   let error: string | null = null
   let filter: 'all' | 'active' | 'completed' = 'all'
@@ -25,54 +31,41 @@
     error = null
 
     if (USE_MOCK) {
-      bookings = mockBookings
-      applyFilter()
+      bookings = []
+      filtered = []
+      loading = false
+      return
+    }
+
+    const currentUser = $authState.user
+    if (!currentUser?.id) {
+      await goto('/login')
       loading = false
       return
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        error = 'No active session'
-        uiState.addToast('Please log in to view your bookings', 'error')
-        await goto('/login')
-        return
-      }
-
-      const { data, error: fetchError } = await supabase
-        .from('bookings')
-        .select(`
-          id,
-          status,
-          slot_datetime,
-          slot_datetime_end,
-          pitch_id,
-          pitches (name, location)
-        `)
-        .eq('user_id', user.id)
-        .in('status', ['active', 'completed'])
-        .order('slot_datetime', { ascending: false })
-
-      if (fetchError) {
-        error = fetchError.message
-        return
-      }
-
-      bookings = data || []
+      bookings = await getMyBookings(currentUser.id)
       applyFilter()
-    } catch (e: any) {
-      error = e.message || $_('common.error')
+    } catch (fetchError) {
+      const code = fetchError instanceof BookingApiError ? fetchError.code : 'unknown'
+      error = bookingFailureMessage(code, $locale)
     } finally {
       loading = false
     }
   }
 
+  function isActiveBooking(booking: MyBooking) {
+    return booking.lifecycle_status === 'upcoming' || booking.lifecycle_status === 'in_progress'
+  }
+
   function applyFilter() {
     if (filter === 'all') {
       filtered = bookings
+    } else if (filter === 'active') {
+      filtered = bookings.filter(isActiveBooking)
     } else {
-      filtered = bookings.filter((b) => b.status === filter)
+      filtered = bookings.filter((booking) => booking.lifecycle_status === 'completed')
     }
   }
 
@@ -83,27 +76,22 @@
 
     if (USE_MOCK) {
       await mockDelay()
-      bookings = bookings.filter((booking) => booking.id !== id)
+      return
+    }
+
+    try {
+      await cancelBookingRpc(id)
+      bookings = bookings.map((booking) =>
+        booking.id === id
+          ? { ...booking, status: 'cancelled', lifecycle_status: 'cancelled', cancelled_at: new Date().toISOString() }
+          : booking
+      )
       applyFilter()
       uiState.addToast($_('common.success'), 'success')
-      return
+    } catch (cancelError) {
+      const code = cancelError instanceof BookingApiError ? cancelError.code : 'unknown'
+      uiState.addToast(bookingFailureMessage(code, $locale), 'error')
     }
-
-    const { error: cancelError } = await supabase
-      .from('bookings')
-      .update({ status: 'cancelled' })
-      .eq('id', id)
-
-    if (cancelError) {
-      uiState.addToast($_('common.error'), 'error')
-      return
-    }
-
-    // Keep the current list visible and update only the affected row instead of
-    // re-running auth + the complete booking-history query.
-    bookings = bookings.filter((booking) => booking.id !== id)
-    applyFilter()
-    uiState.addToast($_('common.success'), 'success')
   }
 
   function formatDate(dateString: string) {
@@ -113,15 +101,16 @@
       day: date.getDate(),
       month: date.toLocaleString(currentLocale, { month: 'short' }),
       weekday: date.toLocaleString(currentLocale, { weekday: 'short' }),
-      time: date.toLocaleString(currentLocale, { hour: '2-digit', minute: '2-digit', hour12: false }),
-      full: date.toLocaleString(currentLocale, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+      time: date.toLocaleString(currentLocale, { hour: '2-digit', minute: '2-digit', hour12: false })
     }
   }
 
-  function getStatusConfig(status: string) {
+  function getStatusConfig(status: MyBooking['lifecycle_status']) {
     switch (status) {
-      case 'active':
+      case 'upcoming':
         return { color: 'bg-success-light text-success border-success/20', label: $_('bookings.status_active') }
+      case 'in_progress':
+        return { color: 'bg-warning-light text-warning border-warning/20', label: $_('bookings.status_active') }
       case 'completed':
         return { color: 'bg-primary-light text-primary border-primary/20', label: $_('bookings.status_completed') }
       case 'cancelled':
@@ -136,6 +125,9 @@
     { key: 'active', label: $_('bookings.filter_active') },
     { key: 'completed', label: $_('bookings.filter_completed') }
   ]
+
+  $: activeCount = bookings.filter(isActiveBooking).length
+  $: completedCount = bookings.filter((booking) => booking.lifecycle_status === 'completed').length
 </script>
 
 <div class="max-w-3xl mx-auto p-4 min-h-screen">
@@ -153,8 +145,10 @@
           : 'bg-surface-level-1 text-text-secondary border border-border dark:border-white/6 hover:bg-surface-level-2'}"
       >
         {option.label}
-        {#if option.key !== 'all'}
-          <span class="ml-1.5 text-xs opacity-70">({bookings.filter(b => b.status === option.key).length})</span>
+        {#if option.key === 'active'}
+          <span class="ml-1.5 text-xs opacity-70">({activeCount})</span>
+        {:else if option.key === 'completed'}
+          <span class="ml-1.5 text-xs opacity-70">({completedCount})</span>
         {:else}
           <span class="ml-1.5 text-xs opacity-70">({bookings.length})</span>
         {/if}
@@ -164,7 +158,7 @@
 
   {#if loading}
     <div class="space-y-4">
-      {#each Array(3) as _, i}
+      {#each Array(3) as _}
         <div class="flex gap-4 p-4 rounded-xl bg-surface animate-pulse">
           <div class="w-14 h-14 rounded-lg bg-surface-level-1 flex-shrink-0"></div>
           <div class="flex-1 space-y-2">
@@ -179,9 +173,7 @@
     <div class="text-center py-14 rounded-2xl bg-danger-light/30">
       <Icon name="alert-triangle" size={32} className="text-danger mx-auto mb-3" />
       <p class="text-danger font-medium">{error}</p>
-      <button on:click={fetchBookings} class="mt-4 text-sm text-primary hover:underline">
-        {$_('common.retry')}
-      </button>
+      <button on:click={fetchBookings} class="mt-4 text-sm text-primary hover:underline">{$_('common.retry')}</button>
     </div>
   {:else if filtered.length === 0}
     <div class="text-center py-14 rounded-2xl border border-dashed border-border dark:border-white/6 bg-surface-level-1/50">
@@ -190,16 +182,14 @@
       </div>
       <p class="text-text-secondary font-medium">{$_('bookings.no_bookings')}</p>
       <p class="text-text-muted text-sm mt-2 mb-5">{$_('bookings.go_home')}</p>
-      <a href="/home">
-        <Button variant="primary">{$_('home.browse_pitches')}</Button>
-      </a>
+      <a href="/home"><Button variant="primary">{$_('home.browse_pitches')}</Button></a>
     </div>
   {:else}
     <div class="space-y-3">
       {#each filtered as booking (booking.id)}
-        {@const date = formatDate(booking.slot_datetime)}
-        {@const status = getStatusConfig(booking.status)}
-        {@const endTime = booking.slot_datetime_end ? new Date(booking.slot_datetime_end).toLocaleTimeString($locale || 'en', { hour: '2-digit', minute: '2-digit', hour12: false }) : ''}
+        {@const date = formatDate(booking.starts_at)}
+        {@const status = getStatusConfig(booking.lifecycle_status)}
+        {@const endTime = new Date(booking.ends_at).toLocaleTimeString($locale || 'en', { hour: '2-digit', minute: '2-digit', hour12: false })}
 
         <div class="group flex gap-4 p-4 rounded-xl bg-surface border border-border dark:border-white/6 shadow-xs hover:shadow-md transition-all">
           <div class="flex-shrink-0 w-14 h-14 rounded-lg bg-primary-light flex flex-col items-center justify-center text-primary">
@@ -220,16 +210,14 @@
                 </p>
                 <p class="text-sm text-text-secondary mt-1 flex items-center gap-1">
                   <Icon name="clock" size={13} className="flex-shrink-0" />
-                  {date.time}{#if endTime} — {endTime}{/if}
+                  {date.time} — {endTime}
                 </p>
               </div>
-              <span class="flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold border {status.color}">
-                {status.label}
-              </span>
+              <span class="flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold border {status.color}">{status.label}</span>
             </div>
           </div>
 
-          {#if booking.status === 'active'}
+          {#if booking.lifecycle_status === 'upcoming'}
             <div class="flex-shrink-0 self-center">
               <button
                 on:click={() => cancelBooking(booking.id)}

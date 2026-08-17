@@ -14,8 +14,8 @@ function t(key: string): string {
   const dict = currentLocale === 'ar' ? ar : en
   const parts = key.split('.')
   let obj: any = dict
-  for (const p of parts) {
-    if (obj && typeof obj === 'object') obj = obj[p]
+  for (const part of parts) {
+    if (obj && typeof obj === 'object') obj = obj[part]
   }
   return typeof obj === 'string' ? obj : key
 }
@@ -56,8 +56,7 @@ export async function register(
 
     return { data, error: undefined }
   } catch (err: any) {
-    const msg = err?.message || ''
-    return { error: { message: mapAuthError(msg, err?.status) } }
+    return { error: { message: mapAuthError(err?.message || '', err?.status) } }
   }
 }
 
@@ -79,20 +78,22 @@ export function mapAuthError(message: string, status?: number): string {
     lower.includes('student id is already registered') ||
     lower.includes('student_id is already registered') ||
     lower.includes('profiles_student_id_key') ||
+    lower.includes('invalid_student_id') ||
     (lower.includes('duplicate') && lower.includes('student')) ||
     (lower.includes('unique') && lower.includes('student')) ||
     (lower.includes('duplicate key') && lower.includes('student_id')) ||
-    (lower.includes('constraint') && lower.includes('student')) ||
     lower.includes('this student id is already')
   ) {
-    return t('register.error_student_id_exists')
+    return lower.includes('invalid_student_id')
+      ? t('register.error_invalid_student')
+      : t('register.error_student_id_exists')
   }
 
   if (
+    lower.includes('email_domain_not_allowed') ||
     lower.includes('usmba') ||
     lower.includes('university email') ||
-    lower.includes('domain not allowed') ||
-    lower.includes('check_violation')
+    lower.includes('domain not allowed')
   ) {
     return t('register.error_invalid_email_domain')
   }
@@ -149,23 +150,18 @@ export async function getUserProfile(userId: string): Promise<Profile | null> {
     return mockProfile as Profile
   }
 
-  try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select(PROFILE_AUTH_FIELDS)
-      .eq('id', userId)
-      .single()
+  const { data, error } = await supabase
+    .from('profiles')
+    .select(PROFILE_AUTH_FIELDS)
+    .eq('id', userId)
+    .single()
 
-    if (error) {
-      logger.error('[getUserProfile] Error:', error.message)
-      throw new Error(error.message || 'Error fetching profile')
-    }
-
-    return data as Profile | null
-  } catch (err: any) {
-    logger.error('[getUserProfile] Exception:', err.message)
-    throw err
+  if (error) {
+    logger.error('[getUserProfile] Error:', error.message)
+    throw new Error(error.message || 'Error fetching profile')
   }
+
+  return data as Profile | null
 }
 
 export async function loginWithEmail(email: string, password: string): Promise<AuthResponse> {
@@ -183,47 +179,16 @@ export async function loginWithEmail(email: string, password: string): Promise<A
       password
     })
 
-    if (signInError) {
-      return { error: { message: signInError.message } }
-    }
-
-    if (!data.user) {
-      return { error: { message: 'Login failed' } }
-    }
+    if (signInError) return { error: { message: signInError.message } }
+    if (!data.user) return { error: { message: 'Login failed' } }
 
     const profile = await getUserProfile(data.user.id)
-
     if (!profile) {
       await supabase.auth.signOut()
       return { error: { message: 'Profile not found' } }
     }
 
     return { data: { user: data.user, profile } }
-  } catch (err: any) {
-    return { error: { message: err.message || 'Login failed' } }
-  }
-}
-
-export async function loginWithStudentId(studentId: string, password: string): Promise<AuthResponse> {
-  if (USE_MOCK) {
-    await mockDelay()
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('mock_auth_user', JSON.stringify(mockProfile))
-    }
-    return { data: { user: { id: mockProfile.id, email: mockProfile.email }, profile: mockProfile } }
-  }
-
-  try {
-    const normalizedId = studentId.replace(/\s+/g, '').toUpperCase()
-
-    const { data: email, error: profileError } = await supabase
-      .rpc('get_email_by_student_id', { p_student_id: normalizedId })
-
-    if (profileError || !email) {
-      return { error: { message: 'Student ID not found' } }
-    }
-
-    return loginWithEmail(email, password)
   } catch (err: any) {
     return { error: { message: err.message || 'Login failed' } }
   }
@@ -261,10 +226,7 @@ export async function resetPasswordForEmail(email: string): Promise<AuthResponse
       redirectTo: redirectUrl
     })
 
-    if (error) {
-      return { error: { message: error.message } }
-    }
-
+    if (error) return { error: { message: error.message } }
     return { data }
   } catch (err: any) {
     return { error: { message: err.message || 'Failed to send reset email' } }
@@ -279,11 +241,7 @@ export async function updatePassword(newPassword: string): Promise<AuthResponse>
 
   try {
     const { data, error } = await supabase.auth.updateUser({ password: newPassword })
-
-    if (error) {
-      return { error: { message: error.message } }
-    }
-
+    if (error) return { error: { message: error.message } }
     return { data }
   } catch (err: any) {
     return { error: { message: err.message || 'Failed to update password' } }

@@ -1,108 +1,40 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte'
   import { _ } from 'svelte-i18n'
   import { locale } from 'svelte-i18n'
-  import { supabase } from '$lib/supabaseClient'
   import { USE_MOCK, mockDelay } from '$lib/mock'
   import { uiState } from '$lib/stores/ui'
-  import { authState } from '$lib/stores/auth'
+  import { createBooking, BookingApiError } from '$lib/bookingApi'
+  import { bookingFailureMessage } from '$lib/ux/bookingFailure'
   import Icon from './Icon.svelte'
 
   export let slotData: any
   export let onClose: () => void
+  export let onBooked: () => void = () => {}
 
   const slot = slotData
-  const dispatch = createEventDispatcher()
   let loading = false
   let error: string | null = null
 
   async function confirmBooking() {
     loading = true
     error = null
+
     try {
       if (USE_MOCK) {
         await mockDelay()
-        dispatch('booked', { booking: { id: 'mock-booking-' + Date.now(), pitch_id: slot.pitch_id, slot_datetime: slot.datetime_start, status: 'active' } })
         uiState.addToast($_('common.success'), 'success')
+        onBooked()
         onClose()
         return
       }
 
-      // Auth state is already resolved by the application shell. The booking RPC
-      // still validates the JWT/database rules authoritatively.
-      const currentUser = $authState.user
-      if (!currentUser?.id) {
-        error = $_('common.error')
-        return
-      }
-
-      if (currentUser.status === 'pending') {
-        error = $_('verify_email.subtitle')
-        return
-      }
-
-      // Preserve the current V1 product rule that a student cannot hold another
-      // active upcoming booking. V2 will move this rule into the database contract.
-      const { data: activeBookings, error: activeErr } = await supabase
-        .from('bookings')
-        .select('slot_datetime, slot_datetime_end')
-        .eq('user_id', currentUser.id)
-        .eq('status', 'active')
-
-      if (activeErr) {
-        error = $_('common.error')
-        return
-      }
-
-      if (Array.isArray(activeBookings) && activeBookings.length > 0) {
-        const now = Date.now()
-        for (const booking of activeBookings) {
-          let bookingEnd: number
-          if (booking.slot_datetime_end) {
-            bookingEnd = new Date(booking.slot_datetime_end).getTime()
-          } else if (booking.slot_datetime) {
-            bookingEnd = new Date(booking.slot_datetime).getTime() + 60 * 60 * 1000
-          } else {
-            bookingEnd = now + 1
-          }
-
-          if (bookingEnd > now) {
-            error = 'You already have an active booking. Complete or cancel it before booking another slot.'
-            return
-          }
-        }
-      }
-
-      const startTime = new Date(slot.datetime_start)
-      const endTime = new Date(startTime.getTime() + 60 * 60 * 1000)
-
-      const { data, error: bookingErr } = await supabase.rpc('create_booking_with_approval', {
-        p_pitch_id: slot.pitch_id,
-        p_slot_datetime: slot.datetime_start,
-        p_slot_datetime_end: endTime.toISOString(),
-      })
-
-      if (bookingErr) {
-        if (bookingErr.message?.includes('already have an active booking')) {
-          error = 'You already have an active booking for this time slot.'
-        } else if (bookingErr.message?.includes('approved')) {
-          error = $_('pending.title')
-        } else if (bookingErr.message?.includes('past')) {
-          error = $_('pitch.no_slots')
-        } else if (bookingErr.message?.includes('frequency')) {
-          error = bookingErr.message
-        } else {
-          error = $_('common.error')
-        }
-        return
-      }
-
-      const booking = Array.isArray(data) ? data[0] : data
-      dispatch('booked', { booking })
+      await createBooking(slot.pitch_id, slot.datetime_start)
       uiState.addToast($_('common.success'), 'success')
+      onBooked()
       onClose()
-    } catch {
-      error = $_('common.error')
+    } catch (err) {
+      const code = err instanceof BookingApiError ? err.code : 'unknown'
+      error = bookingFailureMessage(code, $locale)
     } finally {
       loading = false
     }
@@ -118,13 +50,12 @@
      aria-modal="true">
   <div class="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm"></div>
 
-  <div class="relative w-full sm:max-w-sm bg-surface sm:rounded-2xl rounded-t-2xl shadow-2xl z-50 overflow-hidden
-              animate-in">
-
+  <div class="relative w-full sm:max-w-sm bg-surface sm:rounded-2xl rounded-t-2xl shadow-2xl z-50 overflow-hidden animate-in">
     <button on:click={onClose}
+            disabled={loading}
             class="absolute top-4 end-4 z-10 w-8 h-8 rounded-full flex items-center justify-center
                    bg-surface-level-1/80 hover:bg-surface-level-1 text-text-muted hover:text-text
-                   transition-colors duration-150"
+                   transition-colors duration-150 disabled:opacity-50"
             aria-label={$_('common.close')}>
       <Icon name="x" size={14} />
     </button>
@@ -146,8 +77,7 @@
     <div class="p-6 space-y-4">
       <div class="rounded-xl p-4 bg-surface-level-1/50 ring-1 ring-border/50">
         <div class="flex items-start gap-3">
-          <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0
-                      bg-surface-level-1 ring-1 ring-border/60">
+          <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-surface-level-1 ring-1 ring-border/60">
             <Icon name="building-2" size={18} className="text-text-secondary" />
           </div>
           <div class="min-w-0 flex-1">
@@ -162,8 +92,6 @@
                 {new Date(slot.datetime_start).toLocaleTimeString($locale || 'en', { hour: '2-digit', minute: '2-digit', hour12: false })}
                 {#if slot.datetime_end}
                   — {new Date(slot.datetime_end).toLocaleTimeString($locale || 'en', { hour: '2-digit', minute: '2-digit', hour12: false })}
-                {:else}
-                  — {new Date(new Date(slot.datetime_start).getTime() + 3600000).toLocaleTimeString($locale || 'en', { hour: '2-digit', minute: '2-digit', hour12: false })}
                 {/if}
               </span>
             </div>
@@ -192,8 +120,7 @@
         disabled={loading || !slot.is_available}
         class="w-full py-3.5 rounded-xl text-white font-semibold text-sm tracking-wide
                transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
-               hover:-translate-y-0.5 active:translate-y-0
-               flex items-center justify-center gap-2"
+               hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2"
         style="background: var(--primary-gradient); box-shadow: 0 0 0 1px var(--primary), var(--shadow-md);">
         {#if loading}
           <span class="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
