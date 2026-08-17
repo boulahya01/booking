@@ -46,10 +46,6 @@
       pwaInstall.setPrompt(prompt)
     }
 
-    const handleBookingCompleted = () => {
-      pwaInstall.setEngaged(true)
-    }
-
     const handleInstalled = () => {
       localStorage.removeItem(DISMISS_KEY)
       pwaInstall.setInstalled(true)
@@ -57,12 +53,10 @@
     }
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
-    window.addEventListener('booking:completed', handleBookingCompleted)
     window.addEventListener('appinstalled', handleInstalled)
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
-      window.removeEventListener('booking:completed', handleBookingCompleted)
       window.removeEventListener('appinstalled', handleInstalled)
     }
   })
