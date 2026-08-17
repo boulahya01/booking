@@ -33,6 +33,20 @@ export type SupportThreadSummary = {
   last_message_at: string | null
 }
 
+export type AdminSupportThreadContext = {
+  id: string
+  user_id: string | null
+  contact_email: string | null
+  kind: SupportKind
+  status: SupportStatus
+  subject: string | null
+  target_type: 'user' | 'match' | 'booking' | 'facility' | 'other' | null
+  target_id: string | null
+  reason_code: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type MySupportThreadSummary = Pick<
   SupportThread,
   'id' | 'kind' | 'status' | 'subject' | 'created_at'
@@ -45,6 +59,8 @@ function normalizeError(error: unknown): Error {
   const message = error instanceof Error ? error.message : String(error ?? '')
   if (message.includes('invalid_support_message')) return new Error('Write a short message before sending.')
   if (message.includes('invalid_contact_email')) return new Error('Check the contact email and try again.')
+  if (message.includes('support_rate_limited')) return new Error('You have sent several requests recently. Try again a little later.')
+  if (message.includes('support_temporarily_busy')) return new Error('Support is busy right now. Try again shortly.')
   if (message.includes('support_thread_not_found')) return new Error('This support conversation is no longer available.')
   if (message.includes('admin_required')) return new Error('You do not have permission to manage support conversations.')
   return new Error('Support is temporarily unavailable. Please try again.')
@@ -201,6 +217,13 @@ export async function listAdminSupportThreads(status: SupportStatus | null = nul
   })
   if (error) throw normalizeError(error)
   return (data ?? []) as SupportThreadSummary[]
+}
+
+export async function getAdminSupportThreadContext(threadId: string): Promise<AdminSupportThreadContext | null> {
+  const { data, error } = await supabase.rpc('admin_get_support_thread_context', { p_thread_id: threadId })
+  if (error) throw normalizeError(error)
+  const row = Array.isArray(data) ? data[0] : data
+  return row ? (row as AdminSupportThreadContext) : null
 }
 
 export async function getAdminSupportMessages(threadId: string): Promise<SupportMessage[]> {
