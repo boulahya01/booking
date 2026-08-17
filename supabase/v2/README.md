@@ -11,11 +11,12 @@ The current production project contains schema and migration-history drift. Repl
 V2 therefore follows this sequence:
 
 1. keep production V1 read-only while the baseline is designed
-2. validate `schema.sql` against a clean local database
-3. run the database contract tests
-4. write an explicit V1 -> V2 data migration
-5. verify row counts and relationships using a production snapshot/export
-6. cut over only after application smoke tests pass
+2. apply `schema.sql` to a clean local database
+3. apply `002_security_contract.sql`
+4. run both database contract suites
+5. write an explicit V1 -> V2 data migration
+6. verify row counts and relationships using a production snapshot/export
+7. cut over only after application smoke tests pass
 
 No paid Supabase development branch is required for this workflow.
 
@@ -23,12 +24,14 @@ No paid Supabase development branch is required for this workflow.
 
 - existing auth users map one-to-one to `profiles`
 - email confirmation approves a pending account
-- protected role/status fields are not self-editable through table RLS
+- pending/suspended users retain their account/profile state but cannot browse shared facility availability
+- protected `student_id`, `role`, and `status` fields are not self-editable
+- students can update their own display name only through `update_my_profile(...)`
 - persistent `slots` and `booking_jobs` are removed
 - bookings store `starts_at` / `ends_at`
 - completed state is derived from time instead of synchronized by jobs
 - overlapping scheduled bookings for the same pitch are rejected by PostgreSQL
-- students can see booked-slot display names through the availability RPC
+- approved students can see booked-slot display names through the availability RPC
 - direct booking writes are not granted to clients; booking/cancellation go through narrow RPCs
 - V1's one-hour cancellation cutoff is preserved as the default, but becomes facility configuration
 - booking history is retained
@@ -36,7 +39,9 @@ No paid Supabase development branch is required for this workflow.
 ## Files
 
 - `schema.sql` — clean V2 schema/RLS/RPC baseline for an isolated target
-- `tests/booking_contract.sql` — transactional database contract tests for booking behavior and security boundaries
+- `002_security_contract.sql` — approval boundary and safe self-profile mutation hardening
+- `tests/booking_contract.sql` — transactional booking behavior tests
+- `tests/security_contract.sql` — transactional profile/approval boundary tests
 
 ## Zero-cost local validation
 
@@ -46,12 +51,14 @@ With `psql` available:
 
 ```bash
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/schema.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/002_security_contract.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/tests/booking_contract.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/tests/security_contract.sql
 ```
 
-The contract test transaction rolls back all fixtures after the run. The schema itself is intended for a fresh/disposable database.
+Each contract test file wraps its fixtures in a transaction and rolls them back after the run. The schema files themselves are intended for a fresh/disposable database.
 
-The current contract suite checks:
+The current contract suites check:
 
 - successful one-hour booking creation
 - database-level same-pitch overlap protection
@@ -61,5 +68,10 @@ The current contract suite checks:
 - cancellation cutoff enforcement
 - successful cancellation outside the cutoff
 - derived completed lifecycle without cron/jobs
+- approved-only facility/availability access
+- pending-account access denial
+- safe display-name self updates
+- direct role-escalation resistance
+- validation of invalid profile names
 
-Do not treat this directory as an applied migration history yet.
+Do not treat this directory as an applied production migration history yet.
