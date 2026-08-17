@@ -1,16 +1,18 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
   import { onMount } from 'svelte'
-  import { register, mapAuthError } from '$lib/auth'
+  import { register, isAcademicEmail, mapAuthError } from '$lib/auth'
   import { uiState, language } from '$lib/stores/ui'
   import TextField from '$lib/components/TextField.svelte'
   import Button from '$lib/components/Button.svelte'
   import Card from '$lib/components/Card.svelte'
   import Icon from '$lib/components/Icon.svelte'
-  import { _ } from 'svelte-i18n'
   import { isValidEmail, isValidStudentId, isValidPassword } from '$lib/utils/cn'
   import { sanitizeInput, sanitizeName, sanitizeStudentId } from '$lib/validation'
 
+  type Step = 'email' | 'details'
+
+  let step: Step = 'email'
   let fullName = ''
   let email = ''
   let studentId = ''
@@ -19,35 +21,74 @@
   let submitError = ''
   let loading = false
 
-  let passwordFocused = false
-  let showPasswordHints = false
-  let fullNameFocused = false
-  let confirmFocused = false
-  let emailFocused = false
-  let studentIdFocused = false
-
-  $: passwordLength = password.length >= 8
-  $: passwordNumber = /\d/.test(password)
-  $: passwordSpecial = /[!@#$%^&*()-+]/.test(password)
-  $: passwordUppercase = /[A-Z]/.test(password)
-  $: passwordAllMet = passwordLength && passwordNumber && passwordSpecial && passwordUppercase
-
+  $: academic = isAcademicEmail(email)
   $: emailValid = isValidEmail(email)
-  $: emailUsmba = email.endsWith('@usmba.ac.ma') || email.length === 0
-  $: emailTouched = email.length > 0 && !emailFocused
-
-  $: studentIdValid = isValidStudentId(studentId.toUpperCase())
-  $: studentIdFormat = /^[A-Z]/.test(studentId.toUpperCase()) || studentId.length === 0
-  $: studentIdDigits = /^[A-Z][0-9]{0,9}$/.test(studentId.toUpperCase()) || studentId.length === 0
-  $: studentIdTouched = studentId.length > 0 && !studentIdFocused
-
-  $: passwordsMatch = password === confirmPassword && confirmPassword.length > 0
-  $: confirmTouched = confirmPassword.length > 0 && !confirmFocused
-
+  $: studentIdValid = academic || isValidStudentId(studentId.toUpperCase())
+  $: passwordValid = isValidPassword(password)
+  $: passwordsMatch = password.length > 0 && password === confirmPassword
   $: fullNameValid = fullName.trim().length >= 2
-  $: fullNameTouched = fullName.length > 0 && !fullNameFocused
 
-  $: loginHref = isValidEmail(email)
+  $: copy = $language === 'ar'
+    ? {
+        title: 'انضم إلى UNEEM',
+        subtitle: 'ابدأ ببريدك الإلكتروني وسنوجهك للطريقة المناسبة.',
+        email: 'البريد الإلكتروني',
+        emailPlaceholder: 'name@usmba.ac.ma',
+        academicBenefit: 'استخدم بريد USMBA للدخول بشكل أسرع بعد تأكيد البريد.',
+        personalOption: 'ليس لديك بريد جامعي؟ يمكنك التسجيل ببريدك الشخصي.',
+        continue: 'متابعة',
+        back: 'رجوع',
+        academicPath: 'بريد جامعي',
+        academicPathHelp: 'بعد تأكيد البريد يمكنك استعمال الحجز مباشرة. سيبقى تأكيد بطاقة الطالب مطلوباً لحماية هويتك.',
+        personalPath: 'بريد شخصي',
+        personalPathHelp: 'يلزم رقم الطالب وبطاقة الطالب. لن يتاح الحجز حتى يراجع المشرف طلبك.',
+        fullName: 'الاسم الكامل',
+        fullNamePlaceholder: 'الاسم كما يظهر في بطاقتك',
+        studentId: 'رقم الطالب',
+        studentIdPlaceholder: 'S123456789',
+        password: 'كلمة المرور',
+        confirmPassword: 'تأكيد كلمة المرور',
+        passwordHelp: '8 أحرف على الأقل مع حرف كبير ورقم ورمز.',
+        create: 'إنشاء الحساب',
+        haveAccount: 'لديك حساب؟',
+        signIn: 'تسجيل الدخول',
+        invalidEmail: 'أدخل بريداً إلكترونياً صحيحاً.',
+        invalidName: 'أدخل اسمك الكامل.',
+        invalidStudentId: 'رقم الطالب يجب أن يكون مثل S123456789.',
+        invalidPassword: 'كلمة المرور لا تستوفي المتطلبات.',
+        mismatch: 'كلمتا المرور غير متطابقتين.'
+      }
+    : {
+        title: 'Join UNEEM',
+        subtitle: 'Start with your email. We’ll show only the steps you need.',
+        email: 'Email address',
+        emailPlaceholder: 'name@usmba.ac.ma',
+        academicBenefit: 'Use your USMBA email for faster verification and immediate access after email confirmation.',
+        personalOption: "Don't have a university email? You can continue with a personal email.",
+        continue: 'Continue',
+        back: 'Back',
+        academicPath: 'University email',
+        academicPathHelp: 'After confirming your email, you can book immediately. Student-card verification will remain required to protect your identity.',
+        personalPath: 'Personal email',
+        personalPathHelp: 'Student ID and student-card verification are required. Booking stays locked until an admin approves your verification.',
+        fullName: 'Full name',
+        fullNamePlaceholder: 'Name as shown on your student card',
+        studentId: 'Student ID',
+        studentIdPlaceholder: 'S123456789',
+        password: 'Password',
+        confirmPassword: 'Confirm password',
+        passwordHelp: 'Use 8+ characters with an uppercase letter, number and symbol.',
+        create: 'Create account',
+        haveAccount: 'Already have an account?',
+        signIn: 'Sign in',
+        invalidEmail: 'Enter a valid email address.',
+        invalidName: 'Enter your full name.',
+        invalidStudentId: 'Student ID should look like S123456789.',
+        invalidPassword: 'Your password does not meet the requirements.',
+        mismatch: 'Passwords do not match.'
+      }
+
+  $: loginHref = emailValid
     ? `/login?email=${encodeURIComponent(email.trim().toLowerCase())}`
     : '/login'
 
@@ -58,38 +99,51 @@
     }
   })
 
-  function validate(): boolean {
-    if (!fullName || !email || !studentId || !password || !confirmPassword) return false
-    if (!isValidEmail(email)) return false
-    if (!email.endsWith('@usmba.ac.ma')) return false
-    if (!isValidStudentId(studentId.toUpperCase())) return false
-    if (!isValidPassword(password)) return false
-    if (password !== confirmPassword) return false
-    return true
+  function continueFromEmail() {
+    submitError = ''
+    email = sanitizeInput(email).trim().toLowerCase()
+    if (!isValidEmail(email)) {
+      submitError = copy.invalidEmail
+      return
+    }
+    step = 'details'
   }
 
   async function submit() {
-    if (!validate()) return
-
-    loading = true
     submitError = ''
 
+    if (!fullNameValid) {
+      submitError = copy.invalidName
+      return
+    }
+    if (!studentIdValid) {
+      submitError = copy.invalidStudentId
+      return
+    }
+    if (!passwordValid) {
+      submitError = copy.invalidPassword
+      return
+    }
+    if (!passwordsMatch) {
+      submitError = copy.mismatch
+      return
+    }
+
+    loading = true
     try {
       const cleanFullName = sanitizeName(fullName)
       const cleanEmail = sanitizeInput(email).trim().toLowerCase()
-      const cleanStudentId = sanitizeStudentId(studentId).toUpperCase()
       const cleanPassword = sanitizeInput(password)
+      const cleanStudentId = academic ? null : sanitizeStudentId(studentId).toUpperCase()
 
-      // V2 intentionally has no public duplicate-enumeration RPC. Supabase Auth,
-      // the profile trigger and the unique Student ID constraint are authoritative.
       const result = await register(cleanEmail, cleanPassword, cleanStudentId, cleanFullName)
       if (result.error) {
         submitError = result.error.message
         return
       }
 
-      uiState.addToast($_('register.created'), 'success')
-      await goto('/verify-email')
+      uiState.addToast($language === 'ar' ? 'تم إنشاء الحساب' : 'Account created', 'success')
+      await goto(`/verify-email?email=${encodeURIComponent(cleanEmail)}`)
     } catch (err: any) {
       submitError = mapAuthError(err?.message, err?.status)
     } finally {
@@ -97,172 +151,136 @@
     }
   }
 
-  function checkMark(valid: boolean, active: boolean) {
-    if (!active) return 'text-text-muted'
-    return valid ? 'text-success' : 'text-text-muted'
-  }
-
   function toggleLanguage() {
     uiState.setLanguage($language === 'en' ? 'ar' : 'en')
   }
 </script>
 
-<div class="min-h-screen flex items-center justify-center px-4 py-8">
+<svelte:head>
+  <title>{copy.title} · UNEEM</title>
+</svelte:head>
+
+<div class="min-h-screen flex items-center justify-center px-4 py-8 bg-background">
   <button
     on:click={toggleLanguage}
-    class="fixed top-4 right-4 z-50 flex items-center justify-center w-11 h-11 rounded-full bg-surface border border-border dark:border-white/6 hover:bg-surface-level-2 hover:border-primary/30 transition shadow-sm"
+    class="fixed top-4 right-4 z-50 min-w-11 h-11 px-3 rounded-full bg-surface border border-border text-sm font-semibold text-text-secondary hover:text-text transition"
     aria-label="Toggle language"
   >
-    <span class="text-lg">🌐</span>
+    {$language === 'ar' ? 'EN' : 'ع'}
   </button>
 
-  <Card className="w-full max-w-md" variant="elevated">
-    <div class="space-y-6">
-      <div class="text-center">
-        <h1 class="text-2xl font-medium font-serif text-text">{$_('register.title')}</h1>
-        <p class="text-text-secondary mt-2">{$_('register.subtitle')}</p>
-      </div>
-
-      {#if submitError}
-        <div class="bg-danger-light border border-danger/30 rounded-xl p-4 text-danger">
-          <div class="flex items-start gap-3">
-            <Icon name="alert-circle" size={20} className="text-danger flex-shrink-0 mt-0.5" />
-            <div>
-              <p class="font-medium text-sm">{submitError}</p>
-              {#if submitError.includes('sign in') || submitError.includes('تسجيل الدخول')}
-                <a href={loginHref} class="text-sm font-semibold mt-1 inline-block underline">
-                  {$_('login.sign_in')}
-                </a>
-              {/if}
-            </div>
+  <div class="w-full max-w-md">
+    <Card className="w-full" variant="elevated">
+      <div class="space-y-6">
+        <div class="space-y-2">
+          {#if step === 'details'}
+            <button
+              type="button"
+              on:click={() => { step = 'email'; submitError = '' }}
+              class="inline-flex items-center gap-2 min-h-10 text-sm font-medium text-text-secondary hover:text-text"
+            >
+              <Icon name="arrow-left" size={16} />
+              {copy.back}
+            </button>
+          {/if}
+          <div>
+            <h1 class="text-3xl font-semibold tracking-tight text-text">{copy.title}</h1>
+            <p class="text-text-secondary mt-2 leading-relaxed">{copy.subtitle}</p>
           </div>
         </div>
-      {/if}
 
-      <form on:submit|preventDefault={submit} class="space-y-5">
-        <TextField
-          label={$_('register.full_name_label')}
-          placeholder={$_('register.full_name_placeholder')}
-          bind:value={fullName}
-          disabled={loading}
-          error={fullNameTouched && !fullNameValid ? $_('register.error_registration_failed') : ''}
-          on:focus={() => fullNameFocused = true}
-          on:blur={() => fullNameFocused = false}
-        />
-
-        <div class="space-y-1.5">
-          <TextField
-            label={$_('register.email_label')}
-            type="email"
-            placeholder={$_('register.email_placeholder')}
-            bind:value={email}
-            disabled={loading}
-            error={email.length > 0 && (!emailValid || !emailUsmba) ? (emailValid && !emailUsmba ? $_('register.error_invalid_email_domain') : $_('register.error_invalid_email')) : ''}
-            on:focus={() => emailFocused = true}
-            on:blur={() => emailFocused = false}
-          />
-          {#if emailFocused || (emailTouched && (!emailValid || !emailUsmba))}
-            <div class="space-y-1 px-1">
-              <div class="flex items-center gap-2 text-xs">
-                <Icon name={emailValid ? 'check' : 'x'} size={14} className={emailValid ? 'text-success' : 'text-text-muted'} />
-                <span class={emailValid ? 'text-success' : 'text-text-secondary'}>{$_('register.hint_email_format')}</span>
-              </div>
-              <div class="flex items-center gap-2 text-xs">
-                <Icon name={emailUsmba ? 'check' : 'x'} size={14} className={emailUsmba ? 'text-success' : 'text-text-muted'} />
-                <span class={emailUsmba ? 'text-success' : 'text-text-secondary'}>{$_('register.email_domain_info')}</span>
-              </div>
+        {#if submitError}
+          <div class="rounded-2xl bg-danger-light p-4 text-danger" role="alert">
+            <div class="flex items-start gap-3">
+              <Icon name="alert-circle" size={20} className="flex-shrink-0 mt-0.5" />
+              <p class="text-sm font-medium leading-relaxed">{submitError}</p>
             </div>
-          {/if}
-        </div>
+          </div>
+        {/if}
 
-        <div class="space-y-1.5">
-          <TextField
-            label={$_('register.student_id_label')}
-            placeholder={$_('register.student_id_placeholder')}
-            bind:value={studentId}
-            disabled={loading}
-            error={studentId.length > 0 && !studentIdValid ? $_('register.error_invalid_student') : ''}
-            on:focus={() => studentIdFocused = true}
-            on:blur={() => studentIdFocused = false}
-          />
-          {#if studentIdFocused || (studentIdTouched && !studentIdValid)}
-            <div class="space-y-1 px-1">
-              <div class="flex items-center gap-2 text-xs">
-                <Icon name={studentIdFormat ? 'check' : 'x'} size={14} className={studentIdFormat ? 'text-success' : 'text-text-muted'} />
-                <span class={studentIdFormat ? 'text-success' : 'text-text-secondary'}>{$_('register.hint_id_start')}</span>
+        {#if step === 'email'}
+          <form on:submit|preventDefault={continueFromEmail} class="space-y-5">
+            <TextField
+              label={copy.email}
+              type="email"
+              placeholder={copy.emailPlaceholder}
+              bind:value={email}
+              disabled={loading}
+            />
+
+            <div class="rounded-2xl bg-primary/6 p-4 space-y-2">
+              <div class="flex items-start gap-3">
+                <Icon name="check-circle" size={19} className="text-primary flex-shrink-0 mt-0.5" />
+                <p class="text-sm text-text leading-relaxed">{copy.academicBenefit}</p>
               </div>
-              <div class="flex items-center gap-2 text-xs">
-                <Icon name={studentIdDigits ? 'check' : 'x'} size={14} className={studentIdDigits ? 'text-success' : 'text-text-muted'} />
-                <span class={studentIdDigits ? 'text-success' : 'text-text-secondary'}>{$_('register.hint_id_digits')}</span>
-              </div>
+              <p class="text-xs text-text-secondary ps-8 leading-relaxed">{copy.personalOption}</p>
             </div>
-          {/if}
-        </div>
 
-        <div class="space-y-1.5">
-          <TextField
-            label={$_('register.password_label')}
-            type="password"
-            placeholder={$_('register.password_placeholder')}
-            bind:value={password}
-            disabled={loading}
-            error={password.length > 0 && !passwordAllMet ? $_('register.error_password_short') : ''}
-            on:focus={() => { passwordFocused = true; showPasswordHints = true }}
-            on:blur={() => { passwordFocused = false }}
-          />
-          {#if showPasswordHints}
-            <div class="bg-surface-level-1/50 rounded-lg p-3 space-y-1.5 dark:bg-surface-level-1">
-              <p class="text-xs font-medium text-text-secondary mb-2">{$_('register.password_requirements')}</p>
-              <div class="flex items-center gap-2 text-xs">
-                <Icon name={passwordLength ? 'check' : 'x'} size={14} className={checkMark(passwordLength, passwordFocused || password.length > 0)} />
-                <span class={passwordLength ? 'text-success' : 'text-text-secondary'}>{$_('register.hint_password_length')}</span>
+            <Button type="submit" variant="primary" size="lg" className="w-full">
+              {copy.continue}
+            </Button>
+          </form>
+        {:else}
+          <div class="rounded-2xl bg-surface-level-1 p-4">
+            <div class="flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-sm font-semibold text-text">{academic ? copy.academicPath : copy.personalPath}</p>
+                <p class="text-sm text-text-secondary truncate mt-0.5">{email}</p>
               </div>
-              <div class="flex items-center gap-2 text-xs">
-                <Icon name={passwordUppercase ? 'check' : 'x'} size={14} className={checkMark(passwordUppercase, passwordFocused || password.length > 0)} />
-                <span class={passwordUppercase ? 'text-success' : 'text-text-secondary'}>{$_('register.hint_password_uppercase')}</span>
-              </div>
-              <div class="flex items-center gap-2 text-xs">
-                <Icon name={passwordNumber ? 'check' : 'x'} size={14} className={checkMark(passwordNumber, passwordFocused || password.length > 0)} />
-                <span class={passwordNumber ? 'text-success' : 'text-text-secondary'}>{$_('register.hint_password_number')}</span>
-              </div>
-              <div class="flex items-center gap-2 text-xs">
-                <Icon name={passwordSpecial ? 'check' : 'x'} size={14} className={checkMark(passwordSpecial, passwordFocused || password.length > 0)} />
-                <span class={passwordSpecial ? 'text-success' : 'text-text-secondary'}>{$_('register.hint_password_special')}</span>
-              </div>
+              <span class={`h-2.5 w-2.5 rounded-full flex-shrink-0 ${academic ? 'bg-success' : 'bg-warning'}`}></span>
             </div>
-          {/if}
-        </div>
+            <p class="text-sm text-text-secondary leading-relaxed mt-3">
+              {academic ? copy.academicPathHelp : copy.personalPathHelp}
+            </p>
+          </div>
 
-        <div class="space-y-1.5">
-          <TextField
-            label={$_('register.confirm_password_label')}
-            type="password"
-            placeholder={$_('register.confirm_password_placeholder')}
-            bind:value={confirmPassword}
-            disabled={loading}
-            error={confirmFocused && confirmPassword.length > 0 && !passwordsMatch ? $_('register.error_password_mismatch') : ''}
-            on:focus={() => confirmFocused = true}
-            on:blur={() => confirmFocused = false}
-          />
-          {#if confirmTouched || (confirmFocused && confirmPassword.length > 0)}
-            <div class="flex items-center gap-2 text-xs px-1">
-              <Icon name={passwordsMatch ? 'check' : 'x'} size={14} className={passwordsMatch ? 'text-success' : 'text-danger'} />
-              <span class={passwordsMatch ? 'text-success' : 'text-text-secondary'}>{$_('register.hint_password_match')}</span>
+          <form on:submit|preventDefault={submit} class="space-y-5">
+            <TextField
+              label={copy.fullName}
+              placeholder={copy.fullNamePlaceholder}
+              bind:value={fullName}
+              disabled={loading}
+            />
+
+            {#if !academic}
+              <TextField
+                label={copy.studentId}
+                placeholder={copy.studentIdPlaceholder}
+                bind:value={studentId}
+                disabled={loading}
+              />
+            {/if}
+
+            <div class="space-y-2">
+              <TextField
+                label={copy.password}
+                type="password"
+                bind:value={password}
+                disabled={loading}
+              />
+              <p class="text-xs text-text-muted px-1">{copy.passwordHelp}</p>
             </div>
-          {/if}
+
+            <TextField
+              label={copy.confirmPassword}
+              type="password"
+              bind:value={confirmPassword}
+              disabled={loading}
+            />
+
+            <Button type="submit" variant="primary" size="lg" {loading} className="w-full">
+              {copy.create}
+            </Button>
+          </form>
+        {/if}
+
+        <div class="pt-1 text-center">
+          <p class="text-sm text-text-secondary">
+            {copy.haveAccount}
+            <a href={loginHref} class="text-primary font-semibold hover:underline ms-1">{copy.signIn}</a>
+          </p>
         </div>
-
-        <Button type="submit" variant="primary" size="lg" {loading} className="w-full">
-          {loading ? $_('common.loading') : $_('register.create_button')}
-        </Button>
-      </form>
-
-      <div class="text-center">
-        <p class="text-text-secondary">
-          {$_('register.have_account')}
-          <a href={loginHref} class="text-primary font-semibold hover:underline">{$_('register.sign_in')}</a>
-        </p>
       </div>
-    </div>
-  </Card>
+    </Card>
+  </div>
 </div>

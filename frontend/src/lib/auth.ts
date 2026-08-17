@@ -1,13 +1,13 @@
 import { supabase } from './supabaseClient'
 import { USE_MOCK, mockProfile, mockDelay } from './mock'
-import type { Profile } from './types'
+import type { AccountState, Profile } from './types'
 import { logger } from './logger'
 import { get } from 'svelte/store'
 import { locale } from 'svelte-i18n'
 import en from '../locales/en.json'
 import ar from '../locales/ar.json'
 
-const PROFILE_AUTH_FIELDS = 'id,student_id,full_name,role,status,created_at,updated_at'
+const PROFILE_AUTH_FIELDS = 'id,student_id,full_name,role,status,email_kind,identity_status,restriction_reason,verified_student_id_at,created_at,updated_at'
 
 function t(key: string): string {
   const currentLocale = get(locale) || 'en'
@@ -25,15 +25,26 @@ export interface AuthResponse {
   error?: { message: string }
 }
 
+export function isAcademicEmail(email: string): boolean {
+  return email.trim().toLowerCase().endsWith('@usmba.ac.ma')
+}
+
 export async function register(
   email: string,
   password: string,
-  studentId: string,
+  studentId: string | null,
   fullName: string
 ): Promise<AuthResponse> {
   if (USE_MOCK) {
     await mockDelay()
-    const profile = { ...mockProfile, email, student_id: studentId.toUpperCase(), full_name: fullName }
+    const profile = {
+      ...mockProfile,
+      email,
+      student_id: studentId?.toUpperCase() || null,
+      full_name: fullName,
+      email_kind: isAcademicEmail(email) ? 'academic' : 'personal',
+      identity_status: 'required'
+    }
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('mock_auth_user', JSON.stringify(profile))
     }
@@ -41,12 +52,15 @@ export async function register(
   }
 
   try {
-    const normalizedStudentId = studentId.replace(/\s+/g, '').toUpperCase()
+    const normalizedStudentId = studentId?.replace(/\s+/g, '').toUpperCase() || undefined
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { student_id: normalizedStudentId, full_name: fullName }
+        data: {
+          full_name: fullName,
+          ...(normalizedStudentId ? { student_id: normalizedStudentId } : {})
+        }
       }
     })
 
@@ -65,37 +79,27 @@ export function mapAuthError(message: string, status?: number): string {
 
   const lower = message.toLowerCase()
 
+  // Keep registration failures non-enumerating. Existing email addresses,
+  // Student IDs and identity conflicts intentionally converge on a generic path.
   if (
     lower.includes('user already registered') ||
-    (lower.includes('duplicate') && lower.includes('email')) ||
-    (lower.includes('email') && lower.includes('already')) ||
-    lower.includes('already been registered')
-  ) {
-    return t('register.error_email_exists')
-  }
-
-  if (
-    lower.includes('student id is already registered') ||
-    lower.includes('student_id is already registered') ||
-    lower.includes('profiles_student_id_key') ||
-    lower.includes('invalid_student_id') ||
-    (lower.includes('duplicate') && lower.includes('student')) ||
+    lower.includes('already been registered') ||
+    lower.includes('identity_claim_unavailable') ||
+    lower.includes('profiles_student_id') ||
+    (lower.includes('duplicate') && (lower.includes('email') || lower.includes('student'))) ||
     (lower.includes('unique') && lower.includes('student')) ||
-    (lower.includes('duplicate key') && lower.includes('student_id')) ||
-    lower.includes('this student id is already')
+    lower.includes('23505') ||
+    lower.includes('unique_violation')
   ) {
-    return lower.includes('invalid_student_id')
-      ? t('register.error_invalid_student')
-      : t('register.error_student_id_exists')
+    return t('register.error_registration_failed')
   }
 
-  if (
-    lower.includes('email_domain_not_allowed') ||
-    lower.includes('usmba') ||
-    lower.includes('university email') ||
-    lower.includes('domain not allowed')
-  ) {
-    return t('register.error_invalid_email_domain')
+  if (lower.includes('invalid_student_id')) {
+    return t('register.error_invalid_student')
+  }
+
+  if (lower.includes('student_id_required_for_personal_email')) {
+    return t('register.error_invalid_student')
   }
 
   if (
@@ -123,22 +127,13 @@ export function mapAuthError(message: string, status?: number): string {
     lower.includes('fetcherror') ||
     lower.includes('network') ||
     lower.includes('connection') ||
-    lower.includes('failed to fetch')
-  ) {
-    return t('register.error_support_contact')
-  }
-
-  if (
+    lower.includes('failed to fetch') ||
     lower.includes('500') ||
     lower.includes('internal server error') ||
     lower.includes('database error') ||
     status === 500
   ) {
     return t('register.error_support_contact')
-  }
-
-  if (lower.includes('23505') || lower.includes('unique_violation')) {
-    return t('register.error_student_id_exists')
   }
 
   return t('register.error_registration_failed')
@@ -164,6 +159,58 @@ export async function getUserProfile(userId: string): Promise<Profile | null> {
   return data as Profile | null
 }
 
+export async function getMyAccountState(): Promise<AccountState | null> {
+  if (USE_MOCK) {
+    await mockDelay()
+    const profile = mockProfile as Profile
+    return {
+      user_id: profile.id,
+      role: profile.role,
+      access_status: profile.status,
+      email_kind: profile.email_kind || 'academic',
+      identity_status: profile.identity_status || 'required',
+      student_id: profile.student_id || null,
+      restriction_reason: profile.restriction_reason || null,
+      can_use_sports: profile.status === 'approved',
+      needs_identity_action: (profile.identity_status || 'required') === 'required'
+    }
+  }
+
+  const { data, error } = await supabase.rpc('get_my_account_state')
+  if (error) {
+    logger.error('[getMyAccountState] Error:', error.message)
+    throw new Error(error.message || 'Error resolving account state')
+  }
+
+  const state = Array.isArray(data) ? data[0] : data
+  return (state as AccountState | undefined) || null
+}
+
+export async function submitIdentityVerification(studentId: string, cardStoragePath: string): Promise<AuthResponse> {
+  if (USE_MOCK) {
+    await mockDelay()
+    return { data: { status: 'pending' } }
+  }
+
+  const { data, error } = await supabase.rpc('submit_identity_verification', {
+    p_student_id: studentId.replace(/\s+/g, '').toUpperCase(),
+    p_card_storage_path: cardStoragePath
+  })
+
+  if (error) {
+    const lower = error.message.toLowerCase()
+    if (lower.includes('identity_claim_unavailable')) {
+      return { error: { message: t('register.error_registration_failed') } }
+    }
+    if (lower.includes('invalid_student_id')) {
+      return { error: { message: t('register.error_invalid_student') } }
+    }
+    return { error: { message: t('register.error_support_contact') } }
+  }
+
+  return { data }
+}
+
 export async function loginWithEmail(email: string, password: string): Promise<AuthResponse> {
   if (USE_MOCK) {
     await mockDelay()
@@ -182,13 +229,17 @@ export async function loginWithEmail(email: string, password: string): Promise<A
     if (signInError) return { error: { message: signInError.message } }
     if (!data.user) return { error: { message: 'Login failed' } }
 
-    const profile = await getUserProfile(data.user.id)
-    if (!profile) {
+    const [profile, accountState] = await Promise.all([
+      getUserProfile(data.user.id),
+      getMyAccountState()
+    ])
+
+    if (!profile || !accountState) {
       await supabase.auth.signOut()
-      return { error: { message: 'Profile not found' } }
+      return { error: { message: 'Unable to restore account' } }
     }
 
-    return { data: { user: data.user, profile } }
+    return { data: { user: data.user, profile, accountState } }
   } catch (err: any) {
     return { error: { message: err.message || 'Login failed' } }
   }
