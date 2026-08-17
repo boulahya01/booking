@@ -1,16 +1,10 @@
 # Supabase V2
 
-This directory is the **clean database source of truth** for UNEEM / Booking V2.
+This directory is the **clean database source of truth** for UNEEM V2. The previous Supabase database and `supabase/migrations/` are historical V1 material and must never be replayed into the fresh V2 project.
 
-The previous Supabase database is not a migration source. V2 starts with fresh Auth users and empty booking history; students register again.
+## Initialization order
 
-## Important: do not replay V1
-
-The repository still contains `supabase/migrations/`, which is historical V1 material. It contains schema drift and lifecycle complexity that V2 intentionally replaces.
-
-**Do not initialize a new V2 project from that directory.**
-
-The V2 initialization order is:
+Apply only these files, in order:
 
 1. `schema.sql`
 2. `002_security_contract.sql`
@@ -28,157 +22,129 @@ The V2 initialization order is:
 14. `014_open_match_core.sql`
 15. `015_open_match_reads.sql`
 16. `016_match_lifecycle_integrity.sql`
-17. `tests/booking_contract.sql`
-18. `tests/security_contract.sql`
-19. `tests/identity_contract.sql`
-20. `tests/support_contract.sql`
-21. `tests/match_contract.sql`
+17. `017_admin_operations.sql`
+18. `tests/booking_contract.sql`
+19. `tests/security_contract.sql`
+20. `tests/identity_contract.sql`
+21. `tests/support_contract.sql`
+22. `tests/match_contract.sql`
+23. `tests/admin_operations_contract.sql`
 
-When the hosted V2 project is created, these schema layers become the first real V2 migration history. Do not replay historical V1 migrations.
+Every contract test rolls back its fixtures. A hosted V2 project must start empty, receive only the layers above, pass all contract tests plus Supabase security/performance advisors, and only then be connected to production-facing configuration.
 
-## Identity and access rules
+## Identity and access
 
-Membership proof, public identity and Student ID proof are deliberately separate.
+- Confirmed `@usmba.ac.ma` email is the fast university-membership proof.
+- Academic-email students may use normal sports flows after email confirmation while Student ID verification remains required but non-blocking unless another restriction exists.
+- Personal-email students stay restricted from normal booking/match access until manual student-card verification succeeds.
+- Username is the public case-insensitive unique handle. Student ID remains private verified identity.
+- Unverified Student ID claims do not reserve an ID globally; only verified identity is unique.
+- Verification retries stay on the same Auth account and preserve attempt history.
+- Structured rejection reasons drive remediation; duplicate identity routes to safe Help/recovery without enumeration.
+- `get_my_account_state()` is the authoritative routing/access payload.
+- Student-card evidence is private, image-only, size-limited, user-scoped and admin-readable only through the verification workflow.
 
-- a confirmed `@usmba.ac.ma` email is the fast university-membership proof
-- academic-email students may receive normal sports access after email confirmation while Student ID verification remains required
-- a personal-email account is allowed, but stays restricted from normal booking/match access until manual student-card verification succeeds
-- username is the public UNEEM handle used for search and invitations; it is normalized to lowercase and unique case-insensitively
-- Student ID remains private and is trusted only after student-card review
-- username never replaces Student ID as the authoritative private identity binding
-- an unverified Student ID claim does **not** reserve that ID globally
-- only a verified Student ID is unique, enforced by a partial PostgreSQL unique index
-- competing approvals for the same Student ID are serialized and still protected by the unique index
-- verification retries stay on the same Auth account and preserve attempt history
-- structured rejection reasons drive remediation instead of dead-end statuses
-- duplicate-identity conflicts return a generic error and must route to secure recovery/Help rather than exposing another account
-- registration username/email/identity collisions converge on a generic registration failure rather than exposing account existence
-- `get_my_account_state()` is the narrow authoritative payload for routing/access/status UI
-- student-card evidence lives in the private `student-verification` bucket with a 5 MB image-only limit
-- evidence paths are scoped to the authenticated user; students can manage only their own evidence while authorized admins can read it for review
-- the submission RPC validates that the referenced storage object belongs to the submitting user before accepting the attempt
-- admin queue data is intentionally narrow and omits unrelated private profile/account fields
+### Recoverable verification
 
-## Recoverable verification contract
-
-A verification rejection is not a dead-end account state.
-
-- `student_id_incorrect` — Student ID may be corrected and evidence replaced
-- `student_card_unreadable` — replace the card image without rebuilding the account
-- `name_mismatch` — correct permitted profile information and resubmit evidence
-- `not_a_student_card` — replace the image with a valid student card
-- `student_card_expired` — submit current evidence or use Help
-- `duplicate_student_identity` — do not permit a self-service bypass; route to secure ownership recovery/Help
-
-Every resubmission creates a new attempt on the same Auth account. Prior attempts remain review/audit history.
+- `student_id_incorrect` — correct Student ID and replace evidence as needed.
+- `student_card_unreadable` — replace the card image.
+- `name_mismatch` — correct permitted name data and resubmit evidence.
+- `not_a_student_card` — replace with valid student-card evidence.
+- `student_card_expired` — provide current evidence or use Help.
+- `duplicate_student_identity` — no self-service ownership bypass; use secure Help/recovery.
 
 ## Help, reports and abuse controls
 
-Support and moderation use one private admin inbox but keep their semantics distinct.
+- Authenticated support and appeals are account-owned conversations.
+- Guest support uses an unguessable capability token; only its SHA-256 digest is stored.
+- Guest contact email stays optional for account-recovery cases.
+- Direct support-table writes are closed; narrow RPCs own writes.
+- New threads and replies have separate database throttles so an active conversation remains usable.
+- Reports are authenticated-only and require structured target + reason context; self-reporting is rejected.
+- Admin support actions are authorized and written to `admin_audit_log`.
+- Anonymous guest creation still needs an IP-aware zero-cost server/edge gate before public launch; the database burst ceiling is not a substitute.
 
-- authenticated support and appeals remain account-owned conversations
-- guest support uses a 256-bit browser capability token; only its SHA-256 digest is stored
-- guest contact email remains optional so users can get help when account/email access itself is the problem
-- direct table mutations are closed; support writes use narrow RPCs
-- authenticated support/report thread creation is throttled per user in PostgreSQL
-- authenticated reply/message throttles are separate from new-thread throttles so an active conversation stays usable even after the thread-creation limit is reached
-- guest replies are throttled before message insertion
-- guest creation receives a conservative global burst ceiling, with a tighter per-contact throttle when an email is supplied
-- the database burst ceiling is not a substitute for an IP-aware server/edge limit; add that before public launch when runtime configuration is available
-- reports are authenticated-only and require structured target type, target ID and reason code
-- the generic support RPC cannot create an unstructured report
-- user self-reporting is rejected
-- report target/reason context is available only through a narrow admin RPC, not public peer reads
+## Booking and facility rules
 
-## Booking rules
+- No persistent slot rows and no completion cron; lifecycle is derived from timestamps.
+- Bookings store `starts_at` / `ends_at`, reject same-facility overlap and serialize user booking rules.
+- Booking frequency, slot duration, booking window and cancellation cutoff are facility configuration.
+- Student booking/cancellation mutations use narrow authoritative RPCs; direct booking writes are closed.
+- Admin booking reads use `admin_list_bookings()`; email is read from `auth.users` inside the admin-only security-definer boundary.
+- Admin cancellation requires a structured operational reason and writes actor + previous/new state to `admin_audit_log`.
+- Authenticated clients can read facilities but cannot insert/update/delete them directly.
+- Facility create/update uses `admin_save_pitch()` and is audited.
+- Facility removal is non-destructive: `admin_archive_pitch()` sets inactive and preserves booking/match history. Reactivation is an audited facility update.
 
-- no persistent slot rows
-- no booking jobs / completion cron
-- bookings store `starts_at` / `ends_at`
-- completed state is derived from time
-- one active/upcoming scheduled booking per student
-- concurrent booking attempts by the same user are serialized
-- same-pitch overlaps are rejected by PostgreSQL
-- booking frequency and cancellation cutoff are facility configuration
-- approved students can see intentional peer display names in occupied availability
-- direct booking writes are not granted to students; booking/cancellation use narrow RPCs
-- new V2 booking history begins empty
+See `docs/v2/admin-operations-contract.md` for the focused operations contract.
 
 ## Match rules
 
-Matches extend an existing booking; they never create another facility reservation.
+Matches extend an existing booking and never create another facility reservation.
 
-- one booking can have at most one match
-- the booking owner is the organizer and counts as one player
-- organizer-selected offline/reserved friends consume capacity without creating UNEEM participant accounts
-- public spots are `facility capacity - organizer - reserved spots - joined students`
-- eligible approved students join open matches first-come-first-served; there is no organizer approval queue
-- joining locks the match row so concurrent joins cannot oversubscribe capacity
-- direct student reads/writes to match tables remain closed; narrow RPCs own visibility, roster and mutation rules
-- once a public student has joined, the match cannot be changed back to private
-- reserved spots cannot be increased in a way that displaces already joined students
-- an empty organizer-owned match may move private and be reopened without creating a second match or booking
-- cancelling the authoritative facility booking automatically closes the linked match while preserving its participant history for audit/history
-- a participant may leave before the match starts
-- discovery/roster expose only public sports identity (`full_name`, `username`), never Student ID, email, verification evidence or moderation notes
-- waitlists, invites and notification fan-out should build on this core only after hosted runtime validation
+- One booking has at most one match; booking owner is organizer and counts as one player.
+- Reserved/offline friends consume capacity without UNEEM participant rows.
+- Public spots = capacity - organizer - reserved spots - joined students.
+- Eligible students join first-come-first-served; join capacity is serialized by locking the match row.
+- Direct match table reads/writes stay closed; narrow RPCs own discovery, roster and mutation rules.
+- Once public students join, the match cannot return to private and reserved count cannot increase enough to displace them.
+- An empty organizer-owned match may be reopened without creating a second booking or match.
+- Cancelling the authoritative booking closes the linked match while preserving participant history.
+- Discovery exposes public sports identity only (`full_name`, `username`), never Student ID, email or verification evidence.
 
-See `docs/v2/open-match-contract.md` for the focused contract.
+See `docs/v2/open-match-contract.md` for the focused match contract.
 
-## Files
+## Layer map
 
-- `schema.sql` — clean schema, base RLS and booking contract
-- `002_security_contract.sql` — approval boundary and safe self-profile mutation
-- `003_onboarding_booking_rules.sql` — original onboarding/booking guardrails; identity rules are superseded by layer 005
-- `004_availability_window.sql` — one-call facility availability window
-- `005_identity_verification_state.sql` — academic/personal access split, verified Student ID ownership, recoverable verification attempts and account-state RPC
-- `006_identity_verification_storage.sql` — private evidence bucket/policies, owned-path validation, structured remediation reasons and narrow admin review queue
-- `007_support_threads.sql` — student/guest support threads and capability-token guest access
-- `008_support_admin_ops.sql` — narrow audited admin inbox operations
-- `009_support_reports_abuse_controls.sql` — structured report contract plus authenticated/guest database throttles
-- `010_support_report_admin_context.sql` — narrow report target/reason context for authorized admins
-- `011_guest_support_optional_contact.sql` — keeps no-auth support accessible while preserving burst protection
-- `012_support_rate_limit_scope.sql` — separates new-thread throttles from reply/message throttles
-- `013_public_username_identity.sql` — public handle format/uniqueness plus signup-time username binding without an enumeration preflight
-- `014_open_match_core.sql` — match/participant tables and authoritative create/join/leave/reserved/visibility transitions
-- `015_open_match_reads.sql` — narrow Open Matches, roster, My Matches and admin read models
-- `016_match_lifecycle_integrity.sql` — idempotent empty-match reopening plus booking-cancellation → match-cancellation synchronization
-- `tests/booking_contract.sql` — transactional booking behavior tests
-- `tests/security_contract.sql` — transactional approval/RLS tests
-- `tests/identity_contract.sql` — academic fast path, personal restriction, verified-only Student ID uniqueness, public username invariants, and reject → remediate → approve behavior
-- `tests/support_contract.sql` — structured report, self-target prevention, generic-report rejection and support throttle tests
-- `tests/match_contract.sql` — booking-to-match ownership, capacity, reopen/cancellation lifecycle, join/private/reserved rules, restricted access and direct-write rejection
+- `schema.sql` — clean baseline, base RLS and booking contract.
+- `002_security_contract.sql` — approval boundary and safe self-profile mutation.
+- `003_onboarding_booking_rules.sql` — original onboarding/booking guardrails; identity rules are superseded by layer 005.
+- `004_availability_window.sql` — one-call facility availability window.
+- `005_identity_verification_state.sql` — academic/personal access split and verification state machine.
+- `006_identity_verification_storage.sql` — private evidence storage and narrow admin review queue.
+- `007_support_threads.sql` — student/guest support threads.
+- `008_support_admin_ops.sql` — audited admin support operations and shared `admin_audit_log`.
+- `009_support_reports_abuse_controls.sql` — structured reports + abuse throttles.
+- `010_support_report_admin_context.sql` — narrow report context for admins.
+- `011_guest_support_optional_contact.sql` — no-auth support without requiring email.
+- `012_support_rate_limit_scope.sql` — separate creation/reply throttle scopes.
+- `013_public_username_identity.sql` — public username identity contract.
+- `014_open_match_core.sql` — authoritative match mutation contract.
+- `015_open_match_reads.sql` — Open Matches, roster, My Matches and admin read models.
+- `016_match_lifecycle_integrity.sql` — reopen and booking→match cancellation integrity.
+- `017_admin_operations.sql` — audited booking/facility admin RPCs and direct facility-write closure.
+- `tests/*.sql` — transactional booking, security, identity, support, match and admin-operation contracts.
 
 ## Zero-cost validation
 
-No paid Supabase development branch is required.
-
 ```bash
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/schema.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/002_security_contract.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/003_onboarding_booking_rules.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/004_availability_window.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/005_identity_verification_state.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/006_identity_verification_storage.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/007_support_threads.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/008_support_admin_ops.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/009_support_reports_abuse_controls.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/010_support_report_admin_context.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/011_guest_support_optional_contact.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/012_support_rate_limit_scope.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/013_public_username_identity.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/014_open_match_core.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/015_open_match_reads.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/016_match_lifecycle_integrity.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/tests/booking_contract.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/tests/security_contract.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/tests/identity_contract.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/tests/support_contract.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/tests/match_contract.sql
+for file in \
+  supabase/v2/schema.sql \
+  supabase/v2/002_security_contract.sql \
+  supabase/v2/003_onboarding_booking_rules.sql \
+  supabase/v2/004_availability_window.sql \
+  supabase/v2/005_identity_verification_state.sql \
+  supabase/v2/006_identity_verification_storage.sql \
+  supabase/v2/007_support_threads.sql \
+  supabase/v2/008_support_admin_ops.sql \
+  supabase/v2/009_support_reports_abuse_controls.sql \
+  supabase/v2/010_support_report_admin_context.sql \
+  supabase/v2/011_guest_support_optional_contact.sql \
+  supabase/v2/012_support_rate_limit_scope.sql \
+  supabase/v2/013_public_username_identity.sql \
+  supabase/v2/014_open_match_core.sql \
+  supabase/v2/015_open_match_reads.sql \
+  supabase/v2/016_match_lifecycle_integrity.sql \
+  supabase/v2/017_admin_operations.sql \
+  supabase/v2/tests/booking_contract.sql \
+  supabase/v2/tests/security_contract.sql \
+  supabase/v2/tests/identity_contract.sql \
+  supabase/v2/tests/support_contract.sql \
+  supabase/v2/tests/match_contract.sql \
+  supabase/v2/tests/admin_operations_contract.sql
+do
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$file" || exit 1
+done
 ```
 
-Each contract test rolls back its fixtures.
-
-## Hosted V2 rule
-
-A hosted V2 project must start empty, receive only the V2 schema layers above, pass contract tests plus Supabase security/performance advisors, and only then be connected to production-facing Vercel configuration.
+Keep infrastructure at $0: validate against the confirmed fresh V2 project/database and do not create paid Supabase development branches.

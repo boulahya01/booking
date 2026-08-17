@@ -1,466 +1,217 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { goto } from '$app/navigation'
-  import { supabase } from '$lib/supabaseClient'
-  import { uiState } from '$lib/stores/ui'
-  import Card from '$lib/components/Card.svelte'
-  import Button from '$lib/components/Button.svelte'
-  import Modal from '$lib/components/Modal.svelte'
-  import LoadingSkeleton from '$lib/components/LoadingSkeleton.svelte'
   import Icon from '$lib/components/Icon.svelte'
-  import { _ } from 'svelte-i18n'
-  import { locale } from 'svelte-i18n'
-  import { USE_MOCK, mockBookings, mockPitches, mockDelay } from '$lib/mock'
+  import { language, uiState } from '$lib/stores/ui'
+  import {
+    listAdminBookings,
+    listAdminFacilities,
+    adminCancelBooking,
+    type AdminBooking,
+    type AdminBookingLifecycle,
+    type AdminBookingCancelReason,
+    type AdminFacility
+  } from '$lib/adminApi'
 
-  interface BookingWithDetails {
-    id: string
-    user_id: string
-    pitch_id: string | null
-    slot_datetime: string | null
-    slot_datetime_end: string | null
-    status: 'active' | 'cancelled' | 'completed'
-    created_at: string
-    full_name: string
-    student_id: string
-    email: string
-    pitch_name: string
-    pitch_location: string
-  }
-
-  let bookings: BookingWithDetails[] = []
+  let bookings: AdminBooking[] = []
+  let facilities: AdminFacility[] = []
   let loading = true
-  let showDetailModal = false
-  let selectedBooking: BookingWithDetails | null = null
-  let cancelling = false
-
-  // Filters
-  let searchQuery = ''
-  let pitchFilter = 'all'
-  let statusFilter = 'all'
+  let error = ''
+  let query = ''
+  let pitchId = ''
+  let lifecycle = ''
   let dateFrom = ''
   let dateTo = ''
-
-  // Pagination
   let page = 1
-  let pageSize = 20
+  const pageSize = 30
   let total = 0
+  let selected: AdminBooking | null = null
+  let cancelTarget: AdminBooking | null = null
+  let cancelReason: AdminBookingCancelReason = 'maintenance'
+  let cancelling = false
 
-  // Pitches for dropdown
-  let pitches: any[] = []
+  $: ar = $language === 'ar'
+  $: totalPages = Math.max(1, Math.ceil(total / pageSize))
+  $: copy = ar ? {
+    eyebrow: 'عمليات UNEEM', title: 'الحجوزات', subtitle: 'راجع الحجوزات وألغِها بأسباب مسجلة.',
+    search: 'بحث باسم الطالب، البريد، الرقم أو المرفق', allFacilities: 'كل المرافق', allStates: 'كل الحالات',
+    upcoming: 'قادمة', progress: 'جارية', completed: 'مكتملة', cancelled: 'ملغاة', apply: 'تطبيق', clear: 'مسح',
+    results: 'حجز', empty: 'لا توجد حجوزات بهذه الفلاتر.', retry: 'إعادة المحاولة', details: 'التفاصيل',
+    cancel: 'إلغاء الحجز', cancelTitle: 'إلغاء هذا الحجز؟', cancelHint: 'سيتم تحرير المرفق وإغلاق المباراة المفتوحة المرتبطة إن وجدت.',
+    reason: 'سبب الإلغاء', keep: 'الاحتفاظ بالحجز', confirm: 'تأكيد الإلغاء', saving: 'جارٍ الإلغاء…', student: 'الطالب', facility: 'المرفق', time: 'الوقت', booked: 'تم الحجز', previous: 'السابق', next: 'التالي'
+  } : {
+    eyebrow: 'UNEEM operations', title: 'Bookings', subtitle: 'Review reservations and cancel safely with an audited reason.',
+    search: 'Search student, email, ID or facility', allFacilities: 'All facilities', allStates: 'All states',
+    upcoming: 'Upcoming', progress: 'In progress', completed: 'Completed', cancelled: 'Cancelled', apply: 'Apply', clear: 'Clear',
+    results: 'bookings', empty: 'No bookings match these filters.', retry: 'Retry', details: 'Details',
+    cancel: 'Cancel booking', cancelTitle: 'Cancel this booking?', cancelHint: 'The facility is released and any linked open match closes automatically.',
+    reason: 'Cancellation reason', keep: 'Keep booking', confirm: 'Confirm cancellation', saving: 'Cancelling…', student: 'Student', facility: 'Facility', time: 'Time', booked: 'Booked', previous: 'Previous', next: 'Next'
+  }
+
+  const cancelReasons: { value: AdminBookingCancelReason; en: string; ar: string }[] = [
+    { value: 'maintenance', en: 'Facility maintenance', ar: 'صيانة المرفق' },
+    { value: 'safety', en: 'Safety issue', ar: 'سبب متعلق بالسلامة' },
+    { value: 'scheduling_error', en: 'Scheduling error', ar: 'خطأ في الجدولة' },
+    { value: 'university_event', en: 'University event', ar: 'نشاط جامعي' },
+    { value: 'policy', en: 'Policy decision', ar: 'قرار تنظيمي' },
+    { value: 'other', en: 'Other operational reason', ar: 'سبب تشغيلي آخر' }
+  ]
 
   onMount(async () => {
-    await checkAdmin()
-    await loadPitches()
-    await loadBookings()
+    try { facilities = await listAdminFacilities() } catch { facilities = [] }
+    await load()
   })
 
-  async function checkAdmin() {
-    if (USE_MOCK) return
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      await goto('/login')
-      return
-    }
-    const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-    if (data?.role !== 'admin') {
-      await goto('/home')
-    }
+  function upperBound(date: string) {
+    if (!date) return undefined
+    const d = new Date(`${date}T00:00:00`)
+    d.setDate(d.getDate() + 1)
+    return d.toISOString()
   }
 
-  async function loadPitches() {
-    if (USE_MOCK) {
-      pitches = mockPitches
-      return
-    }
-    const { data } = await supabase.from('pitches').select('id, name').order('name')
-    if (data) pitches = data
-  }
-
-  async function loadBookings() {
-    loading = true
-
-    if (USE_MOCK) {
-      let filtered = [...mockBookings]
-
-      // Apply filters
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase()
-        filtered = filtered.filter(b =>
-          b.full_name.toLowerCase().includes(q) ||
-          b.student_id.toLowerCase().includes(q) ||
-          b.email.toLowerCase().includes(q)
-        )
-      }
-
-      if (pitchFilter !== 'all') {
-        filtered = filtered.filter(b => b.pitch_id === pitchFilter)
-      }
-
-      if (statusFilter !== 'all') {
-        filtered = filtered.filter(b => b.status === statusFilter)
-      }
-
-      total = filtered.length
-      const start = (page - 1) * pageSize
-      bookings = filtered.slice(start, start + pageSize) as BookingWithDetails[]
-      loading = false
-      return
-    }
-
-    // Build query
-    let query = supabase
-      .from('bookings')
-      .select(`
-        *,
-        profiles!inner(full_name, student_id, email),
-        pitches(name, location)
-      `, { count: 'exact' })
-
-    // Apply filters
-    if (searchQuery) {
-      query = query.or(`profiles.full_name.ilike.%${searchQuery}%,profiles.student_id.ilike.%${searchQuery}%,profiles.email.ilike.%${searchQuery}%`)
-    }
-
-    if (pitchFilter !== 'all') {
-      query = query.eq('pitch_id', pitchFilter)
-    }
-
-    if (statusFilter !== 'all') {
-      query = query.eq('status', statusFilter)
-    }
-
-    if (dateFrom) {
-      query = query.gte('slot_datetime', dateFrom)
-    }
-
-    if (dateTo) {
-      query = query.lte('slot_datetime', dateTo)
-    }
-
-    const { data, error: err, count } = await query
-      .order('slot_datetime', { ascending: false })
-      .range((page - 1) * pageSize, page * pageSize - 1)
-
-    if (!err && data) {
-      bookings = data.map((b: any) => ({
-        id: b.id,
-        user_id: b.user_id,
-        pitch_id: b.pitch_id,
-        slot_datetime: b.slot_datetime,
-        slot_datetime_end: b.slot_datetime_end,
-        status: b.status,
-        created_at: b.created_at,
-        full_name: b.profiles?.full_name || 'Unknown',
-        student_id: b.profiles?.student_id || '-',
-        email: b.profiles?.email || '-',
-        pitch_name: b.pitches?.name || 'Unknown Pitch',
-        pitch_location: b.pitches?.location || 'Unknown Location'
-      }))
-      total = count || 0
-    }
-    loading = false
-  }
-
-  function applyFilters() {
-    page = 1
-    loadBookings()
-  }
-
-  function clearFilters() {
-    searchQuery = ''
-    pitchFilter = 'all'
-    statusFilter = 'all'
-    dateFrom = ''
-    dateTo = ''
-    page = 1
-    loadBookings()
-  }
-
-  function openDetail(booking: BookingWithDetails) {
-    selectedBooking = booking
-    showDetailModal = true
-  }
-
-  async function cancelBooking() {
-    if (!selectedBooking) return
-    cancelling = true
-
+  async function load() {
+    loading = true; error = ''
     try {
-      if (USE_MOCK) {
-        await mockDelay()
-        const b = mockBookings.find(x => x.id === selectedBooking.id)
-        if (b) b.status = 'cancelled'
-        uiState.addToast('Booking cancelled', 'success')
-        showDetailModal = false
-        selectedBooking = null
-        await loadBookings()
-        return
+      const result = await listAdminBookings({
+        query,
+        pitchId: pitchId || undefined,
+        lifecycle: (lifecycle || undefined) as AdminBookingLifecycle | undefined,
+        from: dateFrom ? new Date(`${dateFrom}T00:00:00`).toISOString() : undefined,
+        to: upperBound(dateTo),
+        limit: pageSize,
+        offset: (page - 1) * pageSize
+      })
+      bookings = result.rows
+      total = result.total
+    } catch (e: any) { error = e.message || 'Unable to load bookings' }
+    finally { loading = false }
+  }
+
+  async function apply() { page = 1; await load() }
+  async function clear() {
+    query = ''; pitchId = ''; lifecycle = ''; dateFrom = ''; dateTo = ''; page = 1
+    await load()
+  }
+
+  async function confirmCancel() {
+    if (!cancelTarget) return
+    cancelling = true
+    try {
+      await adminCancelBooking(cancelTarget.booking_id, cancelReason)
+      const id = cancelTarget.booking_id
+      bookings = bookings.map((b) => b.booking_id === id ? { ...b, booking_status: 'cancelled', lifecycle_status: 'cancelled' } : b)
+      if (lifecycle && lifecycle !== 'cancelled') {
+        bookings = bookings.filter((b) => b.booking_id !== id)
+        total = Math.max(0, total - 1)
       }
-
-      const { error: err } = await supabase
-        .from('bookings')
-        .update({ status: 'cancelled' })
-        .eq('id', selectedBooking.id)
-
-      if (err) {
-        uiState.addToast(err.message, 'error')
-        return
-      }
-
-      uiState.addToast('Booking cancelled', 'success')
-      showDetailModal = false
-      selectedBooking = null
-      await loadBookings()
-    } catch (e: any) {
-      uiState.addToast(e.message, 'error')
-    } finally {
-      cancelling = false
-    }
+      if (selected?.booking_id === id) selected = { ...selected, booking_status: 'cancelled', lifecycle_status: 'cancelled' }
+      cancelTarget = null
+      uiState.addToast(ar ? 'تم إلغاء الحجز' : 'Booking cancelled', 'success')
+    } catch (e: any) { uiState.addToast(e.message || (ar ? 'تعذر إلغاء الحجز' : 'Unable to cancel booking'), 'error') }
+    finally { cancelling = false }
   }
 
-  function formatDate(datetime: string | null): string {
-    if (!datetime) return '-'
-    return new Date(datetime).toLocaleDateString($locale || 'en', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
+  function when(value: string) {
+    return new Date(value).toLocaleString(ar ? 'ar-MA' : 'en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
   }
 
-  function formatTime(datetime: string | null): string {
-    if (!datetime) return '-'
-    return new Date(datetime).toLocaleTimeString($locale || 'en', {
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
-
-  const totalPages = Math.ceil(total / pageSize)
-
-  function getStatusColor(status: string): string {
-    switch (status) {
-      case 'active': return 'bg-success-light text-success'
-      case 'completed': return 'bg-primary-light text-primary'
-      case 'cancelled': return 'bg-danger-light text-danger'
-      default: return 'bg-surface-level-2 text-text-muted'
-    }
-  }
-
-  function getStatusLabel(status: string): string {
-    switch (status) {
-      case 'active': return $_('admin.status_active')
-      case 'completed': return $_('admin.status_completed')
-      case 'cancelled': return $_('admin.status_cancelled')
-      default: return status
-    }
+  function statusLabel(value: AdminBookingLifecycle) {
+    if (value === 'upcoming') return copy.upcoming
+    if (value === 'in_progress') return copy.progress
+    if (value === 'completed') return copy.completed
+    return copy.cancelled
   }
 </script>
 
-<div class="max-w-6xl mx-auto p-4">
-  <h1 class="text-2xl font-medium font-serif text-text mb-6">{$_('admin.bookings_title')}</h1>
+<svelte:head><title>{copy.title} · UNEEM Admin</title></svelte:head>
 
-  <!-- Filters -->
-  <Card variant="elevated" className="mb-5 p-4">
-    <div class="space-y-4">
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <!-- User Search -->
-        <div>
-          <label for="search" class="block text-sm font-medium text-text-secondary mb-1">{$_('admin.filter_user')}</label>
-          <input
-            id="search"
-            type="text"
-            placeholder={$_('admin.filter_user_placeholder')}
-            class="w-full rounded-lg border border-border bg-surface-level-1 p-3 text-sm text-text placeholder:text-text-muted focus:border-info focus:outline-none focus:ring-1 focus:ring-info transition-colors"
-            bind:value={searchQuery}
-          />
-        </div>
+<div class="mx-auto w-full max-w-6xl px-4 pb-28 pt-5 sm:px-6 sm:pb-10 sm:pt-7">
+  <header class="mb-6">
+    <p class="text-xs font-extrabold uppercase tracking-[0.12em] text-primary">{copy.eyebrow}</p>
+    <h1 class="mt-1 text-3xl font-extrabold tracking-[-0.04em] text-text">{copy.title}</h1>
+    <p class="mt-1 text-sm leading-6 text-text-secondary">{copy.subtitle}</p>
+  </header>
 
-        <!-- Pitch Filter -->
-        <div>
-          <label for="pitch" class="block text-sm font-medium text-text-secondary mb-1">{$_('admin.filter_pitch')}</label>
-          <select
-            id="pitch"
-            class="w-full rounded-lg border border-border bg-surface-level-1 p-3 text-sm text-text focus:border-info focus:outline-none focus:ring-1 focus:ring-info transition-colors"
-            bind:value={pitchFilter}
-          >
-            <option value="all">{$_('admin.filter_all_pitches')}</option>
-            {#each pitches as pitch}
-              <option value={pitch.id}>{pitch.name}</option>
-            {/each}
-          </select>
-        </div>
-
-        <!-- Status Filter -->
-        <div>
-          <label for="status" class="block text-sm font-medium text-text-secondary mb-1">{$_('admin.filter_status')}</label>
-          <select
-            id="status"
-            class="w-full rounded-lg border border-border bg-surface-level-1 p-3 text-sm text-text focus:border-info focus:outline-none focus:ring-1 focus:ring-info transition-colors"
-            bind:value={statusFilter}
-          >
-            <option value="all">{$_('admin.filter_all_statuses')}</option>
-            <option value="active">{$_('admin.status_active')}</option>
-            <option value="completed">{$_('admin.status_completed')}</option>
-            <option value="cancelled">{$_('admin.status_cancelled')}</option>
-          </select>
-        </div>
-
-        <!-- Date Range -->
-        <div>
-          <label for="date-from" class="block text-sm font-medium text-text-secondary mb-1">{$_('admin.filter_date_from')}</label>
-          <input
-            id="date-from"
-            type="date"
-            class="w-full rounded-lg border border-border bg-surface-level-1 p-3 text-sm text-text focus:border-info focus:outline-none focus:ring-1 focus:ring-info transition-colors"
-            bind:value={dateFrom}
-          />
-        </div>
-      </div>
-
-      <div class="flex gap-2">
-        <Button variant="primary" size="sm" on:click={applyFilters}>{$_('admin.apply_filters')}</Button>
-        <Button variant="secondary" size="sm" on:click={clearFilters}>{$_('admin.clear_filters')}</Button>
+  <form on:submit|preventDefault={apply} class="uneem-card mb-5">
+    <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+      <label class="lg:col-span-2">
+        <span class="sr-only">{copy.search}</span>
+        <input bind:value={query} class="uneem-field" placeholder={copy.search} />
+      </label>
+      <select bind:value={pitchId} class="uneem-field" aria-label={copy.allFacilities}>
+        <option value="">{copy.allFacilities}</option>
+        {#each facilities as facility}<option value={facility.id}>{facility.name}</option>{/each}
+      </select>
+      <select bind:value={lifecycle} class="uneem-field" aria-label={copy.allStates}>
+        <option value="">{copy.allStates}</option>
+        <option value="upcoming">{copy.upcoming}</option><option value="in_progress">{copy.progress}</option><option value="completed">{copy.completed}</option><option value="cancelled">{copy.cancelled}</option>
+      </select>
+      <input bind:value={dateFrom} type="date" class="uneem-field" aria-label="From date" />
+      <input bind:value={dateTo} type="date" class="uneem-field" aria-label="To date" />
+      <div class="flex gap-2 lg:col-span-2 lg:justify-end">
+        <button type="button" on:click={clear} class="uneem-secondary-action flex-1 lg:flex-none">{copy.clear}</button>
+        <button class="uneem-primary-action flex-1 lg:flex-none">{copy.apply}</button>
       </div>
     </div>
-  </Card>
+  </form>
 
-  <!-- Booking Count -->
-  <p class="text-sm text-text-secondary mb-4">{$_('admin.showing_bookings', { count: bookings.length })} {$_('admin.bookings_of')} {total}</p>
+  <div class="mb-3 flex items-center justify-between gap-3">
+    <p class="text-sm font-semibold text-text-secondary">{total} {copy.results}</p>
+    {#if loading && bookings.length > 0}<span class="text-xs text-text-muted">…</span>{/if}
+  </div>
 
-  <!-- Booking List -->
-  {#if loading}
-    <div class="space-y-4">
-      <LoadingSkeleton />
-      <LoadingSkeleton />
-      <LoadingSkeleton />
-    </div>
+  {#if error && bookings.length === 0}
+    <section class="uneem-card text-center"><p class="text-sm font-semibold text-danger">{error}</p><button on:click={load} class="mt-3 min-h-10 font-bold text-primary">{copy.retry}</button></section>
+  {:else if loading && bookings.length === 0}
+    <div class="space-y-2" aria-busy="true">{#each [1,2,3,4] as _}<div class="h-24 animate-pulse rounded-[22px] bg-surface-level-1"></div>{/each}</div>
   {:else if bookings.length === 0}
-    <Card variant="elevated" className="text-center py-12">
-      <p class="text-text-secondary mb-2">{$_('admin.no_bookings')}</p>
-      <p class="text-text-muted text-sm">{$_('admin.no_bookings_filter')}</p>
-    </Card>
+    <section class="uneem-card py-12 text-center"><Icon name="calendar-days" size={26} className="mx-auto text-text-muted"/><p class="mt-3 font-bold text-text">{copy.empty}</p></section>
   {:else}
-    <div class="space-y-3">
-      {#each bookings as booking (booking.id)}
-        <Card variant="elevated" className="p-4">
-          <div class="flex justify-between items-start gap-4 flex-wrap">
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 mb-1">
-                <h3 class="text-base font-semibold text-text">{booking.full_name}</h3>
-                <span class="px-2 py-0.5 text-xs rounded-full {getStatusColor(booking.status)}">
-                  {getStatusLabel(booking.status)}
-                </span>
-              </div>
-              <p class="text-text-secondary text-sm mb-1">{booking.pitch_name} - {booking.pitch_location}</p>
-              <p class="text-text-muted text-sm">
-                {booking.student_id} | {formatDate(booking.slot_datetime)} | {formatTime(booking.slot_datetime)} - {formatTime(booking.slot_datetime_end)}
-              </p>
-              <p class="text-xs text-text-muted mt-1">{$_('admin.booked_on')}: {new Date(booking.created_at).toLocaleDateString($locale || 'en', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+    <div class="overflow-hidden rounded-[22px] bg-surface shadow-sm ring-1 ring-border-light">
+      {#each bookings as booking (booking.booking_id)}
+        <button on:click={() => selected = booking} class="w-full border-b border-border-light px-4 py-4 text-start last:border-0 hover:bg-surface-level-1 sm:px-5">
+          <div class="flex items-start gap-3">
+            <div class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary-light text-sm font-extrabold text-primary">{booking.full_name?.charAt(0)?.toUpperCase() || '?'}</div>
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2"><p class="truncate font-bold text-text">{booking.full_name}</p><span class={`uneem-chip ${booking.lifecycle_status === 'cancelled' ? 'text-danger' : booking.lifecycle_status === 'upcoming' ? 'text-primary' : 'text-text-secondary'}`}>{statusLabel(booking.lifecycle_status)}</span></div>
+              <p class="mt-1 truncate text-sm text-text-secondary">{booking.pitch_name} · {when(booking.starts_at)}</p>
+              <p class="mt-1 truncate text-xs text-text-muted">{booking.student_id || '—'} · {booking.email || '—'}</p>
             </div>
-            <div class="flex gap-2 flex-shrink-0">
-              <Button variant="secondary" size="sm" on:click={() => openDetail(booking)}>{$_('admin.view_details')}</Button>
-              {#if booking.status === 'active'}
-                <Button variant="danger" size="sm" on:click={() => { selectedBooking = booking; if (confirm($_('admin.cancel_confirm'))) cancelBooking() }}>{$_('admin.cancel_booking')}</Button>
-              {/if}
-            </div>
+            <Icon name={ar ? 'chevron-left' : 'chevron-right'} size={18} className="mt-2 shrink-0 text-text-muted" />
           </div>
-        </Card>
+        </button>
       {/each}
     </div>
   {/if}
 
-  <!-- Pagination -->
   {#if totalPages > 1}
-    <div class="flex justify-center items-center gap-3 mt-6">
-      <Button
-        variant="secondary"
-        size="sm"
-        disabled={page === 1}
-        on:click={() => { page--; loadBookings() }}
-      >
-        {$_('admin.previous')}
-      </Button>
-      <span class="text-sm text-text-secondary">{$_('admin.page')} {page} {$_('admin.of')} {totalPages}</span>
-      <Button
-        variant="secondary"
-        size="sm"
-        disabled={page === totalPages}
-        on:click={() => { page++; loadBookings() }}
-      >
-        {$_('admin.next')}
-      </Button>
+    <div class="mt-5 flex items-center justify-center gap-3">
+      <button disabled={page === 1 || loading} on:click={async () => { page--; await load() }} class="uneem-secondary-action">{copy.previous}</button>
+      <span class="text-sm font-bold text-text-secondary">{page}/{totalPages}</span>
+      <button disabled={page >= totalPages || loading} on:click={async () => { page++; await load() }} class="uneem-secondary-action">{copy.next}</button>
     </div>
   {/if}
 </div>
 
-<!-- Booking Detail Modal -->
-<Modal open={showDetailModal} size="lg" on:close={() => { showDetailModal = false; selectedBooking = null }}>
-  <div slot="header" class="text-lg font-semibold text-text">{$_('admin.booking_details')}</div>
-  <div slot="body" class="space-y-4">
-    {#if selectedBooking}
-      <!-- User Information -->
-      <div class="bg-surface-level-1 p-4 rounded-xl space-y-2">
-        <p class="text-sm font-semibold text-text">{$_('admin.user_information')}</p>
-        <div class="flex items-center gap-2 text-sm">
-          <span class="text-text-muted">{$_('admin.name_label')}:</span>
-          <span class="font-medium">{selectedBooking.full_name}</span>
-        </div>
-        <div class="flex items-center gap-2 text-sm">
-          <span class="text-text-muted">{$_('admin.email_label')}:</span>
-          <span class="font-medium">{selectedBooking.email}</span>
-        </div>
-        <div class="flex items-center gap-2 text-sm">
-          <span class="text-text-muted">{$_('admin.student_id_label')}:</span>
-          <span class="font-medium">{selectedBooking.student_id}</span>
-        </div>
-      </div>
-
-      <!-- Booking Information -->
-      <div class="bg-surface-level-1 p-4 rounded-xl space-y-2">
-        <p class="text-sm font-semibold text-text">{$_('admin.booking_information')}</p>
-        <div class="flex items-center gap-2 text-sm">
-          <span class="text-text-muted">{$_('admin.pitch_label')}:</span>
-          <span class="font-medium">{selectedBooking.pitch_name}</span>
-        </div>
-        <div class="flex items-center gap-2 text-sm">
-          <span class="text-text-muted">{$_('admin.location_label')}:</span>
-          <span class="font-medium">{selectedBooking.pitch_location}</span>
-        </div>
-        <div class="flex items-center gap-2 text-sm">
-          <span class="text-text-muted">{$_('admin.date_label')}:</span>
-          <span class="font-medium">{formatDate(selectedBooking.slot_datetime)}</span>
-        </div>
-        <div class="flex items-center gap-2 text-sm">
-          <span class="text-text-muted">{$_('admin.time_label')}:</span>
-          <span class="font-medium">{formatTime(selectedBooking.slot_datetime)} - {formatTime(selectedBooking.slot_datetime_end)}</span>
-        </div>
-        <div class="flex items-center gap-2 text-sm">
-          <span class="text-text-muted">{$_('admin.status_label')}:</span>
-          <span class="px-2 py-0.5 text-xs rounded-full {getStatusColor(selectedBooking.status)}">
-            {getStatusLabel(selectedBooking.status)}
-          </span>
-        </div>
-        <div class="flex items-center gap-2 text-sm">
-          <span class="text-text-muted">{$_('admin.booked_on')}:</span>
-          <span class="font-medium">{new Date(selectedBooking.created_at).toLocaleDateString()}</span>
-        </div>
-      </div>
-
-      <!-- Actions -->
-      {#if selectedBooking.status === 'active'}
-        <Button
-          variant="danger"
-          className="w-full"
-          loading={cancelling}
-          on:click={() => { if (confirm($_('admin.cancel_confirm'))) cancelBooking() }}
-        >
-          {$_('admin.cancel_booking')}
-        </Button>
-      {/if}
-    {/if}
+{#if selected}
+  <div class="fixed inset-0 z-50 flex items-end bg-black/50 sm:items-center sm:justify-center sm:p-5" role="presentation" on:click={() => selected = null}>
+    <section class="w-full rounded-t-[28px] bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-lg sm:rounded-[28px]" role="dialog" aria-modal="true" on:click|stopPropagation>
+      <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-extrabold uppercase tracking-[0.1em] text-primary">{copy.details}</p><h2 class="mt-1 text-xl font-extrabold text-text">{selected.full_name}</h2></div><button on:click={() => selected = null} class="grid h-10 w-10 place-items-center rounded-full bg-surface-level-1"><Icon name="x" size={18}/></button></div>
+      <dl class="mt-5 divide-y divide-border-light rounded-2xl bg-surface-level-1 px-4">
+        <div class="flex justify-between gap-4 py-3"><dt class="text-sm text-text-muted">{copy.student}</dt><dd class="max-w-[65%] text-end text-sm font-bold text-text">{selected.student_id || '—'}<br><span class="font-medium text-text-secondary">{selected.email || '—'}</span></dd></div>
+        <div class="flex justify-between gap-4 py-3"><dt class="text-sm text-text-muted">{copy.facility}</dt><dd class="text-end text-sm font-bold text-text">{selected.pitch_name}<br><span class="font-medium text-text-secondary">{selected.pitch_location}</span></dd></div>
+        <div class="flex justify-between gap-4 py-3"><dt class="text-sm text-text-muted">{copy.time}</dt><dd class="text-end text-sm font-bold text-text">{when(selected.starts_at)} – {when(selected.ends_at)}</dd></div>
+      </dl>
+      {#if selected.lifecycle_status === 'upcoming' || selected.lifecycle_status === 'in_progress'}<button on:click={() => { cancelTarget = selected; cancelReason = 'maintenance' }} class="mt-5 min-h-12 w-full rounded-2xl bg-danger-light px-4 font-bold text-danger">{copy.cancel}</button>{/if}
+    </section>
   </div>
-  <div slot="footer" class="flex justify-end">
-    <Button variant="secondary" on:click={() => { showDetailModal = false; selectedBooking = null }}>{$_('admin.close')}</Button>
+{/if}
+
+{#if cancelTarget}
+  <div class="fixed inset-0 z-[60] flex items-end bg-black/55 sm:items-center sm:justify-center sm:p-5" role="presentation" on:click={() => !cancelling && (cancelTarget = null)}>
+    <section class="w-full rounded-t-[28px] bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-[28px]" role="dialog" aria-modal="true" on:click|stopPropagation>
+      <h2 class="text-xl font-extrabold text-text">{copy.cancelTitle}</h2><p class="mt-2 text-sm leading-6 text-text-secondary">{copy.cancelHint}</p>
+      <label class="mt-5 block text-sm font-bold text-text">{copy.reason}<select bind:value={cancelReason} class="uneem-field mt-2">{#each cancelReasons as item}<option value={item.value}>{ar ? item.ar : item.en}</option>{/each}</select></label>
+      <div class="mt-5 flex gap-3"><button disabled={cancelling} on:click={() => cancelTarget = null} class="uneem-secondary-action flex-1">{copy.keep}</button><button disabled={cancelling} on:click={confirmCancel} class="min-h-12 flex-1 rounded-2xl bg-danger px-4 font-bold text-white disabled:opacity-50">{cancelling ? copy.saving : copy.confirm}</button></div>
+    </section>
   </div>
-</Modal>
+{/if}
