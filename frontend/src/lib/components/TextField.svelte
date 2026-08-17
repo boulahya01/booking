@@ -6,6 +6,7 @@
   type ValidationState = 'idle' | 'valid' | 'invalid'
 
   export let label = ''
+  export let ariaLabel = ''
   export let placeholder = ''
   export let type = 'text'
   export let value: string | number = ''
@@ -28,11 +29,7 @@
   $: inputType = isPassword && showPassword ? 'text' : type
   $: state = error ? 'invalid' : validation
   $: message = error || (state === 'valid' ? (validHint || hint) : hint)
-  $: messageTone = state === 'valid'
-    ? 'text-success'
-    : state === 'invalid'
-      ? 'text-danger'
-      : 'text-text-muted'
+  $: messageTone = state === 'valid' ? 'text-success' : state === 'invalid' ? 'text-danger' : 'text-text-muted'
 
   function handleFocus() {
     focused = true
@@ -51,7 +48,7 @@
 
 <div class="w-full">
   {#if label}
-    <label for={label} class="mb-1.5 block text-sm font-semibold text-text">
+    <label for={label} class="mb-2 block text-sm font-medium text-text-secondary">
       {label}
       {#if required}<span class="text-danger"> *</span>{/if}
     </label>
@@ -59,13 +56,14 @@
 
   <div class={cn('relative', className)}>
     {#if icon}
-      <span class="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-text-muted">
-        <Icon name={icon} size={18} />
+      <span class="pointer-events-none absolute start-4 top-1/2 -translate-y-1/2 text-text-muted">
+        <Icon name={icon} size={19} />
       </span>
     {/if}
 
     <input
-      id={label}
+      id={label || undefined}
+      aria-label={ariaLabel || label || placeholder}
       type={inputType}
       {placeholder}
       bind:value
@@ -76,42 +74,30 @@
       on:focus={handleFocus}
       on:blur={handleBlur}
       class={cn(
-        'min-h-[50px] w-full rounded-[14px] border bg-surface px-4 py-3 text-[15px] text-text outline-none',
-        'placeholder:text-text-muted/80 transition-colors duration-150',
-        icon && 'ps-10',
+        'min-h-[56px] w-full rounded-[18px] border bg-surface px-4 py-3.5 text-[15px] text-text outline-none',
+        'shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] placeholder:text-text-muted transition-[border-color,background-color,box-shadow] duration-150',
+        icon && 'ps-12',
         isPassword && state !== 'idle' ? 'pe-20' : isPassword ? 'pe-12' : state !== 'idle' ? 'pe-11' : '',
         state === 'invalid'
-          ? 'border-danger focus:ring-2 focus:ring-danger/15'
+          ? 'border-danger/75 focus:ring-2 focus:ring-danger/15'
           : state === 'valid'
-            ? 'border-success/70 focus:ring-2 focus:ring-success/15'
+            ? 'border-success/65 focus:ring-2 focus:ring-success/15'
             : focused
-              ? 'border-primary ring-2 ring-primary/15'
+              ? 'border-primary/80 ring-2 ring-primary/15'
               : 'border-border',
         disabled && 'cursor-not-allowed bg-surface-level-1 text-text-muted opacity-70'
       )}
     />
 
     {#if state !== 'idle'}
-      <span
-        class={cn(
-          'pointer-events-none absolute top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full',
-          isPassword ? 'end-11' : 'end-2.5',
-          state === 'valid' ? 'text-success' : 'text-danger'
-        )}
-        aria-hidden="true"
-      >
+      <span class={cn('pointer-events-none absolute top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center', isPassword ? 'end-11' : 'end-3', state === 'valid' ? 'text-success' : 'text-danger')} aria-hidden="true">
         <Icon name={state === 'valid' ? 'check' : 'x'} size={16} strokeWidth={2.4} />
       </span>
     {/if}
 
     {#if isPassword}
-      <button
-        type="button"
-        on:click={togglePasswordVisibility}
-        class="absolute end-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-surface-level-1 hover:text-text"
-        aria-label={showPassword ? 'Hide password' : 'Show password'}
-      >
-        <Icon name={showPassword ? 'eye-off' : 'eye'} size={18} />
+      <button type="button" on:click={togglePasswordVisibility} class="absolute end-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-surface-level-1 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/25" aria-label={showPassword ? 'Hide password' : 'Show password'}>
+        <Icon name={showPassword ? 'eye-off' : 'eye'} size={19} />
       </button>
     {/if}
   </div>

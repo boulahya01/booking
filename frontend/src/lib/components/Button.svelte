@@ -12,9 +12,9 @@
   export let className = ''
 
   const baseClass = [
-    'inline-flex items-center justify-center gap-2 rounded-[14px] font-semibold',
-    'transition-colors duration-150',
-    'disabled:cursor-not-allowed disabled:opacity-45',
+    'inline-flex items-center justify-center gap-2 rounded-[18px] font-semibold',
+    'transition-[background-color,color,border-color,transform] duration-150 active:scale-[0.995]',
+    'disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100',
     'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background'
   ].join(' ')
 
@@ -26,32 +26,21 @@
   }
 
   const sizes = {
-    sm: 'min-h-[40px] px-3.5 text-sm',
-    md: 'min-h-[46px] px-4 text-sm',
-    lg: 'min-h-[52px] px-5 text-base'
+    sm: 'min-h-[42px] px-3.5 text-sm',
+    md: 'min-h-[48px] px-4 text-sm',
+    lg: 'min-h-[56px] px-5 text-base'
   }
 
   $: buttonClass = cn(baseClass, variants[variant], sizes[size], 'touch-target-min', className)
 </script>
 
-<button
-  {type}
-  {disabled}
-  class={buttonClass}
-  on:click
-  {...$$restProps}
->
+<button {type} {disabled} class={buttonClass} on:click {...$$restProps}>
   {#if loading}
-    <span
-      class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent opacity-80"
-      aria-hidden="true"
-    ></span>
+    <span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent opacity-80" aria-hidden="true"></span>
   {/if}
   <slot />
 </button>
 
 <style>
-  :global(.touch-target-min) {
-    @apply min-w-[44px];
-  }
+  :global(.touch-target-min) { @apply min-w-[44px]; }
 </style>

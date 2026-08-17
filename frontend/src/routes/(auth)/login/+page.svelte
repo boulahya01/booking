@@ -5,7 +5,6 @@
   import TextField from '$lib/components/TextField.svelte'
   import Icon from '$lib/components/Icon.svelte'
   import AuthShell from '$lib/components/AuthShell.svelte'
-  import ActionLink from '$lib/components/ActionLink.svelte'
   import { language } from '$lib/stores/ui'
   import { authState, isAuthenticated } from '$lib/stores/auth'
   import { loginWithEmail } from '$lib/auth'
@@ -29,16 +28,17 @@
 
   $: copy = $language === 'ar'
     ? {
-        title: 'تسجيل الدخول', email: 'البريد الإلكتروني', emailPlaceholder: 'mehdi@usmba.ac.ma', emailReady: 'البريد صحيح',
-        password: 'كلمة المرور', passwordPlaceholder: 'كلمة المرور', signIn: 'دخول', forgot: 'نسيت كلمة المرور؟', create: 'إنشاء حساب', help: 'المساعدة',
-        invalidEmail: 'أدخل بريداً صحيحاً.', passwordRequired: 'أدخل كلمة المرور.', invalidCredentials: 'البريد أو كلمة المرور غير صحيحة.',
-        rateLimited: 'محاولات كثيرة. حاول بعد قليل.', trouble: 'تعذر تسجيل الدخول. حاول مرة أخرى أو اطلب المساعدة.'
+        title: 'مرحباً بعودتك', subtitle: 'سجّل الدخول للمتابعة', email: 'البريد الإلكتروني', emailPlaceholder: 'name@usmba.ac.ma',
+        password: 'كلمة المرور', passwordPlaceholder: 'كلمة المرور', signIn: 'تسجيل الدخول', forgot: 'نسيت كلمة المرور؟',
+        newTo: 'جديد في UNEEM؟', create: 'إنشاء حساب', help: 'تحتاج مساعدة؟', invalidEmail: 'أدخل بريداً صحيحاً.',
+        passwordRequired: 'أدخل كلمة المرور.', invalidCredentials: 'البريد أو كلمة المرور غير صحيحة.', rateLimited: 'محاولات كثيرة. حاول بعد قليل.',
+        trouble: 'تعذر تسجيل الدخول. حاول مرة أخرى أو اطلب المساعدة.'
       }
     : {
-        title: 'Sign in', email: 'Email', emailPlaceholder: 'mehdi@usmba.ac.ma', emailReady: 'Valid email',
-        password: 'Password', passwordPlaceholder: 'Your password', signIn: 'Sign in', forgot: 'Forgot password?', create: 'Create account', help: 'Help',
-        invalidEmail: 'Enter a valid email.', passwordRequired: 'Enter your password.', invalidCredentials: 'Email or password is incorrect.',
-        rateLimited: 'Too many attempts. Try again shortly.', trouble: 'Couldn’t sign in. Try again or get help.'
+        title: 'Welcome back', subtitle: 'Sign in to continue', email: 'Email address', emailPlaceholder: 'name@usmba.ac.ma',
+        password: 'Password', passwordPlaceholder: 'Password', signIn: 'Sign in', forgot: 'Forgot password?', newTo: 'New to UNEEM?',
+        create: 'Create account', help: 'Need help?', invalidEmail: 'Enter a valid email.', passwordRequired: 'Enter your password.',
+        invalidCredentials: 'Email or password is incorrect.', rateLimited: 'Too many attempts. Try again shortly.', trouble: 'Couldn’t sign in. Try again or get help.'
       }
 
   onMount(() => {
@@ -94,24 +94,34 @@
 
 <AuthShell>
   <section class="w-full">
-    <div class="mb-8"><h1 class="text-3xl font-semibold tracking-[-0.035em] text-text sm:text-4xl">{copy.title}</h1></div>
+    <div class="mb-9 text-center">
+      <h1 class="text-[32px] font-semibold tracking-[-0.035em] text-text">{copy.title}</h1>
+      <p class="mt-2 text-[15px] text-text-secondary">{copy.subtitle}</p>
+    </div>
 
     {#if submitError}
-      <div class="mb-5 rounded-2xl bg-danger-light p-4 text-danger" role="alert">
-        <div class="flex items-start gap-3"><Icon name="alert-circle" size={20} className="mt-0.5 shrink-0" /><p class="text-sm font-medium leading-6">{submitError}</p></div>
+      <div class="mb-5 rounded-[18px] bg-danger-light p-4 text-danger" role="alert">
+        <div class="flex items-start gap-3"><Icon name="alert-circle" size={19} className="mt-0.5 shrink-0" /><p class="text-sm font-medium leading-6">{submitError}</p></div>
       </div>
     {/if}
 
     <form on:submit|preventDefault={handleLogin} class="space-y-4">
-      <TextField label={copy.email} type="email" placeholder={copy.emailPlaceholder} icon="mail" autocomplete="email" bind:value={email} validation={emailState} hint={emailState === 'invalid' ? copy.invalidEmail : ''} validHint={copy.emailReady} disabled={loading} />
-      <TextField label={copy.password} type="password" placeholder={copy.passwordPlaceholder} icon="lock" autocomplete="current-password" bind:value={password} error={passwordError} disabled={loading} />
+      <TextField ariaLabel={copy.email} type="email" placeholder={copy.emailPlaceholder} icon="mail" autocomplete="email" bind:value={email} validation={emailState} hint={emailState === 'invalid' ? copy.invalidEmail : ''} disabled={loading} />
+      <TextField ariaLabel={copy.password} type="password" placeholder={copy.passwordPlaceholder} icon="lock" autocomplete="current-password" bind:value={password} error={passwordError} disabled={loading} />
+
+      <div class="flex justify-end pt-0.5"><a href={forgotHref} class="text-sm font-medium text-primary transition-colors hover:text-primary-hover">{copy.forgot}</a></div>
+
       <Button type="submit" variant="primary" size="lg" {loading} disabled={loading} className="mt-2 w-full">{copy.signIn}</Button>
     </form>
 
-    <div class="mt-4 grid grid-cols-2 gap-3">
-      <ActionLink href={registerHref} variant="secondary" size="md" icon="user">{copy.create}</ActionLink>
-      <ActionLink href={forgotHref} variant="secondary" size="md" icon="key">{copy.forgot}</ActionLink>
-    </div>
-    <ActionLink href="/help" variant="ghost" size="md" icon="info" className="mt-3 w-full">{copy.help}</ActionLink>
+    <p class="mt-7 text-center text-sm text-text-secondary">
+      {copy.newTo}<a href={registerHref} class="ms-1 font-semibold text-primary transition-colors hover:text-primary-hover">{copy.create}</a>
+    </p>
   </section>
+
+  <div slot="footer" class="text-center">
+    <a href="/help" class="inline-flex min-h-11 items-center justify-center gap-2 px-3 text-sm text-text-muted transition-colors hover:text-text">
+      <Icon name="info" size={17} /><span>{copy.help}</span>
+    </a>
+  </div>
 </AuthShell>
