@@ -25,14 +25,16 @@ Apply the complete stack before enabling real registration or application traffi
 17. `017_admin_operations.sql`
 18. `018_backend_read_contract.sql`
 19. `019_user_access_moderation.sql`
-20. `tests/booking_contract.sql`
-21. `tests/security_contract.sql`
-22. `tests/identity_contract.sql`
-23. `tests/support_contract.sql`
-24. `tests/match_contract.sql`
-25. `tests/admin_operations_contract.sql`
-26. `tests/backend_read_contract.sql`
-27. `tests/user_moderation_contract.sql`
+20. `020_first_admin_bootstrap.sql`
+21. `tests/booking_contract.sql`
+22. `tests/security_contract.sql`
+23. `tests/identity_contract.sql`
+24. `tests/support_contract.sql`
+25. `tests/match_contract.sql`
+26. `tests/admin_operations_contract.sql`
+27. `tests/backend_read_contract.sql`
+28. `tests/user_moderation_contract.sql`
+29. `tests/first_admin_bootstrap_contract.sql`
 
 Every contract suite is transactional and rolls back its fixtures. A hosted V2 project is not launch-ready until the full ordered stack is applied, all suites pass, Supabase security/performance advisors are reviewed, and generated database types match the resulting schema.
 
@@ -119,6 +121,17 @@ Admin authorization is enforced in PostgreSQL, not by UI visibility.
 
 Layer 019 revokes direct authenticated `profiles UPDATE`. Self-profile edits remain narrow through `update_my_profile()`, verification decisions stay in the verification workflow, and routine access moderation cannot mutate admin identities or approve a pending personal-email identity. Suspension and restoration are audited separately from identity verification.
 
+### First administrator
+
+Layer 020 adds `private.bootstrap_first_admin(uuid)` for the one zero-admin → one-admin transition.
+
+- It is **not** an application/PostgREST RPC.
+- `PUBLIC`, `anon`, `authenticated` and `service_role` receive no execute grant.
+- Run it only from the trusted database-owner/Supabase SQL context after manually confirming the selected Auth account.
+- It is transactionally serialized and refuses a second bootstrap once an admin or bootstrap log exists.
+- The operation records the selected profile and previous/new role/access state in `private.admin_bootstrap_log`.
+- Normal future admin management must use explicit audited admin-management contracts; never reuse first-admin bootstrap as a routine promotion path.
+
 Sensitive or destructive operations are audited where defined by their domain contract.
 
 ## Layer map
@@ -135,6 +148,7 @@ Sensitive or destructive operations are audited where defined by their domain co
 - `017_admin_operations.sql` — audited booking/facility administration and direct facility-write closure.
 - `018_backend_read_contract.sql` — authoritative session, bookings, support, verification-attempt and admin-user read models.
 - `019_user_access_moderation.sql` — close direct profile writes; separate audited student access suspension/restoration from identity review.
+- `020_first_admin_bootstrap.sql` — private database-owner-only one-time first-admin bootstrap.
 - `tests/*.sql` — transactional domain/security contracts.
 
 ## Zero-cost validation
@@ -160,6 +174,7 @@ for file in \
   supabase/v2/017_admin_operations.sql \
   supabase/v2/018_backend_read_contract.sql \
   supabase/v2/019_user_access_moderation.sql \
+  supabase/v2/020_first_admin_bootstrap.sql \
   supabase/v2/tests/booking_contract.sql \
   supabase/v2/tests/security_contract.sql \
   supabase/v2/tests/identity_contract.sql \
@@ -167,7 +182,8 @@ for file in \
   supabase/v2/tests/match_contract.sql \
   supabase/v2/tests/admin_operations_contract.sql \
   supabase/v2/tests/backend_read_contract.sql \
-  supabase/v2/tests/user_moderation_contract.sql
+  supabase/v2/tests/user_moderation_contract.sql \
+  supabase/v2/tests/first_admin_bootstrap_contract.sql
 do
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$file" || exit 1
 done
