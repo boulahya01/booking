@@ -19,11 +19,25 @@ export type SupportThread = {
   messages: SupportMessage[]
 }
 
+export type SupportThreadSummary = {
+  id: string
+  user_id: string | null
+  contact_email: string | null
+  kind: SupportKind
+  status: SupportStatus
+  subject: string | null
+  created_at: string
+  updated_at: string
+  message_count: number
+  last_message_at: string | null
+}
+
 function normalizeError(error: unknown): Error {
   const message = error instanceof Error ? error.message : String(error ?? '')
   if (message.includes('invalid_support_message')) return new Error('Write a short message before sending.')
   if (message.includes('invalid_contact_email')) return new Error('Check the contact email and try again.')
-  if (message.includes('support_thread_not_found')) return new Error('This support conversation can no longer be opened from this device.')
+  if (message.includes('support_thread_not_found')) return new Error('This support conversation is no longer available.')
+  if (message.includes('admin_required')) return new Error('You do not have permission to manage support conversations.')
   return new Error('Support is temporarily unavailable. Please try again.')
 }
 
@@ -83,6 +97,42 @@ export async function addGuestSupportMessage(accessToken: string, body: string):
   const { error } = await supabase.rpc('add_guest_support_message', {
     p_access_token: accessToken,
     p_body: body
+  })
+  if (error) throw normalizeError(error)
+}
+
+export async function listAdminSupportThreads(status: SupportStatus | null = null): Promise<SupportThreadSummary[]> {
+  const { data, error } = await supabase.rpc('admin_list_support_threads', {
+    p_status: status,
+    p_limit: 50
+  })
+  if (error) throw normalizeError(error)
+  return (data ?? []) as SupportThreadSummary[]
+}
+
+export async function getAdminSupportMessages(threadId: string): Promise<SupportMessage[]> {
+  const { data, error } = await supabase.rpc('admin_get_support_messages', { p_thread_id: threadId })
+  if (error) throw normalizeError(error)
+  return (data ?? []) as SupportMessage[]
+}
+
+export async function adminReplySupportThread(
+  threadId: string,
+  body: string,
+  nextStatus: SupportStatus = 'waiting'
+): Promise<void> {
+  const { error } = await supabase.rpc('admin_reply_support_thread', {
+    p_thread_id: threadId,
+    p_body: body,
+    p_next_status: nextStatus
+  })
+  if (error) throw normalizeError(error)
+}
+
+export async function adminSetSupportStatus(threadId: string, status: SupportStatus): Promise<void> {
+  const { error } = await supabase.rpc('admin_set_support_status', {
+    p_thread_id: threadId,
+    p_status: status
   })
   if (error) throw normalizeError(error)
 }
