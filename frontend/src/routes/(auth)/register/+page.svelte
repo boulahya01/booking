@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
+  import { onMount } from 'svelte'
   import { register, mapAuthError } from '$lib/auth'
   import { uiState, language } from '$lib/stores/ui'
   import TextField from '$lib/components/TextField.svelte'
@@ -19,29 +20,18 @@
   let submitError = ''
   let loading = false
 
-  // Duplicate check state
   let emailDuplicateError = ''
   let studentIdDuplicateError = ''
   let checkingEmail = false
   let checkingStudentId = false
 
-  // Password validation state
   let passwordFocused = false
   let showPasswordHints = false
-
-  // Full name validation state
   let fullNameFocused = false
-
-  // Confirmation validation state
   let confirmFocused = false
-
-  // Email validation state
   let emailFocused = false
-
-  // Student ID validation state
   let studentIdFocused = false
 
-  // Real-time validation checks
   $: passwordLength = password.length >= 8
   $: passwordNumber = /\d/.test(password)
   $: passwordSpecial = /[!@#$%^&*()-+]/.test(password)
@@ -62,6 +52,17 @@
 
   $: fullNameValid = fullName.trim().length >= 2
   $: fullNameTouched = fullName.length > 0 && !fullNameFocused
+
+  $: loginHref = isValidEmail(email)
+    ? `/login?email=${encodeURIComponent(email.trim().toLowerCase())}`
+    : '/login'
+
+  onMount(() => {
+    const hintedEmail = new URLSearchParams(window.location.search).get('email')
+    if (hintedEmail && isValidEmail(hintedEmail)) {
+      email = sanitizeInput(hintedEmail).trim().toLowerCase()
+    }
+  })
 
   async function checkEmailDuplicate(value: string): Promise<string> {
     if (!value || !isValidEmail(value)) return ''
@@ -142,14 +143,13 @@
       const cleanStudentId = sanitizeStudentId(studentId).toUpperCase()
       const cleanPassword = sanitizeInput(password)
 
-      // Pre-submit duplicate check as a safety net (single RPC call)
       const { data: dupType, error } = await supabase
         .rpc('check_registration_duplicate', {
           p_email: cleanEmail,
           p_student_id: cleanStudentId
         })
       if (error) {
-        // RPC failed silently, proceed with registration (DB will catch duplicates)
+        // The database registration path remains authoritative for duplicate protection.
       } else if (dupType === 'email' || dupType === 'both') {
         emailDuplicateError = $_('register.error_email_exists')
         submitError = $_('register.error_email_exists')
@@ -185,7 +185,6 @@
 </script>
 
 <div class="min-h-screen flex items-center justify-center px-4 py-8">
-  <!-- Language Switcher -->
   <button
     on:click={toggleLanguage}
     class="fixed top-4 right-4 z-50 flex items-center justify-center w-11 h-11 rounded-full bg-surface border border-border dark:border-white/6 hover:bg-surface-level-2 hover:border-primary/30 transition shadow-sm"
@@ -208,7 +207,7 @@
             <div>
               <p class="font-medium text-sm">{submitError}</p>
               {#if submitError.includes('sign in') || submitError.includes('تسجيل الدخول')}
-                <a href="/login" class="text-sm font-semibold mt-1 inline-block underline">
+                <a href={loginHref} class="text-sm font-semibold mt-1 inline-block underline">
                   {$_('login.sign_in')}
                 </a>
               {/if}
@@ -218,7 +217,6 @@
       {/if}
 
       <form on:submit|preventDefault={submit} class="space-y-5">
-        <!-- Full Name -->
         <TextField
           label={$_('register.full_name_label')}
           placeholder={$_('register.full_name_placeholder')}
@@ -228,7 +226,6 @@
           on:blur={() => fullNameFocused = false}
         />
 
-        <!-- Email -->
         <div class="space-y-1.5">
           <TextField
             label={$_('register.email_label')}
@@ -263,7 +260,6 @@
           {/if}
         </div>
 
-        <!-- Student ID -->
         <div class="space-y-1.5">
           <TextField
             label={$_('register.student_id_label')}
@@ -297,7 +293,6 @@
           {/if}
         </div>
 
-        <!-- Password -->
         <div class="space-y-1.5">
           <TextField
             label={$_('register.password_label')}
@@ -340,7 +335,6 @@
           {/if}
         </div>
 
-        <!-- Confirm Password -->
         <div class="space-y-1.5">
           <TextField
             label={$_('register.confirm_password_label')}
@@ -370,7 +364,7 @@
       <div class="text-center">
         <p class="text-text-secondary">
           {$_('register.have_account')}
-          <a href="/login" class="text-primary font-semibold hover:underline">
+          <a href={loginHref} class="text-primary font-semibold hover:underline">
             {$_('register.sign_in')}
           </a>
         </p>

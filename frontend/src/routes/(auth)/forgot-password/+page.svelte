@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import Card from '$lib/components/Card.svelte'
   import Button from '$lib/components/Button.svelte'
   import TextField from '$lib/components/TextField.svelte'
@@ -12,14 +13,23 @@
   let loading = false
   let emailSent = false
 
-  // Rate limiting: max 3 attempts per 5 minutes
   const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000
   const RATE_LIMIT_MAX_ATTEMPTS = 3
   let attemptTimestamps: number[] = []
 
+  $: loginHref = isValidEmail(email)
+    ? `/login?email=${encodeURIComponent(email.trim().toLowerCase())}`
+    : '/login'
+
+  onMount(() => {
+    const hintedEmail = new URLSearchParams(window.location.search).get('email')
+    if (hintedEmail && isValidEmail(hintedEmail)) {
+      email = hintedEmail.trim().toLowerCase()
+    }
+  })
+
   function checkRateLimit(): boolean {
     const now = Date.now()
-    // Remove timestamps outside the window
     attemptTimestamps = attemptTimestamps.filter(t => now - t < RATE_LIMIT_WINDOW_MS)
     if (attemptTimestamps.length >= RATE_LIMIT_MAX_ATTEMPTS) {
       const oldestInWindow = attemptTimestamps[0]
@@ -60,20 +70,18 @@
 
     loading = true
     recordAttempt()
-    const result = await resetPasswordForEmail(email)
+    const result = await resetPasswordForEmail(email.trim().toLowerCase())
     loading = false
 
     if (result.error) {
       error = result.error.message
     } else {
       emailSent = true
-      email = ''
     }
   }
 
   function handleReset() {
     emailSent = false
-    email = ''
     error = ''
   }
 </script>
@@ -96,7 +104,7 @@
           </Button>
           <p class="text-sm text-text-secondary">
             {$_('forgot_password.back_to_login')}
-            <a href="/login" class="text-primary font-semibold hover:underline inline-flex items-center gap-1">
+            <a href={loginHref} class="text-primary font-semibold hover:underline inline-flex items-center gap-1">
               {$_('forgot_password.login_here')}
               <Icon name="arrow-right" size={14} />
             </a>
@@ -132,7 +140,7 @@
 
         <p class="text-sm text-center text-text-secondary">
           {$_('forgot_password.remember_password')}
-          <a href="/login" class="text-primary font-semibold hover:underline inline-flex items-center gap-1">
+          <a href={loginHref} class="text-primary font-semibold hover:underline inline-flex items-center gap-1">
             {$_('forgot_password.login_here')}
             <Icon name="arrow-right" size={14} />
           </a>
