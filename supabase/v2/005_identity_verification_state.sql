@@ -11,6 +11,11 @@ begin;
 alter table public.profiles
   alter column student_id drop not null;
 
+-- An unverified claim must never reserve a Student ID globally. The original
+-- baseline unique constraint is replaced by a verified-only unique index below.
+alter table public.profiles
+  drop constraint if exists profiles_student_id_key;
+
 alter table public.profiles
   add column if not exists email_kind text not null default 'personal'
     check (email_kind in ('academic', 'personal')),
@@ -25,6 +30,10 @@ alter table public.profiles
 alter table public.profiles
   add constraint profiles_student_id_not_blank
   check (student_id is null or btrim(student_id) <> '');
+
+create unique index if not exists profiles_verified_student_id_unique_idx
+  on public.profiles (student_id)
+  where identity_status = 'verified' and student_id is not null;
 
 create table if not exists public.identity_verification_attempts (
   id uuid primary key default gen_random_uuid(),
@@ -124,14 +133,10 @@ begin
     'student',
     'pending',
     v_email_kind,
-    case when v_student_id is null then 'required' else 'required' end
+    'required'
   );
 
   return new;
-exception
-  when unique_violation then
-    -- Do not expose which Student ID/account caused the collision through Auth.
-    raise exception 'identity_claim_unavailable';
 end;
 $$;
 
@@ -223,6 +228,8 @@ begin
     raise exception 'student_card_required';
   end if;
 
+  -- This is only an early UX guard. The approval path below takes an advisory
+  -- lock and the partial unique index is the final race-safe invariant.
   if exists (
     select 1
     from public.profiles p
@@ -261,13 +268,6 @@ begin
   where id = v_user_id;
 
   return v_attempt;
-exception
-  when unique_violation then
-    update public.profiles
-    set identity_status = 'conflict',
-        restriction_reason = 'duplicate_student_identity'
-    where id = v_user_id;
-    raise exception 'identity_claim_unavailable';
 end;
 $$;
 
@@ -310,14 +310,24 @@ begin
     raise exception 'rejection_reason_required';
   end if;
 
-  if p_decision = 'approved' and exists (
-    select 1
-    from public.profiles p
-    where p.student_id = v_attempt.claimed_student_id
-      and p.id <> v_attempt.user_id
-      and p.identity_status = 'verified'
-  ) then
-    raise exception 'identity_claim_unavailable';
+  if p_decision = 'approved' then
+    -- Serialize competing approvals for the same Student ID. The partial unique
+    -- index below remains the final protection if two transactions still collide.
+    perform pg_advisory_xact_lock(hashtextextended(v_attempt.claimed_student_id, 17));
+
+    if exists (
+      select 1
+      from public.profiles p
+      where p.student_id = v_attempt.claimed_student_id
+        and p.id <> v_attempt.user_id
+        and p.identity_status = 'verified'
+    ) then
+      update public.profiles
+      set identity_status = 'conflict',
+          restriction_reason = 'duplicate_student_identity'
+      where id = v_attempt.user_id;
+      raise exception 'identity_claim_unavailable';
+    end if;
   end if;
 
   update public.identity_verification_attempts
@@ -329,13 +339,22 @@ begin
   returning * into v_attempt;
 
   if p_decision = 'approved' then
-    update public.profiles
-    set student_id = v_attempt.claimed_student_id,
-        identity_status = 'verified',
-        restriction_reason = null,
-        verified_student_id_at = now(),
-        status = case when status = 'pending' then 'approved' else status end
-    where id = v_attempt.user_id;
+    begin
+      update public.profiles
+      set student_id = v_attempt.claimed_student_id,
+          identity_status = 'verified',
+          restriction_reason = null,
+          verified_student_id_at = now(),
+          status = case when status = 'pending' then 'approved' else status end
+      where id = v_attempt.user_id;
+    exception
+      when unique_violation then
+        update public.profiles
+        set identity_status = 'conflict',
+            restriction_reason = 'duplicate_student_identity'
+        where id = v_attempt.user_id;
+        raise exception 'identity_claim_unavailable';
+    end;
   else
     update public.profiles
     set identity_status = 'rejected',
