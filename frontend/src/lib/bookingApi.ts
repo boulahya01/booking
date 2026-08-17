@@ -49,7 +49,7 @@ export type MyBooking = {
   lifecycle_status: BookingLifecycle
   cancelled_at: string | null
   created_at: string
-  pitches: { name: string; location: string } | null
+  pitches: { name: string; location: string; capacity: number } | null
 }
 
 function classifyError(error: any): BookingFailureCode {
@@ -103,13 +103,14 @@ function deriveLifecycle(status: string, startsAt: string, endsAt: string): Book
   return 'upcoming'
 }
 
-function normalizePitchRelation(value: any): { name: string; location: string } | null {
+function normalizePitchRelation(value: any): { name: string; location: string; capacity: number } | null {
   if (!value) return null
   const pitch = Array.isArray(value) ? value[0] : value
   if (!pitch) return null
   return {
     name: pitch.name,
-    location: pitch.location
+    location: pitch.location,
+    capacity: Number(pitch.capacity || 0)
   }
 }
 
@@ -155,7 +156,7 @@ export async function cancelBooking(bookingId: string) {
 export async function getMyBookings(userId: string): Promise<MyBooking[]> {
   const { data, error } = await supabase
     .from('bookings')
-    .select('id,pitch_id,starts_at,ends_at,status,cancelled_at,created_at,pitches(name,location)')
+    .select('id,pitch_id,starts_at,ends_at,status,cancelled_at,created_at,pitches(name,location,capacity)')
     .eq('user_id', userId)
     .order('starts_at', { ascending: false })
 
@@ -178,7 +179,7 @@ export async function getNextBooking(userId: string): Promise<MyBooking | null> 
   const now = new Date().toISOString()
   const { data, error } = await supabase
     .from('bookings')
-    .select('id,pitch_id,starts_at,ends_at,status,cancelled_at,created_at,pitches(name,location)')
+    .select('id,pitch_id,starts_at,ends_at,status,cancelled_at,created_at,pitches(name,location,capacity)')
     .eq('user_id', userId)
     .eq('status', 'scheduled')
     .gt('ends_at', now)
