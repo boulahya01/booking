@@ -63,10 +63,10 @@ export function getDayName(date: Date | string, locale = 'en'): string {
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
   delay: number
-): (...args: Parameters<T>) {
+): (...args: Parameters<T>) => void {
   let timeout: ReturnType<typeof setTimeout>
 
-  return function (...args: Parameters<T>) {
+  return (...args: Parameters<T>) => {
     clearTimeout(timeout)
     timeout = setTimeout(() => func(...args), delay)
   }
@@ -94,7 +94,7 @@ export function isValidStudentId(id: string): boolean {
 }
 
 /**
- * change to min 8 chars, at least 1 number, and 1 special character
+ * Validate password: min 8 chars, at least 1 number, and 1 special character.
  */
 export function isValidPassword(password: string): boolean {
   return /^(?=.*\d)(?=.*[!@#$%^&*()-+]).{8,}$/.test(password)
