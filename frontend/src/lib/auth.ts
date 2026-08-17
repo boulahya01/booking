@@ -7,6 +7,8 @@ import { locale } from 'svelte-i18n'
 import en from '../locales/en.json'
 import ar from '../locales/ar.json'
 
+const PROFILE_AUTH_FIELDS = 'id,student_id,full_name,role,status,created_at,updated_at'
+
 function t(key: string): string {
   const currentLocale = get(locale) || 'en'
   const dict = currentLocale === 'ar' ? ar : en
@@ -59,27 +61,20 @@ export async function register(
   }
 }
 
-/**
- * Map Supabase auth errors to user-friendly translated messages.
- * Covers: duplicate email, duplicate student_id (from trigger),
- * domain violations, rate limits, weak passwords, network errors.
- */
 export function mapAuthError(message: string, status?: number): string {
   if (!message) return t('register.error_registration_failed')
 
   const lower = message.toLowerCase()
 
-  // --- Duplicate email (Supabase auth layer) ---
   if (
     lower.includes('user already registered') ||
     (lower.includes('duplicate') && lower.includes('email')) ||
     (lower.includes('email') && lower.includes('already')) ||
-    (lower.includes('already been registered'))
+    lower.includes('already been registered')
   ) {
     return t('register.error_email_exists')
   }
 
-  // --- Duplicate student_id (from DB trigger) ---
   if (
     lower.includes('student id is already registered') ||
     lower.includes('student_id is already registered') ||
@@ -93,7 +88,6 @@ export function mapAuthError(message: string, status?: number): string {
     return t('register.error_student_id_exists')
   }
 
-  // --- Domain violation (from DB trigger) ---
   if (
     lower.includes('usmba') ||
     lower.includes('university email') ||
@@ -103,7 +97,6 @@ export function mapAuthError(message: string, status?: number): string {
     return t('register.error_invalid_email_domain')
   }
 
-  // --- Weak password ---
   if (
     lower.includes('password') && (
       lower.includes('should be') ||
@@ -115,7 +108,6 @@ export function mapAuthError(message: string, status?: number): string {
     return t('register.error_password_short')
   }
 
-  // --- Rate limiting ---
   if (
     lower.includes('rate limit') ||
     lower.includes('too many requests') ||
@@ -126,7 +118,6 @@ export function mapAuthError(message: string, status?: number): string {
     return t('verify_email.resend_error_rate_limit')
   }
 
-  // --- Network / connection errors ---
   if (
     lower.includes('fetcherror') ||
     lower.includes('network') ||
@@ -136,7 +127,6 @@ export function mapAuthError(message: string, status?: number): string {
     return t('register.error_support_contact')
   }
 
-  // --- Generic 500 / server error ---
   if (
     lower.includes('500') ||
     lower.includes('internal server error') ||
@@ -146,14 +136,36 @@ export function mapAuthError(message: string, status?: number): string {
     return t('register.error_support_contact')
   }
 
-  // --- Fallback: return original message if it looks like a real error ---
-  // But wrap known raw Postgres error codes
   if (lower.includes('23505') || lower.includes('unique_violation')) {
     return t('register.error_student_id_exists')
   }
 
-  // Default
   return t('register.error_registration_failed')
+}
+
+export async function getUserProfile(userId: string): Promise<Profile | null> {
+  if (USE_MOCK) {
+    await mockDelay()
+    return mockProfile as Profile
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select(PROFILE_AUTH_FIELDS)
+      .eq('id', userId)
+      .single()
+
+    if (error) {
+      logger.error('[getUserProfile] Error:', error.message)
+      throw new Error(error.message || 'Error fetching profile')
+    }
+
+    return data as Profile | null
+  } catch (err: any) {
+    logger.error('[getUserProfile] Exception:', err.message)
+    throw err
+  }
 }
 
 export async function loginWithEmail(email: string, password: string): Promise<AuthResponse> {
@@ -179,13 +191,9 @@ export async function loginWithEmail(email: string, password: string): Promise<A
       return { error: { message: 'Login failed' } }
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', data.user.id)
-      .single()
+    const profile = await getUserProfile(data.user.id)
 
-    if (profileError || !profile) {
+    if (!profile) {
       await supabase.auth.signOut()
       return { error: { message: 'Profile not found' } }
     }
@@ -208,7 +216,6 @@ export async function loginWithStudentId(studentId: string, password: string): P
   try {
     const normalizedId = studentId.replace(/\s+/g, '').toUpperCase()
 
-    // Use RPC function to get email from auth.users by student_id
     const { data: email, error: profileError } = await supabase
       .rpc('get_email_by_student_id', { p_student_id: normalizedId })
 
@@ -219,31 +226,6 @@ export async function loginWithStudentId(studentId: string, password: string): P
     return loginWithEmail(email, password)
   } catch (err: any) {
     return { error: { message: err.message || 'Login failed' } }
-  }
-}
-
-export async function getUserProfile(userId: string): Promise<Profile | null> {
-  if (USE_MOCK) {
-    await mockDelay()
-    return mockProfile as Profile
-  }
-
-  try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-
-    if (error) {
-      logger.error('[getUserProfile] Error:', error.message)
-      throw new Error(error.message || 'Error fetching profile')
-    }
-
-    return data as Profile | null
-  } catch (err: any) {
-    logger.error('[getUserProfile] Exception:', err.message)
-    throw err
   }
 }
 
