@@ -10,6 +10,7 @@
   import { sanitizeInput, sanitizeName, sanitizeStudentId } from '$lib/validation'
 
   type Step = 'email' | 'details' | 'password'
+  type FieldState = 'idle' | 'valid' | 'invalid'
 
   let step: Step = 'email'
   let fullName = ''
@@ -19,12 +20,33 @@
   let password = ''
   let confirmPassword = ''
   let submitError = ''
-  let errors: Record<string, string> = {}
   let loading = false
+  let emailAttempted = false
+  let detailsAttempted = false
+  let passwordAttempted = false
 
   $: cleanEmail = email.trim().toLowerCase()
   $: academic = isAcademicEmail(cleanEmail)
   $: emailValid = isValidEmail(cleanEmail)
+  $: cleanName = sanitizeName(fullName)
+  $: fullNameValid = cleanName.length >= 2
+  $: cleanUsername = username.trim().toLowerCase()
+  $: usernameValid = isValidUsername(cleanUsername)
+  $: cleanStudentId = sanitizeStudentId(studentId).toUpperCase()
+  $: studentIdValid = academic || isValidStudentId(cleanStudentId)
+  $: passwordLength = password.length >= 8
+  $: passwordNumber = /\d/.test(password)
+  $: passwordSymbol = /[!@#$%^&*()\-+]/.test(password)
+  $: passwordValid = isValidPassword(password)
+  $: confirmValid = confirmPassword.length > 0 && confirmPassword === password
+  $: detailsValid = fullNameValid && usernameValid && studentIdValid
+
+  $: emailState = fieldState(email.length > 0 || emailAttempted, emailValid)
+  $: nameState = fieldState(fullName.length > 0 || detailsAttempted, fullNameValid)
+  $: usernameState = fieldState(username.length > 0 || detailsAttempted, usernameValid)
+  $: studentIdState = fieldState(studentId.length > 0 || detailsAttempted, studentIdValid)
+  $: passwordState = fieldState(password.length > 0 || passwordAttempted, passwordValid)
+  $: confirmState = fieldState(confirmPassword.length > 0 || passwordAttempted, confirmValid)
 
   $: copy = $language === 'ar'
     ? {
@@ -32,66 +54,84 @@
         detailsTitle: 'معلوماتك',
         passwordTitle: 'كلمة المرور',
         email: 'البريد الإلكتروني',
-        emailPlaceholder: 'name@usmba.ac.ma',
-        emailHint: 'بريد USMBA يعطيك دخولاً أسرع. البريد الشخصي مقبول أيضاً.',
+        emailPlaceholder: 'mehdi@usmba.ac.ma',
+        academicEmailValid: 'بريد جامعي — دخول أسرع',
+        personalEmailValid: 'بريد شخصي — البطاقة مطلوبة',
+        invalidEmail: 'أدخل بريداً صحيحاً.',
         universityEmail: 'بريد جامعي',
-        universityAccess: 'دخول أسرع بعد تأكيد البريد',
+        universityAccess: 'يمكنك الحجز بعد تأكيد البريد',
         personalEmail: 'بريد شخصي',
-        personalAccess: 'تأكيد بطاقة الطالب مطلوب',
+        personalAccess: 'تأكيد بطاقة الطالب مطلوب قبل الحجز',
         continue: 'متابعة',
         back: 'رجوع',
         fullName: 'الاسم الكامل',
-        fullNamePlaceholder: 'كما يظهر في بطاقتك',
+        fullNamePlaceholder: 'Mehdi El Amrani',
+        fullNameValid: 'الاسم واضح',
+        invalidName: 'اكتب الاسم الكامل.',
         username: 'اسم المستخدم',
-        usernamePlaceholder: 'marwan_23',
-        usernameHelp: 'للدعوات والبحث.',
+        usernamePlaceholder: 'mehdi01',
+        usernameValid: 'سيظهر كـ',
+        invalidUsername: '3–24 حرفاً أو رقماً أو _',
         studentId: 'رقم الطالب',
         studentIdPlaceholder: 'S123456789',
+        studentIdValid: 'الصيغة صحيحة',
+        invalidStudentId: 'حرف واحد + 9 أرقام',
         password: 'كلمة المرور',
+        passwordPlaceholder: '8 أحرف أو أكثر',
         confirmPassword: 'تأكيد كلمة المرور',
-        passwordHelp: '8 أحرف أو أكثر، مع رقم ورمز.',
+        confirmPlaceholder: 'أعد كتابة كلمة المرور',
+        passwordReady: 'جاهزة',
+        passwordRequired: 'أنشئ كلمة مرور.',
+        match: 'متطابقة',
+        mismatch: 'غير متطابقة',
+        ruleLength: '8+ أحرف',
+        ruleNumber: 'رقم',
+        ruleSymbol: 'رمز',
         create: 'إنشاء الحساب',
         signIn: 'تسجيل الدخول',
-        help: 'تحتاج مساعدة؟',
-        invalidEmail: 'أدخل بريداً صحيحاً.',
-        invalidName: 'أدخل اسمك الكامل.',
-        invalidUsername: 'استخدم 3–24 حرفاً صغيراً أو رقماً أو _.',
-        invalidStudentId: 'أدخل رقم طالب صحيحاً مثل S123456789.',
-        invalidPassword: 'تحقق من كلمة المرور.',
-        mismatch: 'كلمتا المرور غير متطابقتين.'
+        help: 'تحتاج مساعدة؟'
       }
     : {
         emailTitle: 'Create account',
         detailsTitle: 'Your details',
         passwordTitle: 'Set password',
         email: 'Email',
-        emailPlaceholder: 'name@usmba.ac.ma',
-        emailHint: 'USMBA email gives faster access. Personal email works too.',
+        emailPlaceholder: 'mehdi@usmba.ac.ma',
+        academicEmailValid: 'USMBA email · faster access',
+        personalEmailValid: 'Personal email · card approval required',
+        invalidEmail: 'Enter a valid email.',
         universityEmail: 'University email',
-        universityAccess: 'Faster access after confirmation',
+        universityAccess: 'Book after confirming your email',
         personalEmail: 'Personal email',
-        personalAccess: 'Student-card approval required',
+        personalAccess: 'Student-card approval required before booking',
         continue: 'Continue',
         back: 'Back',
         fullName: 'Full name',
-        fullNamePlaceholder: 'As shown on your student card',
+        fullNamePlaceholder: 'Mehdi El Amrani',
+        fullNameValid: 'Looks good',
+        invalidName: 'Use your full name.',
         username: 'Username',
-        usernamePlaceholder: 'marwan_23',
-        usernameHelp: 'For invites and search.',
+        usernamePlaceholder: 'mehdi01',
+        usernameValid: 'Will be',
+        invalidUsername: '3–24 letters, numbers or _',
         studentId: 'Student ID',
         studentIdPlaceholder: 'S123456789',
+        studentIdValid: 'Valid format',
+        invalidStudentId: '1 letter + 9 digits',
         password: 'Password',
+        passwordPlaceholder: '8+ characters',
         confirmPassword: 'Confirm password',
-        passwordHelp: '8+ characters with a number and symbol.',
+        confirmPlaceholder: 'Repeat password',
+        passwordReady: 'Ready',
+        passwordRequired: 'Create a password.',
+        match: 'Passwords match',
+        mismatch: 'Doesn’t match',
+        ruleLength: '8+ chars',
+        ruleNumber: '1 number',
+        ruleSymbol: '1 symbol',
         create: 'Create account',
         signIn: 'Sign in',
-        help: 'Need help?',
-        invalidEmail: 'Enter a valid email.',
-        invalidName: 'Enter your full name.',
-        invalidUsername: 'Use 3–24 lowercase letters, numbers, or underscores.',
-        invalidStudentId: 'Enter a valid Student ID, like S123456789.',
-        invalidPassword: 'Check your password.',
-        mismatch: 'Passwords do not match.'
+        help: 'Need help?'
       }
 
   $: title = step === 'email'
@@ -100,9 +140,35 @@
       ? copy.detailsTitle
       : copy.passwordTitle
 
+  $: emailHint = emailState === 'valid'
+    ? (academic ? copy.academicEmailValid : copy.personalEmailValid)
+    : emailState === 'invalid'
+      ? copy.invalidEmail
+      : ''
+
+  $: usernameHint = usernameState === 'valid'
+    ? `${copy.usernameValid} @${cleanUsername}`
+    : usernameState === 'invalid'
+      ? copy.invalidUsername
+      : ''
+
   $: loginHref = emailValid
     ? `/login?email=${encodeURIComponent(cleanEmail)}`
     : '/login'
+
+  function fieldState(active: boolean, valid: boolean): FieldState {
+    if (!active) return 'idle'
+    return valid ? 'valid' : 'invalid'
+  }
+
+  function ruleClass(passed: boolean) {
+    if (!password.length) return 'text-text-muted'
+    return passed ? 'text-success' : 'text-danger'
+  }
+
+  function ruleIcon(passed: boolean) {
+    return passed ? 'check' : 'x'
+  }
 
   onMount(() => {
     const hintedEmail = new URLSearchParams(window.location.search).get('email')
@@ -115,65 +181,40 @@
     uiState.setLanguage($language === 'en' ? 'ar' : 'en')
   }
 
-  function clearFeedback() {
-    errors = {}
+  function clearServerError() {
     submitError = ''
   }
 
   function goBack() {
-    clearFeedback()
+    clearServerError()
     if (step === 'password') step = 'details'
     else if (step === 'details') step = 'email'
   }
 
   function continueFromEmail() {
-    clearFeedback()
+    clearServerError()
+    emailAttempted = true
     email = sanitizeInput(email).trim().toLowerCase()
-
-    if (!isValidEmail(email)) {
-      errors.email = copy.invalidEmail
-      return
-    }
-
+    if (!emailValid) return
     step = 'details'
   }
 
   function continueFromDetails() {
-    clearFeedback()
-
-    if (sanitizeName(fullName).length < 2) {
-      errors.fullName = copy.invalidName
-    }
-    if (!isValidUsername(username.trim().toLowerCase())) {
-      errors.username = copy.invalidUsername
-    }
-    if (!academic && !isValidStudentId(studentId.toUpperCase())) {
-      errors.studentId = copy.invalidStudentId
-    }
-
-    if (Object.keys(errors).length > 0) return
+    clearServerError()
+    detailsAttempted = true
+    if (!detailsValid) return
     step = 'password'
   }
 
   async function submit() {
-    clearFeedback()
-
-    if (!isValidPassword(password)) {
-      errors.password = copy.invalidPassword
-    }
-    if (password !== confirmPassword) {
-      errors.confirmPassword = copy.mismatch
-    }
-    if (Object.keys(errors).length > 0) return
+    clearServerError()
+    passwordAttempted = true
+    if (!passwordValid || !confirmValid) return
 
     loading = true
     try {
-      const cleanFullName = sanitizeName(fullName)
-      const cleanUsername = sanitizeInput(username).trim().toLowerCase()
-      const cleanPassword = sanitizeInput(password)
-      const cleanStudentId = academic ? null : sanitizeStudentId(studentId).toUpperCase()
-
-      const result = await register(cleanEmail, cleanPassword, cleanStudentId, cleanFullName, cleanUsername)
+      const normalizedStudentId = academic ? null : cleanStudentId
+      const result = await register(cleanEmail, password, normalizedStudentId, cleanName, cleanUsername)
       if (result.error) {
         submitError = result.error.message
         return
@@ -210,7 +251,7 @@
       <section class="w-full">
         <div class="mb-7">
           <div class="mb-5 flex gap-1.5" aria-hidden="true">
-            <span class={`h-1 flex-1 rounded-full ${step === 'email' || step === 'details' || step === 'password' ? 'bg-primary' : 'bg-surface-level-2'}`}></span>
+            <span class="h-1 flex-1 rounded-full bg-primary"></span>
             <span class={`h-1 flex-1 rounded-full ${step === 'details' || step === 'password' ? 'bg-primary' : 'bg-surface-level-2'}`}></span>
             <span class={`h-1 flex-1 rounded-full ${step === 'password' ? 'bg-primary' : 'bg-surface-level-2'}`}></span>
           </div>
@@ -240,17 +281,21 @@
         {/if}
 
         {#if step === 'email'}
-          <form on:submit|preventDefault={continueFromEmail} class="space-y-4">
+          <form on:submit|preventDefault={continueFromEmail} class="space-y-5">
             <TextField
               label={copy.email}
               type="email"
               placeholder={copy.emailPlaceholder}
+              icon="mail"
+              autocomplete="email"
               bind:value={email}
-              error={errors.email}
+              validation={emailState}
+              hint={emailHint}
               disabled={loading}
             />
-            <p class="px-1 text-sm leading-6 text-text-secondary">{copy.emailHint}</p>
-            <Button type="submit" variant="primary" size="lg" className="w-full">{copy.continue}</Button>
+            <Button type="submit" variant="primary" size="lg" className="w-full" disabled={!emailValid}>
+              {copy.continue}
+            </Button>
           </form>
         {:else if step === 'details'}
           <div class="mb-5 flex items-center gap-3 rounded-2xl bg-surface-level-1 px-4 py-3">
@@ -265,56 +310,98 @@
             <TextField
               label={copy.fullName}
               placeholder={copy.fullNamePlaceholder}
+              icon="user"
+              autocomplete="name"
               bind:value={fullName}
-              error={errors.fullName}
+              validation={nameState}
+              hint={nameState === 'invalid' ? copy.invalidName : ''}
+              validHint={copy.fullNameValid}
               disabled={loading}
             />
 
-            <div class="space-y-1.5">
-              <TextField
-                label={copy.username}
-                placeholder={copy.usernamePlaceholder}
-                bind:value={username}
-                error={errors.username}
-                disabled={loading}
-              />
-              <p class="px-1 text-xs text-text-muted">{copy.usernameHelp}</p>
-            </div>
+            <TextField
+              label={copy.username}
+              placeholder={copy.usernamePlaceholder}
+              icon="users"
+              autocomplete="username"
+              bind:value={username}
+              validation={usernameState}
+              hint={usernameHint}
+              disabled={loading}
+            />
 
             {#if !academic}
               <TextField
                 label={copy.studentId}
                 placeholder={copy.studentIdPlaceholder}
+                icon="id-card"
                 bind:value={studentId}
-                error={errors.studentId}
+                validation={studentIdState}
+                hint={studentIdState === 'invalid' ? copy.invalidStudentId : ''}
+                validHint={copy.studentIdValid}
                 disabled={loading}
               />
             {/if}
 
-            <Button type="submit" variant="primary" size="lg" className="mt-2 w-full">{copy.continue}</Button>
+            <Button type="submit" variant="primary" size="lg" className="mt-2 w-full" disabled={!detailsValid}>
+              {copy.continue}
+            </Button>
           </form>
         {:else}
           <form on:submit|preventDefault={submit} class="space-y-4">
-            <div class="space-y-1.5">
-              <TextField
-                label={copy.password}
-                type="password"
-                bind:value={password}
-                error={errors.password}
-                disabled={loading}
-              />
-              <p class="px-1 text-xs text-text-muted">{copy.passwordHelp}</p>
+            <TextField
+              label={copy.password}
+              type="password"
+              placeholder={copy.passwordPlaceholder}
+              icon="lock"
+              autocomplete="new-password"
+              bind:value={password}
+              validation={passwordState}
+              hint={passwordState === 'invalid' && passwordAttempted && !password.length ? copy.passwordRequired : ''}
+              validHint={copy.passwordReady}
+              disabled={loading}
+            />
+
+            <div class="grid grid-cols-3 gap-2 px-1" aria-live="polite">
+              {#each [
+                { label: copy.ruleLength, passed: passwordLength },
+                { label: copy.ruleNumber, passed: passwordNumber },
+                { label: copy.ruleSymbol, passed: passwordSymbol }
+              ] as rule}
+                <div class={`flex items-center gap-1.5 text-xs font-medium ${ruleClass(rule.passed)}`}>
+                  {#if password.length}
+                    <Icon name={ruleIcon(rule.passed)} size={12} strokeWidth={2.4} />
+                  {:else}
+                    <span class="h-1.5 w-1.5 rounded-full bg-current opacity-45"></span>
+                  {/if}
+                  <span>{rule.label}</span>
+                </div>
+              {/each}
             </div>
 
             <TextField
               label={copy.confirmPassword}
               type="password"
+              placeholder={copy.confirmPlaceholder}
+              icon="lock"
+              autocomplete="new-password"
               bind:value={confirmPassword}
-              error={errors.confirmPassword}
+              validation={confirmState}
+              hint={confirmState === 'invalid' ? copy.mismatch : ''}
+              validHint={copy.match}
               disabled={loading}
             />
 
-            <Button type="submit" variant="primary" size="lg" {loading} className="mt-2 w-full">{copy.create}</Button>
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              {loading}
+              className="mt-2 w-full"
+              disabled={!passwordValid || !confirmValid}
+            >
+              {copy.create}
+            </Button>
           </form>
         {/if}
 
