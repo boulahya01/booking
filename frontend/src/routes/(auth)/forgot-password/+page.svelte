@@ -1,151 +1,152 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import Card from '$lib/components/Card.svelte'
-  import Button from '$lib/components/Button.svelte'
-  import TextField from '$lib/components/TextField.svelte'
-  import Icon from '$lib/components/Icon.svelte'
   import { resetPasswordForEmail } from '$lib/auth'
-  import { _ } from 'svelte-i18n'
+  import { uiState, language } from '$lib/stores/ui'
   import { isValidEmail } from '$lib/utils/cn'
+  import TextField from '$lib/components/TextField.svelte'
+  import Button from '$lib/components/Button.svelte'
+  import Icon from '$lib/components/Icon.svelte'
 
   let email = ''
   let error = ''
   let loading = false
   let emailSent = false
 
-  const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000
-  const RATE_LIMIT_MAX_ATTEMPTS = 3
-  let attemptTimestamps: number[] = []
+  $: copy = $language === 'ar'
+    ? {
+        title: 'استرجاع الحساب',
+        subtitle: 'أدخل البريد المرتبط بحساب UNEEM وسنرسل تعليمات الاسترجاع إذا كان الحساب موجوداً.',
+        email: 'البريد الإلكتروني',
+        placeholder: 'name@usmba.ac.ma',
+        send: 'إرسال رابط الاسترجاع',
+        sentTitle: 'تحقق من بريدك',
+        sentBody: 'إذا كان هذا البريد مرتبطاً بحساب UNEEM، فستصلك رسالة الاسترجاع بعد قليل.',
+        another: 'استخدام بريد آخر',
+        invalid: 'أدخل بريداً إلكترونياً صحيحاً.',
+        generic: 'تعذر إرسال الطلب الآن. حاول مرة أخرى بعد قليل.',
+        signIn: 'العودة لتسجيل الدخول',
+        help: 'المساعدة'
+      }
+    : {
+        title: 'Recover your account',
+        subtitle: 'Enter the email connected to UNEEM. If an account exists, we’ll send recovery instructions.',
+        email: 'Email address',
+        placeholder: 'name@usmba.ac.ma',
+        send: 'Send recovery link',
+        sentTitle: 'Check your email',
+        sentBody: 'If this email is connected to a UNEEM account, recovery instructions will arrive shortly.',
+        another: 'Use another email',
+        invalid: 'Enter a valid email address.',
+        generic: 'We could not send the request right now. Try again shortly.',
+        signIn: 'Back to sign in',
+        help: 'Help'
+      }
 
-  $: loginHref = isValidEmail(email)
-    ? `/login?email=${encodeURIComponent(email.trim().toLowerCase())}`
+  $: normalizedEmail = email.trim().toLowerCase()
+  $: loginHref = isValidEmail(normalizedEmail)
+    ? `/login?email=${encodeURIComponent(normalizedEmail)}`
     : '/login'
 
   onMount(() => {
-    const hintedEmail = new URLSearchParams(window.location.search).get('email')
-    if (hintedEmail && isValidEmail(hintedEmail)) {
-      email = hintedEmail.trim().toLowerCase()
-    }
+    const hintedEmail = new URLSearchParams(window.location.search).get('email')?.trim().toLowerCase() || ''
+    if (isValidEmail(hintedEmail)) email = hintedEmail
   })
 
-  function checkRateLimit(): boolean {
-    const now = Date.now()
-    attemptTimestamps = attemptTimestamps.filter(t => now - t < RATE_LIMIT_WINDOW_MS)
-    if (attemptTimestamps.length >= RATE_LIMIT_MAX_ATTEMPTS) {
-      const oldestInWindow = attemptTimestamps[0]
-      const remainingMs = RATE_LIMIT_WINDOW_MS - (now - oldestInWindow)
-      const remainingMin = Math.ceil(remainingMs / 60000)
-      error = `Too many attempts. Please try again in ${remainingMin} minute${remainingMin > 1 ? 's' : ''}.`
-      return false
-    }
-    return true
-  }
-
-  function recordAttempt() {
-    attemptTimestamps.push(Date.now())
-  }
-
-  function validateEmail(value: string) {
-    if (!value) {
-      error = $_('forgot_password.error_email_required')
-      return false
-    }
-    if (!isValidEmail(value)) {
-      error = $_('forgot_password.error_invalid_email')
-      return false
-    }
-    return true
+  function toggleLanguage() {
+    uiState.setLanguage($language === 'en' ? 'ar' : 'en')
   }
 
   async function handleSubmit() {
     error = ''
-
-    if (!validateEmail(email)) {
-      return
-    }
-
-    if (!checkRateLimit()) {
+    const value = email.trim().toLowerCase()
+    if (!isValidEmail(value)) {
+      error = copy.invalid
       return
     }
 
     loading = true
-    recordAttempt()
-    const result = await resetPasswordForEmail(email.trim().toLowerCase())
-    loading = false
+    try {
+      const result = await resetPasswordForEmail(value)
 
-    if (result.error) {
-      error = result.error.message
-    } else {
+      // Password recovery intentionally converges on the same success state so
+      // this screen never becomes an account-existence oracle. Authoritative
+      // rate limiting remains a server/provider responsibility.
+      if (result.error) {
+        const lower = result.error.message.toLowerCase()
+        if (lower.includes('network') || lower.includes('fetch') || lower.includes('connection')) {
+          error = copy.generic
+          return
+        }
+      }
+
       emailSent = true
+    } catch {
+      error = copy.generic
+    } finally {
+      loading = false
     }
   }
 
-  function handleReset() {
+  function startAgain() {
     emailSent = false
     error = ''
   }
 </script>
 
-<div class="min-h-screen flex items-center justify-center px-4 py-8">
-  <Card className="w-full max-w-md" variant="elevated">
-    <div class="space-y-6">
+<svelte:head>
+  <title>{copy.title} · UNEEM</title>
+</svelte:head>
+
+<div class="min-h-screen bg-background px-4 py-8 flex items-center justify-center">
+  <button
+    type="button"
+    on:click={toggleLanguage}
+    class="fixed top-4 right-4 z-50 min-w-11 h-11 px-3 rounded-full bg-surface border border-border text-sm font-semibold text-text-secondary hover:text-text transition"
+    aria-label="Toggle language"
+  >
+    {$language === 'ar' ? 'EN' : 'ع'}
+  </button>
+
+  <main class="w-full max-w-md">
+    <section class="ui-panel p-6 sm:p-7 space-y-6">
+      <div class="space-y-4">
+        <div class={`w-12 h-12 rounded-2xl flex items-center justify-center ${emailSent ? 'bg-success-light text-success' : 'bg-primary/10 text-primary'}`}>
+          <Icon name={emailSent ? 'check-circle' : 'key'} size={24} />
+        </div>
+        <div>
+          <h1 class="text-3xl font-semibold tracking-tight text-text">{emailSent ? copy.sentTitle : copy.title}</h1>
+          <p class="mt-2 text-text-secondary leading-relaxed">{emailSent ? copy.sentBody : copy.subtitle}</p>
+        </div>
+      </div>
+
+      {#if error}
+        <div class="rounded-2xl bg-danger-light p-4 text-sm text-danger" role="alert">{error}</div>
+      {/if}
+
       {#if emailSent}
-        <div class="text-center space-y-4">
-          <div class="mx-auto w-14 h-14 rounded-full bg-success-light flex items-center justify-center text-success">
-            <Icon name="check" size={28} />
-          </div>
-          <h1 class="text-2xl font-medium font-serif text-text">{$_('forgot_password.email_sent_title')}</h1>
-          <p class="text-text-secondary">{$_('forgot_password.email_sent_subtitle')}</p>
-          <div class="bg-success-light border border-success/20 text-success p-3 rounded-lg text-sm">
-            {$_('forgot_password.email_sent_instruction')}
-          </div>
-          <Button variant="primary" className="w-full" on:click={handleReset}>
-            {$_('forgot_password.send_another_email')}
-          </Button>
-          <p class="text-sm text-text-secondary">
-            {$_('forgot_password.back_to_login')}
-            <a href={loginHref} class="text-primary font-semibold hover:underline inline-flex items-center gap-1">
-              {$_('forgot_password.login_here')}
-              <Icon name="arrow-right" size={14} />
-            </a>
-          </p>
+        <div class="rounded-2xl bg-surface-level-1 p-4">
+          <p class="text-sm font-medium text-text break-all">{normalizedEmail}</p>
         </div>
+        <Button on:click={startAgain} variant="secondary" size="lg" className="w-full">{copy.another}</Button>
       {:else}
-        <div class="text-center space-y-2">
-          <div class="mx-auto w-12 h-12 rounded-full bg-primary-light flex items-center justify-center text-primary mb-3">
-            <Icon name="mail" size={24} />
-          </div>
-          <h1 class="text-2xl font-medium font-serif text-text">{$_('forgot_password.title')}</h1>
-          <p class="text-text-secondary">{$_('forgot_password.subtitle')}</p>
-        </div>
-
-        {#if error}
-          <div class="bg-danger-light border border-danger/20 text-danger p-3 rounded-lg text-sm">{error}</div>
-        {/if}
-
-        <form on:submit|preventDefault={handleSubmit} class="space-y-4">
+        <form on:submit|preventDefault={handleSubmit} class="space-y-5">
           <TextField
-            label={$_('forgot_password.email_label')}
+            label={copy.email}
             type="email"
-            placeholder={$_('login.email_placeholder')}
+            placeholder={copy.placeholder}
             bind:value={email}
             disabled={loading}
             required
           />
-
-          <Button type="submit" variant="primary" size="lg" {loading} className="w-full">
-            {loading ? $_('common.loading') : $_('forgot_password.send_reset_link')}
-          </Button>
+          <Button type="submit" variant="primary" size="lg" {loading} className="w-full">{copy.send}</Button>
         </form>
-
-        <p class="text-sm text-center text-text-secondary">
-          {$_('forgot_password.remember_password')}
-          <a href={loginHref} class="text-primary font-semibold hover:underline inline-flex items-center gap-1">
-            {$_('forgot_password.login_here')}
-            <Icon name="arrow-right" size={14} />
-          </a>
-        </p>
       {/if}
-    </div>
-  </Card>
+
+      <div class="pt-1 flex items-center justify-center gap-4 text-sm font-semibold">
+        <a href={loginHref} class="text-primary hover:underline">{copy.signIn}</a>
+        <span class="text-border">•</span>
+        <a href="/help" class="text-text-secondary hover:text-text">{copy.help}</a>
+      </div>
+    </section>
+  </main>
 </div>
