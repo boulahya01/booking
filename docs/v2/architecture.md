@@ -50,6 +50,19 @@ Private identity:
 
 Only a **verified** Student ID is authoritative and globally unique. Unverified claims do not reserve the ID. Duplicate ownership conflicts route to recovery/Help rather than exposing who owns the identity.
 
+### Access moderation is not identity verification
+
+Account access and identity proof are distinct state machines.
+
+- verification owns Student ID/card approval and remediation reasons
+- routine moderation may suspend or restore an already eligible student account
+- suspension has its own `access_restriction_reason`
+- suspension must not destroy an existing identity rejection/conflict reason
+- a pending personal-email identity cannot become approved through routine moderation
+- admin identities are outside routine student moderation
+
+This separation lets a suspended account show the operational restriction while suspended, then resume its original identity-remediation state after access is restored.
+
 ## Session/access boundary
 
 `get_my_session_context()` is the preferred application bootstrap read. It returns the current user's profile fields plus the authoritative access/identity routing state in one DB operation.
@@ -134,10 +147,13 @@ High-risk operations are narrow and audited:
 
 - booking cancellation with structured reason
 - facility create/update/archive
+- student access suspend/restore with structured reason
 - identity review decisions
 - support moderation/status actions
 
 `admin_list_users()` keeps directory search/filter/pagination in PostgreSQL instead of transferring the entire profile table to the browser.
+
+Layer 019 revokes direct authenticated `profiles UPDATE`, including from an admin browser session. Safe self-profile edits remain through `update_my_profile()`, verification stays in its dedicated workflow, and access moderation uses `admin_set_user_access()` with audit rows.
 
 The first administrator is bootstrapped explicitly after account creation. There is no public become-admin path.
 
@@ -155,24 +171,26 @@ The first administrator is bootstrapped explicitly after account creation. There
 
 - RLS remains enabled on user-facing tables
 - students cannot self-promote role/status or mutate another student's booking
-- protected identity fields are not permissively self-writable
+- protected identity/access fields are not directly writable by authenticated clients
+- safe profile, verification and moderation changes go through narrow RPCs
 - security-definer functions have explicit search paths and minimal execute grants
 - internal helpers are not public RPCs
 - verification evidence stays private
 - admin authorization is checked in PostgreSQL
+- routine student moderation cannot modify admin identities
 - fresh V2 starts only from `supabase/v2`, never the historical migration directory
 
 ## Deployment contract
 
 1. confirm the intended fresh Free Supabase target
-2. apply `schema.sql` + layers `002` → `018`
+2. apply `schema.sql` + layers `002` → `019`
 3. run every transactional V2 contract suite
 4. run Supabase security/performance advisors
 5. generate hosted TypeScript DB types
 6. seed reviewed facilities/configuration only
 7. bootstrap first admin explicitly
 8. configure Auth URLs + Vercel V2 credentials
-9. smoke-test academic/personal auth, booking, matches, Help/Reports and admin
+9. smoke-test academic/personal auth, booking, matches, Help/Reports, admin and moderation
 10. promote only after the hard gates pass
 
 See `supabase/v2/README.md` for the exact ordered stack and `docs/v2/migration-plan.md` for launch gates.
