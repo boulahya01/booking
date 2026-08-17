@@ -7,7 +7,7 @@
   export let onCancel: (s: any) => void = () => {}
 
   const slot = slotData
-  $: bookedByMe = !slot.is_available && slot.booker_id === $authState.user?.id
+  $: bookedByMe = Boolean(slot.booked_by_me)
 
   function formatTime(dateString: string) {
     return new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
@@ -29,7 +29,6 @@
       : 'border: 1px solid var(--border); opacity: 0.85;'}
   aria-label={bookedByMe ? $_('pitch.booked_by_you') : slot.is_available ? $_('pitch.book') : $_('pitch.booked')}
 >
-  <!-- Time Display - Large and Centered -->
   <div class="text-center pt-5 pb-3 px-4">
     <div class="font-medium tracking-tight leading-none
       {bookedByMe ? 'text-warning' : slot.is_available ? 'text-primary' : 'text-text-muted/60'}"
@@ -44,7 +43,6 @@
     {/if}
   </div>
 
-  <!-- Booker Info -->
   {#if bookedByMe}
     <div class="flex items-center justify-center gap-2.5 px-4 pb-3">
       <div class="flex items-center justify-center gap-2 px-3 py-2 rounded-lg" style="background: var(--warning-light);">
@@ -65,9 +63,8 @@
     </div>
   {/if}
 
-  <!-- Action Buttons -->
   <div class="px-4 pb-4 mt-auto">
-    {#if bookedByMe}
+    {#if bookedByMe && slot.booking_id}
       <button
         on:click={() => onCancel(slot)}
         class="w-full px-4 py-3 rounded-lg text-white text-sm font-semibold tracking-wide
