@@ -1,8 +1,7 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
-  import { createEventDispatcher } from 'svelte'
+  import { onMount, createEventDispatcher } from 'svelte'
   import { supabase } from '$lib/supabaseClient'
-  import { user } from '$lib/stores/auth'
+  import { authState } from '$lib/stores/auth'
   import { uiState } from '$lib/stores/ui'
   import Icon from './Icon.svelte'
   import { _ } from 'svelte-i18n'
@@ -25,19 +24,26 @@
 
   let notifications: Notification[] = []
   let loading = true
+  let loadError = false
   let currentUserId: string | null = null
   let requestVersion = 0
 
   onMount(() => {
-    const unsubscribe = user.subscribe((currentUser) => {
-      const userId = currentUser?.id ?? null
-      if (userId === currentUserId) return
+    const unsubscribe = authState.subscribe((state) => {
+      if (state.loading) {
+        loading = true
+        return
+      }
+
+      const userId = state.user?.id ?? null
+      if (userId === currentUserId && !loadError) return
 
       currentUserId = userId
       requestVersion += 1
 
       if (!userId) {
         notifications = []
+        loadError = false
         uiState.setUnreadNotifications(0)
         loading = false
         return
@@ -51,22 +57,34 @@
 
   async function loadNotifications(userId: string) {
     const version = requestVersion
-    loading = true
+    loading = notifications.length === 0
+    loadError = false
 
-    const { data, error } = await supabase
-      .rpc('get_active_notifications_for_user', { p_user_id: userId })
+    try {
+      const { data, error } = await supabase
+        .rpc('get_active_notifications_for_user', { p_user_id: userId })
 
-    if (version !== requestVersion || userId !== currentUserId) return
+      if (version !== requestVersion || userId !== currentUserId) return
+      if (error) throw error
 
-    if (error) {
-      logger.error('Failed to load notifications:', error)
-      notifications = []
-      uiState.setUnreadNotifications(0)
-    } else {
       notifications = data || []
       uiState.setUnreadNotifications(notifications.length)
+    } catch (error) {
+      if (version !== requestVersion || userId !== currentUserId) return
+      logger.error('Failed to load notifications:', error)
+      loadError = true
+      uiState.setUnreadNotifications(notifications.length)
+    } finally {
+      if (version === requestVersion && userId === currentUserId) {
+        loading = false
+      }
     }
-    loading = false
+  }
+
+  function retry() {
+    if (!currentUserId) return
+    requestVersion += 1
+    void loadNotifications(currentUserId)
   }
 
   async function dismissNotification(key: string) {
@@ -81,20 +99,43 @@
 
     if (error) {
       logger.error('Failed to dismiss notification:', error)
-    } else {
-      notifications = notifications.filter(n => n.key !== key)
-      uiState.setUnreadNotifications(notifications.length)
-      dispatch('dismissed', { key })
+      uiState.addToast($_('common.error'), 'error')
+      return
     }
+
+    notifications = notifications.filter(n => n.key !== key)
+    uiState.setUnreadNotifications(notifications.length)
+    dispatch('dismissed', { key })
   }
 </script>
 
 {#if loading}
-  <div class="animate-pulse space-y-3">
+  <div class="animate-pulse space-y-3" aria-busy="true">
     <div class="h-20 rounded-xl bg-surface-level-2"></div>
+  </div>
+{:else if loadError && notifications.length === 0}
+  <div class="flex items-center gap-3 rounded-xl px-4 py-3 bg-surface border border-border" role="status">
+    <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-danger-light text-danger">
+      <Icon name="alert-triangle" size={17} />
+    </div>
+    <div class="flex-1 min-w-0">
+      <p class="text-sm font-medium text-text">{$_('common.error')}</p>
+    </div>
+    <button type="button" on:click={retry} class="text-sm font-semibold text-primary hover:underline">
+      {$_('common.retry')}
+    </button>
   </div>
 {:else if notifications.length > 0}
   <div class="space-y-3">
+    {#if loadError}
+      <div class="flex items-center justify-between gap-3 rounded-lg px-3 py-2 bg-warning-light text-sm">
+        <span class="text-text-secondary">{$_('common.error')}</span>
+        <button type="button" on:click={retry} class="font-semibold text-primary hover:underline">
+          {$_('common.retry')}
+        </button>
+      </div>
+    {/if}
+
     {#each notifications as notification (notification.key)}
       <div class="group relative overflow-hidden rounded-xl bg-gradient-to-br from-primary-light/30 via-surface to-surface shadow-md hover:shadow-lg transition-all duration-300">
         <div class="absolute -top-4 -start-4 w-20 h-20 rounded-full bg-primary/10 blur-xl"></div>
