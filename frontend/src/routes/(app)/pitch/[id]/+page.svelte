@@ -11,6 +11,12 @@
   import { USE_MOCK, mockPitches, mockSlots } from '$lib/mock'
   import { uiState } from '$lib/stores/ui'
   import { logger } from '$lib/logger'
+  import {
+    getPitchAvailability,
+    cancelBooking as cancelBookingRpc,
+    BookingApiError
+  } from '$lib/bookingApi'
+  import { bookingFailureMessage } from '$lib/ux/bookingFailure'
 
   let pitch: any = null
   let slots: any[] = []
@@ -55,7 +61,6 @@
   async function fetchPitch() {
     const thisVersion = ++fetchVersion
     if (!pitchId) {
-      logger.error('[Pitch Page] No pitch ID provided')
       pitch = null
       loading = false
       return
@@ -69,7 +74,7 @@
 
     const { data, error: fetchError } = await supabase
       .from('pitches')
-      .select('id,name,location,open_time,close_time,capacity,sport_type')
+      .select('id,name,location,open_time,close_time,capacity,sport_type,timezone')
       .eq('id', pitchId)
       .maybeSingle()
 
@@ -80,6 +85,7 @@
       error = $_('common.error')
       pitch = null
     } else if (!data) {
+      error = null
       pitch = null
     } else {
       error = null
@@ -101,33 +107,22 @@
       slots = mockSlots
       loadingSlots = false
       slotsRequestVersion = null
-      if (slots.length > 0 && !selectedDate) {
-        const dates = [...new Set(slots.map(s => new Date(s.datetime_start).toLocaleDateString()))]
-        selectedDate = dates[0]
-      }
+      syncSelectedDate()
       return
     }
 
     try {
-      const { data, error: invokeError } = await supabase.functions.invoke('available-slots', {
-        body: { pitch_id: pitchId }
-      })
-
+      const data = await getPitchAvailability(pitchId)
       if (thisVersion !== fetchVersion) return
-      if (invokeError) throw invokeError
 
-      let parsed = data
-      if (typeof parsed === 'string') parsed = JSON.parse(parsed)
-      if (!Array.isArray(parsed)) throw new Error('Unexpected availability response')
-
-      slots = parsed
-      const dates = [...new Set(slots.map(s => new Date(s.datetime_start).toLocaleDateString()))]
-      if (dates.length > 0 && !selectedDate) selectedDate = dates[0]
+      slots = data
+      syncSelectedDate()
     } catch (fetchError) {
       if (thisVersion !== fetchVersion) return
       logger.error('[Pitch Page] Failed to load availability:', fetchError)
       slots = []
-      errorSlots = $_('common.error')
+      const code = fetchError instanceof BookingApiError ? fetchError.code : 'unknown'
+      errorSlots = bookingFailureMessage(code, $locale)
     } finally {
       if (slotsRequestVersion === thisVersion) slotsRequestVersion = null
       if (thisVersion === fetchVersion) loadingSlots = false
@@ -136,6 +131,7 @@
 
   $: if (pitchId && browser) {
     loading = true
+    error = null
     pitch = null
     slots = []
     selectedDate = null
@@ -145,46 +141,30 @@
   }
 
   function openBooking(slot: any) {
-    selectedSlot = slot
+    selectedSlot = { ...slot, pitch_name: pitch?.name }
     showModal = true
   }
 
   function onModalClose() {
     showModal = false
     selectedSlot = null
-    fetchSlots()
+  }
+
+  async function onBookingCompleted() {
+    await fetchSlots()
   }
 
   async function cancelBooking(slot: any) {
+    if (!slot.booking_id) return
     if (!confirm($_('pitch.cancel_confirm'))) return
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data: found, error: findErr } = await supabase
-        .from('bookings')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('pitch_id', slot.pitch_id)
-        .eq('slot_datetime', slot.datetime_start)
-        .eq('status', 'active')
-        .maybeSingle()
-
-      if (findErr) throw findErr
-      if (!found?.id) throw new Error('No active booking found for this slot')
-
-      const { error: cancelErr } = await supabase
-        .from('bookings')
-        .update({ status: 'cancelled' })
-        .eq('id', found.id)
-
-      if (cancelErr) throw cancelErr
-
+      await cancelBookingRpc(slot.booking_id)
       uiState.addToast($_('pitch.cancelled_success'), 'success')
       await fetchSlots()
-    } catch (e: any) {
-      uiState.addToast(e.message || $_('common.error'), 'error')
+    } catch (cancelError) {
+      const code = cancelError instanceof BookingApiError ? cancelError.code : 'unknown'
+      uiState.addToast(bookingFailureMessage(code, $locale), 'error')
     }
   }
 
@@ -198,35 +178,64 @@
     }
   })
 
-  $: grouped = slots.reduce<Record<string, any[]>>((acc, s) => {
-    const d = new Date(s.datetime_start).toLocaleDateString()
-    ;(acc[d] ??= []).push(s)
+  function facilityDateKey(value: string): string {
+    const parts = new Intl.DateTimeFormat('en', {
+      timeZone: pitch?.timezone || 'Africa/Casablanca',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).formatToParts(new Date(value))
+
+    const year = parts.find((part) => part.type === 'year')?.value || ''
+    const month = parts.find((part) => part.type === 'month')?.value || ''
+    const day = parts.find((part) => part.type === 'day')?.value || ''
+    return `${year}-${month}-${day}`
+  }
+
+  function syncSelectedDate() {
+    if (!slots.length) {
+      selectedDate = null
+      return
+    }
+
+    const availableDates = [...new Set(slots.map((slot) => facilityDateKey(slot.datetime_start)))].sort()
+    if (!selectedDate || !availableDates.includes(selectedDate)) {
+      selectedDate = availableDates[0] || null
+    }
+  }
+
+  $: grouped = slots.reduce<Record<string, any[]>>((acc, slot) => {
+    const key = facilityDateKey(slot.datetime_start)
+    ;(acc[key] ??= []).push(slot)
     return acc
   }, {})
 
-  $: dates = Object.keys(grouped).sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+  $: dates = Object.keys(grouped).sort()
 
-  function formatDateHeader(dateStr: string) {
-    const date = new Date(dateStr)
+  function displayDate(dateKey: string) {
+    return new Date(`${dateKey}T12:00:00`)
+  }
+
+  function formatDateHeader(dateKey: string) {
+    const date = displayDate(dateKey)
     const today = new Date()
     const tomorrow = new Date(today)
     tomorrow.setDate(tomorrow.getDate() + 1)
 
-    const isToday = date.toDateString() === today.toDateString()
-    const isTomorrow = date.toDateString() === tomorrow.toDateString()
+    const todayKey = facilityDateKey(today.toISOString())
+    const tomorrowKey = facilityDateKey(tomorrow.toISOString())
 
     const currentLocale = $locale || 'en'
     const weekday = date.toLocaleDateString(currentLocale, { weekday: 'long' })
     const monthDay = date.toLocaleDateString(currentLocale, { month: 'short', day: 'numeric' })
 
-    if (isToday) return `Today — ${weekday}, ${monthDay}`
-    if (isTomorrow) return `Tomorrow — ${weekday}, ${monthDay}`
+    if (dateKey === todayKey) return `Today — ${weekday}, ${monthDay}`
+    if (dateKey === tomorrowKey) return `Tomorrow — ${weekday}, ${monthDay}`
     return `${weekday}, ${monthDay}`
   }
 
-  function formatDayLabel(dateStr: string) {
-    const date = new Date(dateStr)
-    return date.toLocaleDateString($locale || 'en', { weekday: 'short' })
+  function formatDayLabel(dateKey: string) {
+    return displayDate(dateKey).toLocaleDateString($locale || 'en', { weekday: 'short' })
   }
 </script>
 
@@ -256,6 +265,12 @@
         </div>
         <LoadingSkeleton type="slot" count={4} />
       </div>
+    {:else if error}
+      <div class="text-center py-16 rounded-xl" style="background: var(--danger-light);">
+        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-4"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <p class="font-medium" style="color: var(--danger);">{error}</p>
+        <button on:click={fetchPitch} class="mt-4 text-sm font-medium hover:underline" style="color: var(--primary);">{$_('common.retry')}</button>
+      </div>
     {:else if pitch}
       <a href="/home"
          class="inline-flex items-center gap-1.5 text-sm font-medium mb-5 no-underline transition-all duration-200 hover:-translate-y-0.5"
@@ -280,8 +295,7 @@
               </p>
             {/if}
           </div>
-          <div class="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
-               style="background: var(--primary-light);">
+          <div class="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0" style="background: var(--primary-light);">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5C7 4 6 9 6 9Z"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5C17 4 18 9 18 9Z"/><path d="M4 22H20"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55-.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
           </div>
         </div>
@@ -292,7 +306,7 @@
           <h2 class="text-base font-medium mb-3" style="color: var(--text); font-family: var(--font-serif);">{$_('pitch.slots_title')}</h2>
           <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
             {#each dates as date}
-              {@const d = new Date(date)}
+              {@const d = displayDate(date)}
               {@const isSelected = selectedDate === date}
               <button
                 on:click={() => (selectedDate = date)}
@@ -301,9 +315,8 @@
                   ? 'background: var(--primary-gradient); color: white; border: 1px solid var(--primary); box-shadow: 0 0 0 1px var(--primary);'
                   : 'background: var(--surface); color: var(--text-secondary); border: 1px solid var(--border);'}
               >
-                <div class="text-[10px] font-medium uppercase tracking-wide"
-                     style={isSelected ? 'color: rgba(255,255,255,0.9);' : 'opacity: 0.7;'}>
-                  {formatDayLabel(d.toISOString())}
+                <div class="text-[10px] font-medium uppercase tracking-wide" style={isSelected ? 'color: rgba(255,255,255,0.9);' : 'opacity: 0.7;'}>
+                  {formatDayLabel(date)}
                 </div>
                 <div class="text-lg font-bold" style={isSelected ? 'color: white;' : ''}>{d.getDate()}</div>
               </button>
@@ -318,9 +331,7 @@
         <div class="text-center py-12 rounded-xl" style="background: var(--danger-light);">
           <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-3"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           <p class="font-medium" style="color: var(--danger);">{errorSlots}</p>
-          <button on:click={fetchSlots} class="mt-4 text-sm font-medium transition-colors hover:underline" style="color: var(--primary);">
-            {$_('common.retry')}
-          </button>
+          <button on:click={fetchSlots} class="mt-4 text-sm font-medium transition-colors hover:underline" style="color: var(--primary);">{$_('common.retry')}</button>
         </div>
       {:else if slots.length === 0}
         <div class="text-center py-12 rounded-xl" style="background: var(--surface-level-1); border: 1px dashed var(--border);">
@@ -331,8 +342,7 @@
         </div>
       {:else if selectedDate && grouped[selectedDate]}
         <div class="mb-4">
-          <h3 class="text-xs font-semibold uppercase tracking-wider mb-3 flex items-center justify-between"
-              style="color: var(--text-muted);">
+          <h3 class="text-xs font-semibold uppercase tracking-wider mb-3 flex items-center justify-between" style="color: var(--text-muted);">
             <span>{formatDateHeader(selectedDate)}</span>
             <span class="text-xs font-normal normal-case">{currentTime.toLocaleTimeString($locale || 'en', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
           </h3>
@@ -347,15 +357,13 @@
       {/if}
 
       {#if showModal && selectedSlot}
-        <BookingModal slotData={selectedSlot} onClose={onModalClose} />
+        <BookingModal slotData={selectedSlot} onClose={onModalClose} onBooked={onBookingCompleted} />
       {/if}
     {:else}
       <div class="text-center py-16">
         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-4"><circle cx="12" cy="12" r="10"/><path d="m14.5 9.5-5 5"/><path d="m9.5 9.5 5 5"/></svg>
         <h2 class="text-xl font-medium mb-2" style="color: var(--text);">{$_('pitch.not_found')}</h2>
-        <a href="/home" class="inline-block mt-4 text-sm font-medium no-underline transition-colors hover:underline" style="color: var(--primary);">
-          {$_('home.browse_pitches')}
-        </a>
+        <a href="/home" class="inline-block mt-4 text-sm font-medium no-underline transition-colors hover:underline" style="color: var(--primary);">{$_('home.browse_pitches')}</a>
       </div>
     {/if}
   </div>
