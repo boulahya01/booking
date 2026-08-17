@@ -1,53 +1,53 @@
-# Supabase V2 baseline
+# Supabase V2
 
-This directory contains the proposed clean V2 database contract.
+This directory is the **clean database source of truth** for Booking V2.
 
-It is intentionally **not** inside `supabase/migrations/`. Nothing here should be pushed to the current production database until the schema and migration path have been validated in an isolated local Postgres/Supabase environment.
+The previous Vercel-managed Supabase database is no longer treated as a migration source. V2 starts with fresh Auth users and an empty booking history; students register again.
 
-## Why this is separate
+## Important: do not replay V1
 
-The current production project contains schema and migration-history drift. Replaying or rewriting the historical V1 migrations is not a safe V2 starting point.
+The repository still contains `supabase/migrations/`, which is historical V1 migration material. It includes the schema drift and lifecycle complexity V2 is replacing.
 
-V2 therefore follows this sequence:
+**Do not initialize a new V2 project from that directory.**
 
-1. keep production V1 read-only while the baseline is designed
-2. apply `schema.sql` to a clean local database
-3. apply `002_security_contract.sql`
-4. run both database contract suites
-5. write an explicit V1 -> V2 data migration
-6. verify row counts and relationships using a production snapshot/export
-7. cut over only after application smoke tests pass
+The V2 initialization order is:
 
-No paid Supabase development branch is required for this workflow.
+1. `schema.sql`
+2. `002_security_contract.sql`
+3. `tests/booking_contract.sql`
+4. `tests/security_contract.sql`
+
+When the hosted V2 project is created, these schema layers should be recorded as the first real V2 migrations through the Supabase migration API/tooling rather than by replaying V1 history.
 
 ## Product rules represented here
 
-- existing auth users map one-to-one to `profiles`
-- email confirmation approves a pending account
+- new Auth users map one-to-one to `profiles`
+- email confirmation can move a pending account into the approved state
 - pending/suspended users retain their account/profile state but cannot browse shared facility availability
 - protected `student_id`, `role`, and `status` fields are not self-editable
 - students can update their own display name only through `update_my_profile(...)`
-- persistent `slots` and `booking_jobs` are removed
+- no persistent slot rows
+- no booking jobs / completion cron
 - bookings store `starts_at` / `ends_at`
-- completed state is derived from time instead of synchronized by jobs
+- completed state is derived from time
 - overlapping scheduled bookings for the same pitch are rejected by PostgreSQL
 - approved students can see booked-slot display names through the availability RPC
-- direct booking writes are not granted to clients; booking/cancellation go through narrow RPCs
-- V1's one-hour cancellation cutoff is preserved as the default, but becomes facility configuration
-- booking history is retained
+- direct booking writes are not granted to clients; booking/cancellation use narrow RPCs
+- cancellation cutoff is facility configuration, defaulting to one hour
+- new V2 booking history begins empty
 
 ## Files
 
-- `schema.sql` — clean V2 schema/RLS/RPC baseline for an isolated target
+- `schema.sql` — clean V2 schema, RLS and booking RPC baseline
 - `002_security_contract.sql` — approval boundary and safe self-profile mutation hardening
 - `tests/booking_contract.sql` — transactional booking behavior tests
 - `tests/security_contract.sql` — transactional profile/approval boundary tests
 
-## Zero-cost local validation
+## Zero-cost validation
 
-Use a disposable local Supabase/Postgres database. Do **not** point these commands at production.
+No paid Supabase development branch is required.
 
-With `psql` available:
+For a free disposable Postgres/Supabase runtime:
 
 ```bash
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/schema.sql
@@ -56,22 +56,23 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/tests/booking_contract.sq
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/tests/security_contract.sql
 ```
 
-Each contract test file wraps its fixtures in a transaction and rolls them back after the run. The schema files themselves are intended for a fresh/disposable database.
+Each contract test rolls back its fixtures.
 
-The current contract suites check:
+The contract suites cover:
 
-- successful one-hour booking creation
-- database-level same-pitch overlap protection
-- peer display-name visibility in availability
+- successful booking creation
+- same-pitch overlap protection
+- peer display-name visibility
 - facility booking-frequency enforcement
 - blocking direct authenticated booking inserts
-- cancellation cutoff enforcement
-- successful cancellation outside the cutoff
+- cancellation cutoff and successful cancellation
 - derived completed lifecycle without cron/jobs
 - approved-only facility/availability access
-- pending-account access denial
+- pending-account denial
 - safe display-name self updates
-- direct role-escalation resistance
-- validation of invalid profile names
+- role-escalation resistance
+- invalid profile-name rejection
 
-Do not treat this directory as an applied production migration history yet.
+## Hosted V2 rule
+
+A hosted V2 project must start empty, receive only the V2 schema layers above, pass the contract/advisor gates, and only then be connected to Vercel.
