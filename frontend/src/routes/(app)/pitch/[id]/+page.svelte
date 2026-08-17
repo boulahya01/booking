@@ -25,32 +25,22 @@
 
   $: pitchId = $page.params.id
 
-  // Incremented when navigation changes pitch so stale responses are discarded.
   let fetchVersion = 0
   let slotsRequestVersion: number | null = null
 
-  // V1 compatibility refresh. V2 availability will move to one PostgreSQL RPC
-  // and can later be invalidated by Realtime rather than polling aggressively.
   let refreshInterval: ReturnType<typeof setInterval> | null = null
   let cleanupVisibility: (() => void) | null = null
 
   function startAutoRefresh() {
     refreshInterval = setInterval(() => {
-      if (pitchId) {
-        fetchSlots()
-      }
+      if (pitchId) fetchSlots()
     }, 120_000)
 
     const handleVisibility = () => {
-      if (!document.hidden && pitchId) {
-        fetchSlots()
-      }
+      if (!document.hidden && pitchId) fetchSlots()
     }
     document.addEventListener('visibilitychange', handleVisibility)
-
-    cleanupVisibility = () => {
-      document.removeEventListener('visibilitychange', handleVisibility)
-    }
+    cleanupVisibility = () => document.removeEventListener('visibilitychange', handleVisibility)
   }
 
   function stopAutoRefresh() {
@@ -58,10 +48,8 @@
       clearInterval(refreshInterval)
       refreshInterval = null
     }
-    if (cleanupVisibility) {
-      cleanupVisibility()
-      cleanupVisibility = null
-    }
+    cleanupVisibility?.()
+    cleanupVisibility = null
   }
 
   async function fetchPitch() {
@@ -103,10 +91,8 @@
   async function fetchSlots() {
     const thisVersion = fetchVersion
     if (!pitchId) return
-
-    // Interval, visibility, modal and manual refreshes can happen close together.
-    // Only one availability request per pitch version should be in flight.
     if (slotsRequestVersion === thisVersion) return
+
     slotsRequestVersion = thisVersion
     loadingSlots = true
     errorSlots = null
@@ -132,12 +118,8 @@
 
       let parsed = data
       if (typeof parsed === 'string') parsed = JSON.parse(parsed)
-      if (!Array.isArray(parsed)) {
-        throw new Error('Unexpected availability response')
-      }
+      if (!Array.isArray(parsed)) throw new Error('Unexpected availability response')
 
-      // An empty array is a valid availability result. V1 previously treated it
-      // as a failed request and invoked the same Edge Function a second time.
       slots = parsed
       const dates = [...new Set(slots.map(s => new Date(s.datetime_start).toLocaleDateString()))]
       if (dates.length > 0 && !selectedDate) selectedDate = dates[0]
@@ -147,12 +129,8 @@
       slots = []
       errorSlots = $_('common.error')
     } finally {
-      if (slotsRequestVersion === thisVersion) {
-        slotsRequestVersion = null
-      }
-      if (thisVersion === fetchVersion) {
-        loadingSlots = false
-      }
+      if (slotsRequestVersion === thisVersion) slotsRequestVersion = null
+      if (thisVersion === fetchVersion) loadingSlots = false
     }
   }
 
