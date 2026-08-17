@@ -7,7 +7,7 @@ import { locale } from 'svelte-i18n'
 import en from '../locales/en.json'
 import ar from '../locales/ar.json'
 
-const PROFILE_AUTH_FIELDS = 'id,student_id,full_name,role,status,email_kind,identity_status,restriction_reason,verified_student_id_at,created_at,updated_at'
+const PROFILE_AUTH_FIELDS = 'id,student_id,full_name,username,role,status,email_kind,identity_status,restriction_reason,verified_student_id_at,created_at,updated_at'
 
 function t(key: string): string {
   const currentLocale = get(locale) || 'en'
@@ -33,7 +33,8 @@ export async function register(
   email: string,
   password: string,
   studentId: string | null,
-  fullName: string
+  fullName: string,
+  username: string
 ): Promise<AuthResponse> {
   if (USE_MOCK) {
     await mockDelay()
@@ -42,6 +43,7 @@ export async function register(
       email,
       student_id: studentId?.toUpperCase() || null,
       full_name: fullName,
+      username: username.toLowerCase(),
       email_kind: isAcademicEmail(email) ? 'academic' : 'personal',
       identity_status: 'required'
     }
@@ -53,12 +55,14 @@ export async function register(
 
   try {
     const normalizedStudentId = studentId?.replace(/\s+/g, '').toUpperCase() || undefined
+    const normalizedUsername = username.trim().toLowerCase()
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           full_name: fullName,
+          username: normalizedUsername,
           ...(normalizedStudentId ? { student_id: normalizedStudentId } : {})
         }
       }
@@ -80,14 +84,16 @@ export function mapAuthError(message: string, status?: number): string {
   const lower = message.toLowerCase()
 
   // Keep registration failures non-enumerating. Existing email addresses,
-  // Student IDs and identity conflicts intentionally converge on a generic path.
+  // usernames, Student IDs and identity conflicts intentionally converge on a generic path.
   if (
     lower.includes('user already registered') ||
     lower.includes('already been registered') ||
     lower.includes('identity_claim_unavailable') ||
+    lower.includes('registration_conflict') ||
     lower.includes('profiles_student_id') ||
-    (lower.includes('duplicate') && (lower.includes('email') || lower.includes('student'))) ||
-    (lower.includes('unique') && lower.includes('student')) ||
+    lower.includes('profiles_username') ||
+    (lower.includes('duplicate') && (lower.includes('email') || lower.includes('student') || lower.includes('username'))) ||
+    (lower.includes('unique') && (lower.includes('student') || lower.includes('username'))) ||
     lower.includes('23505') ||
     lower.includes('unique_violation')
   ) {
@@ -100,6 +106,10 @@ export function mapAuthError(message: string, status?: number): string {
 
   if (lower.includes('student_id_required_for_personal_email')) {
     return t('register.error_invalid_student')
+  }
+
+  if (lower.includes('invalid_username')) {
+    return t('register.error_registration_failed')
   }
 
   if (
