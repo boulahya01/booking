@@ -155,7 +155,19 @@ High-risk operations are narrow and audited:
 
 Layer 019 revokes direct authenticated `profiles UPDATE`, including from an admin browser session. Safe self-profile edits remain through `update_my_profile()`, verification stays in its dedicated workflow, and access moderation uses `admin_set_user_access()` with audit rows.
 
-The first administrator is bootstrapped explicitly after account creation. There is no public become-admin path.
+### First administrator bootstrap
+
+The zero-admin → one-admin transition is a database-owner operation, not a public product feature.
+
+Layer 020 provides `private.bootstrap_first_admin(uuid)`:
+
+- it is callable only from trusted database-owner/Supabase SQL context
+- `PUBLIC`, `anon`, `authenticated` and `service_role` have no execute grant
+- it transactionally refuses a second bootstrap
+- it promotes only an existing selected profile
+- it records the transition in a private one-time bootstrap log
+
+Normal future admin management must use explicit audited contracts. First-admin bootstrap must never become a general promotion endpoint.
 
 ## Performance contract
 
@@ -178,17 +190,18 @@ The first administrator is bootstrapped explicitly after account creation. There
 - verification evidence stays private
 - admin authorization is checked in PostgreSQL
 - routine student moderation cannot modify admin identities
+- first-admin bootstrap is not executable by application/API roles
 - fresh V2 starts only from `supabase/v2`, never the historical migration directory
 
 ## Deployment contract
 
 1. confirm the intended fresh Free Supabase target
-2. apply `schema.sql` + layers `002` → `019`
+2. apply `schema.sql` + layers `002` → `020`
 3. run every transactional V2 contract suite
 4. run Supabase security/performance advisors
 5. generate hosted TypeScript DB types
 6. seed reviewed facilities/configuration only
-7. bootstrap first admin explicitly
+7. create/verify the selected owner account and bootstrap the first admin once from trusted DB-owner context
 8. configure Auth URLs + Vercel V2 credentials
 9. smoke-test academic/personal auth, booking, matches, Help/Reports, admin and moderation
 10. promote only after the hard gates pass
