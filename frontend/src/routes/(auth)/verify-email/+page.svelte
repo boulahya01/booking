@@ -3,230 +3,217 @@
   import { goto } from '$app/navigation'
   import { page } from '$app/stores'
   import { supabase } from '$lib/supabaseClient'
-  import Card from '$lib/components/Card.svelte'
-  import Button from '$lib/components/Button.svelte'
-  import { uiState } from '$lib/stores/ui'
   import { authState } from '$lib/stores/auth'
-  import { getUserProfile } from '$lib/auth'
-  import { _ } from 'svelte-i18n'
+  import { uiState, language } from '$lib/stores/ui'
+  import { getMyAccountState, getUserProfile } from '$lib/auth'
+  import { isValidEmail } from '$lib/utils/cn'
+  import Button from '$lib/components/Button.svelte'
   import Icon from '$lib/components/Icon.svelte'
 
-  let status: 'waiting' | 'verifying' | 'success' | 'error' = 'waiting'
+  type Status = 'waiting' | 'verifying' | 'success' | 'error'
+
+  let status: Status = 'waiting'
   let errorMessage = ''
   let resendLoading = false
-  let resendError = ''
+  let resendMessage = ''
+  let hintedEmail = ''
+  let nextPath = '/home'
 
-  function getErrorMessage(raw: string): string {
-    const msg = raw.toLowerCase()
-    if (msg.includes('expired') || msg.includes('token')) {
-      return $_('verify_email.error_expired_token')
-    }
-    if (msg.includes('invalid')) {
-      return $_('verify_email.error_invalid_link')
-    }
-    return $_('verify_email.error_generic')
+  $: copy = $language === 'ar'
+    ? {
+        title: 'أكد بريدك الإلكتروني',
+        subtitle: 'أرسلنا رابط التأكيد إلى بريدك. بعد التأكيد سنفتح لك المسار المناسب تلقائياً.',
+        spam: 'إذا لم تجد الرسالة، تحقق من البريد غير المرغوب فيه أو أعد إرسالها.',
+        resend: 'إعادة إرسال الرابط',
+        sent: 'إذا كان البريد صالحاً للتسجيل، فسيصلك رابط جديد بعد قليل.',
+        verifying: 'جاري تأكيد البريد',
+        verifyingHelp: 'نؤكد هويتك ونجهز حساب UNEEM.',
+        success: 'تم تأكيد البريد',
+        successHelp: 'حسابك جاهز. سننقلك الآن إلى الخطوة المناسبة.',
+        continue: 'متابعة',
+        error: 'تعذر تأكيد الرابط',
+        expired: 'قد يكون الرابط منتهياً أو غير صالح. اطلب رابطاً جديداً.',
+        generic: 'تعذر تأكيد البريد الآن. أعد المحاولة أو تواصل مع الدعم.',
+        help: 'المساعدة',
+        signIn: 'تسجيل الدخول',
+        rateLimit: 'تم إرسال عدة طلبات. انتظر قليلاً قبل إعادة المحاولة.'
+      }
+    : {
+        title: 'Confirm your email',
+        subtitle: 'We sent a confirmation link to your email. After confirmation, UNEEM will take you to the right next step automatically.',
+        spam: 'If you do not see it, check spam or request a fresh link.',
+        resend: 'Resend confirmation',
+        sent: 'If this email is eligible for registration, a fresh link will arrive shortly.',
+        verifying: 'Confirming your email',
+        verifyingHelp: 'We are confirming your identity and preparing your UNEEM account.',
+        success: 'Email confirmed',
+        successHelp: 'Your account is ready. We will continue with the correct access path.',
+        continue: 'Continue',
+        error: 'This link could not be confirmed',
+        expired: 'The link may be expired or invalid. Request a fresh confirmation link.',
+        generic: 'We could not confirm your email right now. Try again or contact Help.',
+        help: 'Help',
+        signIn: 'Sign in',
+        rateLimit: 'Several requests were sent recently. Wait a moment before trying again.'
+      }
+
+  function toggleLanguage() {
+    uiState.setLanguage($language === 'en' ? 'ar' : 'en')
+  }
+
+  function safeVerificationError(raw = '') {
+    const value = raw.toLowerCase()
+    if (value.includes('expired') || value.includes('token') || value.includes('invalid')) return copy.expired
+    return copy.generic
+  }
+
+  async function restoreAuthoritativeContext() {
+    const { data: { user }, error } = await supabase.auth.getUser()
+    if (error || !user) throw error || new Error('missing_session')
+
+    const [profile, account] = await Promise.all([
+      getUserProfile(user.id),
+      getMyAccountState()
+    ])
+
+    if (!profile || !account) throw new Error('missing_account_state')
+
+    authState.setSessionContext({
+      id: profile.id,
+      email: user.email ?? undefined,
+      student_id: profile.student_id,
+      full_name: profile.full_name,
+      role: profile.role === 'admin' ? 'admin' : 'user',
+      status: profile.status
+    }, account)
+
+    nextPath = account.can_use_sports ? '/home' : '/pending-approval'
   }
 
   onMount(async () => {
+    const queryEmail = $page.url.searchParams.get('email')?.trim().toLowerCase() || ''
+    hintedEmail = isValidEmail(queryEmail) ? queryEmail : ''
+
     const token = $page.url.searchParams.get('token')
-    if (token) {
-      status = 'verifying'
-      try {
-        const { error } = await supabase.auth.verifyOtp({
-          token_hash: token,
-          type: 'email'
-        })
-        if (error) {
-          status = 'error'
-          errorMessage = getErrorMessage(error.message)
-          return
-        }
+    if (!token) return
 
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          const profile = await getUserProfile(user.id)
-          if (profile) {
-            authState.setUser({
-              id: profile.id,
-              email: user.email ?? undefined,
-              student_id: profile.student_id,
-              full_name: profile.full_name,
-              role: profile.role === 'admin' ? 'admin' : 'user',
-              status: profile.status as import('$lib/stores/auth').UserStatus
-            })
-          }
-        }
-
-        status = 'success'
-        uiState.addToast($_('verify_email.verified_subtitle'), 'success')
-        setTimeout(() => goto('/home'), 2000)
-      } catch (err: any) {
-        status = 'error'
-        errorMessage = getErrorMessage(err.message || '')
-      }
+    status = 'verifying'
+    try {
+      const { error } = await supabase.auth.verifyOtp({ token_hash: token, type: 'email' })
+      if (error) throw error
+      await restoreAuthoritativeContext()
+      status = 'success'
+    } catch (err: any) {
+      status = 'error'
+      errorMessage = safeVerificationError(err?.message)
     }
   })
 
   async function resendEmail() {
     resendLoading = true
-    resendError = ''
+    resendMessage = ''
+    errorMessage = ''
+
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user?.email) {
-        resendError = $_('verify_email.error_no_email')
-        return
-      }
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email: user.email
-      })
-      if (error) {
-        const msg = error.message.toLowerCase()
-        if (msg.includes('rate limit') || msg.includes('too many')) {
-          resendError = $_('verify_email.resend_error_rate_limit')
-        } else {
-          resendError = $_('verify_email.resend_error_generic')
+      const email = user?.email?.trim().toLowerCase() || hintedEmail
+
+      // Keep the response non-enumerating. We do not tell the visitor whether
+      // this email already exists or whether Supabase accepted it.
+      if (email && isValidEmail(email)) {
+        const { error } = await supabase.auth.resend({ type: 'signup', email })
+        if (error) {
+          const lower = error.message.toLowerCase()
+          if (lower.includes('rate') || lower.includes('too many')) {
+            errorMessage = copy.rateLimit
+            return
+          }
         }
-        return
       }
-      uiState.addToast($_('verify_email.resend_success'), 'success')
-    } catch (err: any) {
-      resendError = $_('verify_email.resend_error_generic')
+
+      resendMessage = copy.sent
+    } catch {
+      resendMessage = copy.sent
     } finally {
       resendLoading = false
     }
   }
-
-  function getErrorIcon(s: string) {
-    if (s === 'error') return 'x-circle'
-    if (s === 'success') return 'check-circle'
-    if (s === 'verifying') return 'loader'
-    return 'mail'
-  }
 </script>
 
 <svelte:head>
-  <title>{status === 'waiting' ? $_('verify_email.title') : status === 'success' ? $_('verify_email.verified_title') : status === 'error' ? $_('verify_email.error_title') : $_('verify_email.verifying')} - UnemBook</title>
+  <title>{copy.title} · UNEEM</title>
 </svelte:head>
 
-<div class="min-h-screen flex items-center justify-center px-4 py-8">
-  <Card className="w-full max-w-md" variant="elevated">
-    <div class="text-center">
+<div class="min-h-screen bg-background px-4 py-8 flex items-center justify-center">
+  <button
+    type="button"
+    on:click={toggleLanguage}
+    class="fixed top-4 right-4 z-50 min-w-11 h-11 px-3 rounded-full bg-surface border border-border text-sm font-semibold text-text-secondary hover:text-text transition"
+    aria-label="Toggle language"
+  >
+    {$language === 'ar' ? 'EN' : 'ع'}
+  </button>
+
+  <main class="w-full max-w-md">
+    <section class="ui-panel p-6 sm:p-7 space-y-6" aria-live="polite">
+      <div class="space-y-4">
+        <div class={`w-12 h-12 rounded-2xl flex items-center justify-center ${status === 'error' ? 'bg-danger-light text-danger' : status === 'success' ? 'bg-success-light text-success' : 'bg-primary/10 text-primary'}`}>
+          {#if status === 'verifying'}
+            <span class="w-5 h-5 rounded-full border-2 border-current border-t-transparent animate-spin" aria-hidden="true"></span>
+          {:else}
+            <Icon name={status === 'success' ? 'check-circle' : status === 'error' ? 'alert-circle' : 'mail'} size={24} />
+          {/if}
+        </div>
+
+        <div>
+          <h1 class="text-3xl font-semibold tracking-tight text-text">
+            {status === 'verifying' ? copy.verifying : status === 'success' ? copy.success : status === 'error' ? copy.error : copy.title}
+          </h1>
+          <p class="mt-2 text-text-secondary leading-relaxed">
+            {status === 'verifying' ? copy.verifyingHelp : status === 'success' ? copy.successHelp : status === 'error' ? (errorMessage || copy.generic) : copy.subtitle}
+          </p>
+          {#if hintedEmail && status === 'waiting'}
+            <p class="mt-2 text-sm font-medium text-text break-all">{hintedEmail}</p>
+          {/if}
+        </div>
+      </div>
+
       {#if status === 'waiting'}
-        <!-- WAITING state -->
-        <div class="space-y-6">
-          <div class="w-20 h-20 mx-auto rounded-full flex items-center justify-center" style="background: var(--info-light);">
-            <Icon name="mail" size={36} className="text-info" />
-          </div>
-          <div>
-            <h1 class="text-2xl font-medium font-serif text-text">{$_('verify_email.title')}</h1>
-            <p class="text-text-secondary mt-2">{$_('verify_email.subtitle')}</p>
-          </div>
-
-          <div class="rounded-xl p-4 text-sm" style="background: var(--surface-level-1);">
-            <div class="flex items-start gap-3">
-              <Icon name="info" size={18} className="text-info mt-0.5 flex-shrink-0" />
-              <p class="text-text-secondary text-left">{$_('verify_email.spam_note')}</p>
-            </div>
-          </div>
-
-          <Button
-            on:click={resendEmail}
-            loading={resendLoading}
-            variant="secondary"
-            className="w-full"
-          >
-            {$_('verify_email.resend')}
-          </Button>
-
-          <a href="/login" class="text-primary font-semibold hover:underline">
-            {$_('login.sign_in')}
-          </a>
+        <div class="rounded-2xl bg-surface-level-1 p-4 flex gap-3">
+          <Icon name="info" size={18} className="text-primary flex-shrink-0 mt-0.5" />
+          <p class="text-sm text-text-secondary leading-relaxed">{copy.spam}</p>
         </div>
 
-      {:else if status === 'verifying'}
-        <!-- VERIFYING state -->
-        <div class="space-y-6 py-8">
-          <div class="w-20 h-20 mx-auto relative">
-            <div class="absolute inset-0 rounded-full border-4" style="border-color: var(--border);"></div>
-            <div class="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
-            <div class="absolute inset-0 flex items-center justify-center">
-              <Icon name="mail" size={28} className="text-primary" />
-            </div>
-          </div>
-          <div>
-            <h1 class="text-2xl font-medium font-serif text-text">{$_('verify_email.verifying')}</h1>
-            <p class="text-text-secondary mt-2">{$_('verify_email.please_wait')}</p>
-          </div>
-        </div>
+        {#if resendMessage}
+          <div class="rounded-2xl bg-success-light p-4 text-sm text-success" role="status">{resendMessage}</div>
+        {/if}
+        {#if errorMessage}
+          <div class="rounded-2xl bg-danger-light p-4 text-sm text-danger" role="alert">{errorMessage}</div>
+        {/if}
 
+        <Button on:click={resendEmail} loading={resendLoading} variant="primary" size="lg" className="w-full">
+          {copy.resend}
+        </Button>
       {:else if status === 'success'}
-        <!-- SUCCESS state -->
-        <div class="space-y-6 py-4">
-          <div class="w-20 h-20 mx-auto rounded-full flex items-center justify-center" style="background: var(--success-light);">
-            <Icon name="check-circle" size={36} className="text-success" />
-          </div>
-          <div>
-            <h1 class="text-2xl font-medium font-serif text-success">{$_('verify_email.verified_title')}</h1>
-            <p class="text-text-secondary mt-2">{$_('verify_email.verified_subtitle')}</p>
-          </div>
-
-          <div class="rounded-xl p-4" style="background: var(--surface-level-1);">
-            <div class="flex items-center gap-3 justify-center">
-              <div class="w-6 h-6 rounded-full flex items-center justify-center" style="background: var(--border);">
-                <Icon name="clock" size={14} className="text-text-muted" />
-              </div>
-              <p class="text-sm text-text-muted">{$_('verify_email.verified_redirect')}</p>
-            </div>
-          </div>
-        </div>
-
+        <Button on:click={() => goto(nextPath)} variant="primary" size="lg" className="w-full">
+          {copy.continue}
+        </Button>
       {:else if status === 'error'}
-        <!-- ERROR state -->
-        <div class="space-y-6">
-          <div class="w-20 h-20 mx-auto rounded-full flex items-center justify-center" style="background: var(--danger-light);">
-            <Icon name="x-circle" size={36} className="text-danger" />
-          </div>
-          <div>
-            <h1 class="text-2xl font-medium font-serif text-danger">{$_('verify_email.error_title')}</h1>
-            <p class="text-text-secondary mt-2">{$_('verify_email.error_subtitle')}</p>
-          </div>
-
-          {#if errorMessage}
-            <div class="rounded-xl p-4 text-sm" style="background: var(--danger-light);">
-              <div class="flex items-start gap-3 text-left">
-                <Icon name="alert-triangle" size={18} className="text-danger mt-0.5 flex-shrink-0" />
-                <p class="text-danger font-medium">{errorMessage}</p>
-              </div>
-            </div>
-          {/if}
-
-          {#if resendError}
-            <div class="rounded-xl p-3 text-sm" style="background: var(--danger-light);">
-              <div class="flex items-start gap-2 text-left">
-                <Icon name="alert-circle" size={16} className="text-danger mt-0.5 flex-shrink-0" />
-                <p class="text-danger">{resendError}</p>
-              </div>
-            </div>
-          {/if}
-
-          <div class="space-y-3">
-            <Button
-              on:click={resendEmail}
-              loading={resendLoading}
-              variant="primary"
-              className="w-full"
-            >
-              {$_('verify_email.try_again')}
-            </Button>
-            <a href="/login" class="block">
-              <Button variant="secondary" className="w-full">
-                {$_('verify_email.back_to_login')}
-              </Button>
-            </a>
-          </div>
+        <div class="space-y-3">
+          <Button on:click={resendEmail} loading={resendLoading} variant="primary" size="lg" className="w-full">
+            {copy.resend}
+          </Button>
+          <a href="/help" class="ui-action-secondary w-full min-h-12">{copy.help}</a>
         </div>
       {/if}
-    </div>
-  </Card>
+
+      {#if status !== 'verifying' && status !== 'success'}
+        <div class="pt-1 text-center">
+          <a href={hintedEmail ? `/login?email=${encodeURIComponent(hintedEmail)}` : '/login'} class="text-sm font-semibold text-primary hover:underline">
+            {copy.signIn}
+          </a>
+        </div>
+      {/if}
+    </section>
+  </main>
 </div>
