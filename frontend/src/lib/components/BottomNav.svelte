@@ -1,9 +1,8 @@
 <script lang="ts">
   import { page } from '$app/stores'
   import { isAdmin } from '$lib/stores/auth'
-  import { cn } from '$lib/utils/cn'
-  import Icon from './Icon.svelte'
   import { language } from '$lib/stores/ui'
+  import Icon from './Icon.svelte'
 
   type NavItem = { label: [string, string]; href: string; icon: string }
 
@@ -14,34 +13,41 @@
     { label: ['Profile', 'حسابي'], href: '/profile', icon: 'user' }
   ]
 
-  const adminItems: NavItem[] = [
-    { label: ['Admin', 'الإدارة'], href: '/admin/bookings', icon: 'shield' }
-  ]
+  const adminItem: NavItem = { label: ['Admin', 'الإدارة'], href: '/admin/bookings', icon: 'shield' }
 
   function isActive(href: string): boolean {
-    return $page.url.pathname.startsWith(href)
+    return $page.url.pathname === href || $page.url.pathname.startsWith(`${href}/`)
   }
 </script>
 
-<nav class={cn('fixed bottom-0 left-0 right-0 z-40 md:hidden','bg-surface/95 backdrop-blur border-t border-border dark:border-white/6','safe-bottom')} aria-label="Mobile navigation">
-  <div class="mx-auto flex max-w-lg items-stretch px-1">
+<nav class="fixed inset-x-0 bottom-0 z-40 border-t border-border-light bg-surface/96 backdrop-blur-xl md:hidden" aria-label="Mobile navigation">
+  <div class="mx-auto flex min-h-[64px] max-w-lg items-stretch px-1 pb-[env(safe-area-inset-bottom)]">
     {#each regularItems as item}
-      <a href={item.href} class={cn('flex-1 min-h-[58px] flex flex-col items-center justify-center px-1 text-xs font-medium transition-colors',isActive(item.href) ? 'text-primary' : 'text-text-muted hover:text-text')} aria-current={isActive(item.href) ? 'page' : undefined}>
-        <div class={cn('grid h-8 min-w-12 place-items-center rounded-full transition-colors', isActive(item.href) ? 'bg-primary-light' : '')}>
+      <a
+        href={item.href}
+        class="group flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-text-muted transition-colors"
+        class:text-primary={isActive(item.href)}
+        aria-current={isActive(item.href) ? 'page' : undefined}
+      >
+        <span class="grid h-8 min-w-12 place-items-center rounded-full transition-colors group-hover:bg-surface-level-1" class:bg-primary-light={isActive(item.href)}>
           <Icon name={item.icon} size={20} strokeWidth={isActive(item.href) ? 2.5 : 2} />
-        </div>
-        <span class="mt-0.5 max-w-full truncate text-[10px]">{item.label[$language === 'ar' ? 1 : 0]}</span>
+        </span>
+        <span class="max-w-full truncate text-[10px] font-semibold">{item.label[$language === 'ar' ? 1 : 0]}</span>
       </a>
     {/each}
+
     {#if $isAdmin}
-      {#each adminItems as item}
-        <a href={item.href} class={cn('flex-1 min-h-[58px] flex flex-col items-center justify-center px-1 text-xs font-medium transition-colors',isActive(item.href) ? 'text-primary' : 'text-text-muted hover:text-text')}>
-          <div class={cn('grid h-8 min-w-12 place-items-center rounded-full', isActive(item.href) ? 'bg-primary-light' : '')}><Icon name={item.icon} size={20} /></div>
-          <span class="mt-0.5 text-[10px]">{item.label[$language === 'ar' ? 1 : 0]}</span>
-        </a>
-      {/each}
+      <a
+        href={adminItem.href}
+        class="group flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-text-muted transition-colors"
+        class:text-primary={isActive('/admin')}
+        aria-current={isActive('/admin') ? 'page' : undefined}
+      >
+        <span class="grid h-8 min-w-12 place-items-center rounded-full transition-colors group-hover:bg-surface-level-1" class:bg-primary-light={isActive('/admin')}>
+          <Icon name={adminItem.icon} size={20} strokeWidth={isActive('/admin') ? 2.5 : 2} />
+        </span>
+        <span class="max-w-full truncate text-[10px] font-semibold">{adminItem.label[$language === 'ar' ? 1 : 0]}</span>
+      </a>
     {/if}
   </div>
 </nav>
-
-<style>:global(.safe-bottom){padding-bottom:var(--safe-area-inset-bottom,0)}</style>
