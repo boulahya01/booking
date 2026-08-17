@@ -1,6 +1,6 @@
 import { writable, derived } from 'svelte/store'
 
-export type UserStatus = 'pending' | 'approved' | 'rejected'
+export type UserStatus = 'pending' | 'approved' | 'rejected' | 'suspended'
 
 export type User = {
   id: string
@@ -22,23 +22,24 @@ type AuthState = {
 const createAuthStore = () => {
   const { subscribe, set, update } = writable<AuthState>({
     user: null,
-    loading: false,
+    // The first client render must not assume "signed out" before Supabase has
+    // restored the persisted session. Route guards wait for this to resolve.
+    loading: true,
     error: null
   })
 
   return {
     subscribe,
     setUser: (userData: User) =>
-      update((s) => ({ ...s, user: userData, error: null })),
+      update((state) => ({ ...state, user: userData, loading: false, error: null })),
     clear: () => set({ user: null, loading: false, error: null }),
-    setLoading: (loading: boolean) => update((s) => ({ ...s, loading })),
-    setError: (error: string) => update((s) => ({ ...s, error, loading: false }))
+    setLoading: (loading: boolean) => update((state) => ({ ...state, loading })),
+    setError: (error: string) => update((state) => ({ ...state, error, loading: false }))
   }
 }
 
 export const authState = createAuthStore()
 
-// Keep user as a derived store for backward compatibility
 export const user = derived(authState, ($state) => $state.user)
 
 export function setUser(userData: User) {
@@ -49,13 +50,11 @@ export function clearUser() {
   authState.clear()
 }
 
-// Has a valid session (regardless of approval status)
 export const isAuthenticated = derived(
   authState,
   ($state) => !!$state.user
 )
 
-// Has full access (approved users only)
 export const hasFullAccess = derived(
   authState,
   ($state) => !!$state.user && $state.user.status === 'approved'
