@@ -21,21 +21,22 @@ UNEEM V2 targets a **new, clean Supabase project**. The previous database/Auth/u
 - Public username is separate from Student ID and is case-insensitively unique.
 - Verification/remediation stays on the same account. A future academic email should be linked to the existing identity rather than used to create a duplicate account.
 - No physical/in-person verification workflow is part of V2.
+- Access suspension is separate from identity verification. Routine moderation must never overwrite identity-remediation state or turn a pending personal-email account into an approved one.
 
 ## Source of truth
 
 The deployable contract is the ordered stack documented in `supabase/v2/README.md`:
 
 - `schema.sql`
-- layers `002` through `018`
-- booking/security/identity/support/match/admin/backend-read transactional contract suites
+- layers `002` through `019`
+- booking/security/identity/support/match/admin/backend-read/user-moderation transactional contract suites
 
 The application must be configured against the resulting schema, not against an intermediate layer.
 
 ## Deployment sequence
 
 1. Confirm the target Supabase project is the intended fresh **Free** V2 project and contains no V1 production data.
-2. Apply `schema.sql` then layers `002` → `018` in order with fail-fast execution.
+2. Apply `schema.sql` then layers `002` → `019` in order with fail-fast execution.
 3. Run all V2 transactional contract suites:
    - booking
    - security/RLS
@@ -44,6 +45,7 @@ The application must be configured against the resulting schema, not against an 
    - matches
    - admin operations
    - authoritative backend reads/session
+   - user access moderation
 4. Run Supabase security and performance advisors and resolve launch-blocking findings.
 5. Generate TypeScript database types from the resulting hosted schema and compare them with the frontend API boundary.
 6. Configure Auth site/redirect URLs for UNEEM production and preview domains.
@@ -101,21 +103,28 @@ The application must be configured against the resulting schema, not against an 
 - booking cancellation requires a structured reason and audit row
 - facility create/update/archive is RPC-only and audited
 - direct authenticated facility writes are denied
+- direct authenticated profile writes are denied, including for admin browser sessions
 - user directory search/status pagination is server-side and admin-only
+- approved student can be suspended only with a structured audited reason
+- verified suspended personal-email student can be restored through the moderation RPC
+- unverified personal-email student cannot be restored into sports access
+- pending identity cannot be approved through routine moderation
+- admin identities cannot be modified by the routine student moderation RPC
+- identity-remediation reason survives suspend/restore separately from the access restriction reason
 
 ## Launch gates
 
 UNEEM does not go live until all are true:
 
-1. Fresh V2 stack through layer 018 applies without error.
+1. Fresh V2 stack through layer 019 applies without error.
 2. Every committed V2 SQL contract suite passes on the confirmed fresh target or equivalent disposable runtime.
-3. Security/RLS negative tests pass.
+3. Security/RLS negative tests pass, including direct profile-write denial.
 4. Booking and match concurrency invariants are validated.
 5. Supabase advisors have no unresolved launch-blocking findings.
 6. Generated hosted DB types match the application contract.
 7. Vercel preview uses only the new V2 credentials and builds successfully.
 8. Academic and personal verification flows both pass end-to-end.
-9. Core booking/match/help/admin smoke tests pass.
+9. Core booking/match/help/admin/moderation smoke tests pass.
 10. The real UNEEM logo/PWA icon assets and responsive product review are complete before production promotion.
 
 ## Rollback
