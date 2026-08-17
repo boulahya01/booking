@@ -5,11 +5,20 @@
   import {
     getLatestVerificationAttempt,
     uploadAndSubmitStudentCard,
+    validateStudentCard,
     type VerificationAttempt,
     type VerificationReason
   } from '$lib/identityApi'
   import type { AccountState } from '$lib/types'
+  import { language } from '$lib/stores/ui'
+  import { isValidStudentId } from '$lib/utils/cn'
+  import AuthShell from '$lib/components/AuthShell.svelte'
+  import ActionLink from '$lib/components/ActionLink.svelte'
+  import TextField from '$lib/components/TextField.svelte'
+  import Button from '$lib/components/Button.svelte'
   import Icon from '$lib/components/Icon.svelte'
+
+  type FieldState = 'idle' | 'valid' | 'invalid'
 
   let state: AccountState | null = null
   let attempt: VerificationAttempt | null = null
@@ -19,54 +28,76 @@
   let loading = true
   let submitting = false
   let error = ''
+  let submitAttempted = false
+  let fileError = ''
 
-  const reasonCopy: Record<VerificationReason, { title: string; body: string; editId: boolean }> = {
-    student_id_incorrect: {
-      title: 'Check your Student ID',
-      body: 'The Student ID did not match the card. Correct it and submit the card again.',
-      editId: true
-    },
-    student_card_unreadable: {
-      title: 'Upload a clearer card photo',
-      body: 'The card could not be read clearly. Keep your Student ID and replace only the photo.',
-      editId: false
-    },
-    name_mismatch: {
-      title: 'Your details need attention',
-      body: 'The name on the account and student card did not match. Update the permitted profile details, then resubmit.',
-      editId: false
-    },
-    duplicate_student_identity: {
-      title: 'We need to verify ownership',
-      body: 'We could not safely confirm this identity. Do not create another account. Contact Help so an admin can resolve it.',
-      editId: false
-    },
-    not_a_student_card: {
-      title: 'Upload your university student card',
-      body: 'The submitted image was not accepted as a student card. Replace it with a clear photo of your card.',
-      editId: false
-    },
-    student_card_expired: {
-      title: 'Use a current student card',
-      body: 'The submitted card could not confirm current student status. Upload a current card or contact Help.',
-      editId: false
-    }
-  }
+  $: copy = $language === 'ar'
+    ? {
+        pageTitle: 'التحقق من الطالب', back: 'حالة الحساب', loadError: 'تعذر تحميل حالة التحقق.',
+        verifiedTitle: 'تم تأكيد هويتك', verifiedBody: 'رقم الطالب مرتبط الآن بهذا الحساب.',
+        pendingTitle: 'المراجعة جارية', pendingBody: 'تم إرسال بطاقتك. لا ترسلها مرة أخرى إلا إذا طلبنا تصحيحاً.',
+        conflictTitle: 'نحتاج لتأكيد الملكية', conflictBody: 'لا تنشئ حساباً آخر ولا تغيّر رقم الطالب. استخدم المساعدة لحل المشكلة بأمان.',
+        requiredTitle: 'أكد هويتك الطلابية', requiredBody: 'أرسل رقم الطالب وصورة واضحة من بطاقتك الجامعية.',
+        studentId: 'رقم الطالب', studentIdPlaceholder: 'S123456789', studentIdValid: 'الصيغة صحيحة', studentIdInvalid: 'حرف واحد + 9 أرقام',
+        card: 'صورة بطاقة الطالب', addCard: 'أضف صورة واضحة للبطاقة', replaceCard: 'اختيار صورة أخرى', cardHint: 'JPG أو PNG أو WebP · أقل من 5 MB', cardReady: 'الصورة جاهزة', cardRequired: 'اختر صورة البطاقة.', invalidType: 'استخدم JPG أو PNG أو WebP.', tooLarge: 'يجب أن تكون الصورة أقل من 5 MB.', invalidImage: 'اختر صورة صالحة.',
+        submittedId: 'رقم الطالب المرسل', pending: 'قيد المراجعة', noResubmit: 'لا تحتاج لإعادة الإرسال الآن.',
+        submit: 'إرسال للمراجعة', resubmit: 'إعادة الإرسال للمراجعة', submitting: 'جاري الإرسال…',
+        profile: 'العودة للملف الشخصي', accountHelp: 'مساعدة الحساب', help: 'المساعدة', accountStatus: 'حالة الحساب', private: 'بطاقتك خاصة ولا تظهر إلا للمراجعين المصرح لهم.',
+        reasonStudentIdTitle: 'تحقق من رقم الطالب', reasonStudentIdBody: 'رقم الطالب لا يطابق البطاقة. صححه وأرسل البطاقة من جديد.',
+        reasonCardTitle: 'استخدم صورة أوضح', reasonCardBody: 'تعذر قراءة البطاقة بوضوح. احتفظ برقم الطالب وغيّر الصورة فقط.',
+        reasonNameTitle: 'بياناتك تحتاج مراجعة', reasonNameBody: 'الاسم في الحساب لا يطابق البطاقة. حدّث البيانات المسموح بها ثم أعد الإرسال.',
+        reasonDuplicateTitle: 'نحتاج لتأكيد الملكية', reasonDuplicateBody: 'تعذر تأكيد الهوية بأمان. لا تنشئ حساباً جديداً وتواصل مع المساعدة.',
+        reasonNotCardTitle: 'استخدم بطاقة الطالب الجامعية', reasonNotCardBody: 'الصورة المرسلة لم تُقبل كبطاقة طالب. استبدلها بصورة واضحة من بطاقتك.',
+        reasonExpiredTitle: 'استخدم بطاقة حالية', reasonExpiredBody: 'البطاقة لم تؤكد وضعك الطلابي الحالي. ارفع بطاقة حالية أو تواصل مع المساعدة.'
+      }
+    : {
+        pageTitle: 'Student verification', back: 'Account status', loadError: 'Couldn’t load verification status.',
+        verifiedTitle: 'Identity verified', verifiedBody: 'Your Student ID is now linked to this account.',
+        pendingTitle: 'Review in progress', pendingBody: 'Your card was submitted. Don’t submit again unless we ask for a correction.',
+        conflictTitle: 'We need to verify ownership', conflictBody: 'Don’t create another account or change Student ID. Use Help so ownership can be resolved safely.',
+        requiredTitle: 'Verify your student identity', requiredBody: 'Submit your Student ID and a clear photo of your university card.',
+        studentId: 'Student ID', studentIdPlaceholder: 'S123456789', studentIdValid: 'Valid format', studentIdInvalid: '1 letter + 9 digits',
+        card: 'Student card photo', addCard: 'Add a clear card photo', replaceCard: 'Choose a different photo', cardHint: 'JPG, PNG or WebP · under 5 MB', cardReady: 'Photo ready', cardRequired: 'Choose your student card photo.', invalidType: 'Use a JPG, PNG, or WebP image.', tooLarge: 'The image must be smaller than 5 MB.', invalidImage: 'Choose a valid image.',
+        submittedId: 'Submitted Student ID', pending: 'Pending', noResubmit: 'You don’t need to submit again right now.',
+        submit: 'Submit for review', resubmit: 'Resubmit for review', submitting: 'Submitting…',
+        profile: 'Back to profile', accountHelp: 'Account help', help: 'Help', accountStatus: 'Account status', private: 'Your card is private and visible only to authorized reviewers.',
+        reasonStudentIdTitle: 'Check your Student ID', reasonStudentIdBody: 'The Student ID did not match the card. Correct it and submit the card again.',
+        reasonCardTitle: 'Upload a clearer card photo', reasonCardBody: 'The card could not be read clearly. Keep your Student ID and replace only the photo.',
+        reasonNameTitle: 'Your details need attention', reasonNameBody: 'The name on the account and student card did not match. Update permitted profile details, then resubmit.',
+        reasonDuplicateTitle: 'We need to verify ownership', reasonDuplicateBody: 'We could not safely confirm this identity. Do not create another account. Contact Help.',
+        reasonNotCardTitle: 'Upload your university student card', reasonNotCardBody: 'The submitted image was not accepted as a student card. Replace it with a clear photo of your card.',
+        reasonExpiredTitle: 'Use a current student card', reasonExpiredBody: 'The submitted card could not confirm current student status. Upload a current card or contact Help.'
+      }
+
+  $: reasonCopy = {
+    student_id_incorrect: { title: copy.reasonStudentIdTitle, body: copy.reasonStudentIdBody, editId: true },
+    student_card_unreadable: { title: copy.reasonCardTitle, body: copy.reasonCardBody, editId: false },
+    name_mismatch: { title: copy.reasonNameTitle, body: copy.reasonNameBody, editId: false },
+    duplicate_student_identity: { title: copy.reasonDuplicateTitle, body: copy.reasonDuplicateBody, editId: false },
+    not_a_student_card: { title: copy.reasonNotCardTitle, body: copy.reasonNotCardBody, editId: false },
+    student_card_expired: { title: copy.reasonExpiredTitle, body: copy.reasonExpiredBody, editId: false }
+  } as Record<VerificationReason, { title: string; body: string; editId: boolean }>
 
   $: rejectedReason = state?.restriction_reason as VerificationReason | null
   $: remediation = rejectedReason ? reasonCopy[rejectedReason] : null
-  $: canSubmit = state?.identity_status !== 'conflict' && studentId.length === 10 && !!card && !submitting
+  $: normalizedStudentId = studentId.trim().toUpperCase()
+  $: studentIdValid = isValidStudentId(normalizedStudentId)
+  $: studentIdState = fieldState(studentId.length > 0 || submitAttempted, studentIdValid)
+  $: fileState = fieldState(!!card || !!fileError || submitAttempted, !!card && !fileError)
+  $: backHref = state?.identity_status === 'verified' ? '/profile' : '/pending-approval'
 
   onMount(load)
+
+  function fieldState(active: boolean, valid: boolean): FieldState {
+    if (!active) return 'idle'
+    return valid ? 'valid' : 'invalid'
+  }
 
   async function load() {
     loading = true
     error = ''
     try {
-      const [account, latest] = await Promise.all([
-        getMyAccountState(),
-        getLatestVerificationAttempt()
-      ])
+      const [account, latest] = await Promise.all([getMyAccountState(), getLatestVerificationAttempt()])
       if (!account) {
         await goto('/login')
         return
@@ -75,152 +106,163 @@
       attempt = latest
       studentId = account.student_id || latest?.claimed_student_id || ''
     } catch (e: any) {
-      error = e.message || 'Unable to load verification status.'
+      error = e.message || copy.loadError
     } finally {
       loading = false
     }
+  }
+
+  function localFileMessage(raw: string) {
+    if (raw.includes('JPG')) return copy.invalidType
+    if (raw.includes('5 MB')) return copy.tooLarge
+    return copy.invalidImage
   }
 
   function chooseCard(event: Event) {
     const input = event.currentTarget as HTMLInputElement
     const next = input.files?.[0] || null
     if (previewUrl) URL.revokeObjectURL(previewUrl)
-    card = next
-    previewUrl = next ? URL.createObjectURL(next) : ''
+    previewUrl = ''
+    card = null
+    fileError = ''
     error = ''
+
+    if (!next) return
+    const validationError = validateStudentCard(next)
+    if (validationError) {
+      fileError = localFileMessage(validationError)
+      input.value = ''
+      return
+    }
+
+    card = next
+    previewUrl = URL.createObjectURL(next)
   }
 
   async function submit() {
-    if (!card || !canSubmit) return
-    submitting = true
+    submitAttempted = true
     error = ''
+    if (!studentIdValid) return
+    if (!card) {
+      fileError = copy.cardRequired
+      return
+    }
+    if (fileError || state?.identity_status === 'conflict') return
+
+    submitting = true
     try {
-      state = await uploadAndSubmitStudentCard(studentId, card)
+      state = await uploadAndSubmitStudentCard(normalizedStudentId, card)
       attempt = await getLatestVerificationAttempt()
       card = null
+      fileError = ''
+      submitAttempted = false
       if (previewUrl) URL.revokeObjectURL(previewUrl)
       previewUrl = ''
     } catch (e: any) {
-      error = e.message || 'Unable to submit verification.'
+      error = e.message || copy.loadError
     } finally {
       submitting = false
     }
   }
 </script>
 
-<svelte:head>
-  <title>Student verification - UNEEM</title>
-</svelte:head>
+<svelte:head><title>{copy.pageTitle} · UNEEM</title></svelte:head>
 
-<div class="min-h-screen bg-surface px-4 py-6 sm:px-6">
-  <main class="mx-auto w-full max-w-xl">
-    <div class="mb-8 flex items-center gap-3">
-      <button on:click={() => history.back()} class="grid h-11 w-11 place-items-center rounded-full bg-surface-level-1 text-text" aria-label="Go back">
-        <Icon name="arrow-left" size={20} />
-      </button>
-      <div>
-        <p class="text-sm font-medium text-primary">Account security</p>
-        <h1 class="text-2xl font-semibold tracking-tight text-text">Student verification</h1>
-      </div>
+<AuthShell backHref={backHref} backLabel={copy.back} maxWidth="max-w-xl">
+  {#if loading}
+    <div class="space-y-3" aria-busy="true">
+      <div class="h-28 animate-pulse rounded-2xl bg-surface-level-1"></div>
+      <div class="h-64 animate-pulse rounded-2xl bg-surface-level-1"></div>
     </div>
-
-    {#if loading}
-      <div class="space-y-3" aria-busy="true">
-        <div class="h-28 animate-pulse rounded-2xl bg-surface-level-1"></div>
-        <div class="h-64 animate-pulse rounded-2xl bg-surface-level-1"></div>
+  {:else if error && !state}
+    <section>
+      <div class="mb-5 flex h-11 w-11 items-center justify-center rounded-full bg-danger-light text-danger"><Icon name="alert-triangle" size={20} /></div>
+      <h1 class="text-3xl font-semibold tracking-[-0.035em] text-text">{copy.loadError}</h1>
+      <div class="mt-6 grid grid-cols-2 gap-3">
+        <ActionLink href="/pending-approval" variant="secondary" size="md" icon="arrow-left">{copy.accountStatus}</ActionLink>
+        <ActionLink href="/help" variant="secondary" size="md" icon="info">{copy.help}</ActionLink>
       </div>
-    {:else if state}
-      <section class="mb-4 rounded-2xl bg-surface-level-1 p-5">
-        <div class="flex items-start gap-4">
-          <div class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary-light text-primary">
-            <Icon name={state.identity_status === 'verified' ? 'check' : state.identity_status === 'pending' ? 'clock' : 'shield'} size={20} />
-          </div>
-          <div class="min-w-0 flex-1">
-            {#if state.identity_status === 'verified'}
-              <h2 class="font-semibold text-text">Identity verified</h2>
-              <p class="mt-1 text-sm leading-6 text-text-secondary">Your Student ID is securely linked to this UNEEM account.</p>
-            {:else if state.identity_status === 'pending'}
-              <h2 class="font-semibold text-text">Review in progress</h2>
-              <p class="mt-1 text-sm leading-6 text-text-secondary">Your card was submitted. You can keep using the access already granted to your account while the review is pending.</p>
-            {:else if state.identity_status === 'conflict'}
-              <h2 class="font-semibold text-text">We need to verify ownership</h2>
-              <p class="mt-1 text-sm leading-6 text-text-secondary">Do not create another account or try another Student ID. Use Help so an admin can resolve the identity safely.</p>
-            {:else if remediation}
-              <h2 class="font-semibold text-text">{remediation.title}</h2>
-              <p class="mt-1 text-sm leading-6 text-text-secondary">{remediation.body}</p>
-            {:else}
-              <h2 class="font-semibold text-text">Complete your student identity</h2>
-              <p class="mt-1 text-sm leading-6 text-text-secondary">This protects your account and prevents duplicate student identities.</p>
-            {/if}
-          </div>
+    </section>
+  {:else if state}
+    <section class="w-full">
+      <div class="mb-6">
+        <div class={`mb-4 flex h-11 w-11 items-center justify-center rounded-full ${state.identity_status === 'verified' ? 'bg-success-light text-success' : state.identity_status === 'conflict' ? 'bg-warning-light text-warning' : 'bg-primary-light text-primary'}`}>
+          <Icon name={state.identity_status === 'verified' ? 'check' : state.identity_status === 'pending' ? 'clock' : 'shield'} size={20} />
         </div>
-      </section>
+        {#if state.identity_status === 'verified'}
+          <h1 class="text-3xl font-semibold tracking-[-0.035em] text-text">{copy.verifiedTitle}</h1>
+          <p class="mt-2 text-sm leading-6 text-text-secondary">{copy.verifiedBody}</p>
+        {:else if state.identity_status === 'pending'}
+          <h1 class="text-3xl font-semibold tracking-[-0.035em] text-text">{copy.pendingTitle}</h1>
+          <p class="mt-2 text-sm leading-6 text-text-secondary">{copy.pendingBody}</p>
+        {:else if state.identity_status === 'conflict'}
+          <h1 class="text-3xl font-semibold tracking-[-0.035em] text-text">{copy.conflictTitle}</h1>
+          <p class="mt-2 text-sm leading-6 text-text-secondary">{copy.conflictBody}</p>
+        {:else if remediation}
+          <h1 class="text-3xl font-semibold tracking-[-0.035em] text-text">{remediation.title}</h1>
+          <p class="mt-2 text-sm leading-6 text-text-secondary">{remediation.body}</p>
+        {:else}
+          <h1 class="text-3xl font-semibold tracking-[-0.035em] text-text">{copy.requiredTitle}</h1>
+          <p class="mt-2 text-sm leading-6 text-text-secondary">{copy.requiredBody}</p>
+        {/if}
+      </div>
 
       {#if state.identity_status === 'verified'}
-        <button on:click={() => goto('/profile')} class="w-full rounded-xl bg-primary px-4 py-3.5 font-semibold text-white">Back to profile</button>
+        <div class="space-y-3">
+          <ActionLink href="/profile" variant="primary" size="lg" icon="user" className="w-full">{copy.profile}</ActionLink>
+          <ActionLink href="/help" variant="secondary" size="lg" icon="info" className="w-full">{copy.help}</ActionLink>
+        </div>
       {:else if state.identity_status === 'pending'}
-        <div class="rounded-2xl border border-border bg-surface p-5">
-          <div class="flex items-center justify-between gap-4">
-            <div>
-              <p class="text-sm text-text-muted">Submitted Student ID</p>
-              <p class="mt-1 font-semibold tracking-wide text-text">{attempt?.claimed_student_id || state.student_id}</p>
-            </div>
-            <span class="rounded-full bg-warning-light px-3 py-1.5 text-xs font-semibold text-warning">Pending</span>
-          </div>
-          <p class="mt-4 text-sm leading-6 text-text-secondary">You do not need to submit again unless an admin asks you to correct something.</p>
+        <div class="rounded-2xl bg-surface-level-1 p-4">
+          <p class="text-xs font-medium text-text-muted">{copy.submittedId}</p>
+          <div class="mt-1 flex items-center justify-between gap-3"><p class="font-semibold tracking-wide text-text">{attempt?.claimed_student_id || state.student_id}</p><span class="rounded-full bg-warning-light px-3 py-1 text-xs font-semibold text-warning">{copy.pending}</span></div>
+          <p class="mt-3 text-sm leading-6 text-text-secondary">{copy.noResubmit}</p>
+        </div>
+        <div class="mt-4 grid grid-cols-2 gap-3">
+          <ActionLink href="/pending-approval" variant="secondary" size="md" icon="arrow-left">{copy.accountStatus}</ActionLink>
+          <ActionLink href="/help" variant="secondary" size="md" icon="info">{copy.help}</ActionLink>
         </div>
       {:else if state.identity_status === 'conflict'}
-        <a href="/pending-approval" class="block w-full rounded-xl bg-primary px-4 py-3.5 text-center font-semibold text-white">Open account help</a>
+        <div class="space-y-3">
+          <ActionLink href="/help" variant="primary" size="lg" icon="info" className="w-full">{copy.accountHelp}</ActionLink>
+          <ActionLink href="/pending-approval" variant="secondary" size="lg" icon="arrow-left" className="w-full">{copy.accountStatus}</ActionLink>
+        </div>
       {:else}
-        <section class="rounded-2xl border border-border bg-surface p-5 sm:p-6">
-          <div class="mb-5">
-            <h2 class="text-lg font-semibold text-text">{state.identity_status === 'rejected' ? 'Fix and resubmit' : 'Verify your Student ID'}</h2>
-            <p class="mt-1 text-sm leading-6 text-text-secondary">Only redo the information that needs verification. Previous review attempts stay attached to this same account.</p>
-          </div>
+        <div class="space-y-4">
+          <TextField label={copy.studentId} placeholder={copy.studentIdPlaceholder} icon="id-card" bind:value={studentId} validation={studentIdState} hint={studentIdState === 'invalid' ? copy.studentIdInvalid : ''} validHint={copy.studentIdValid} disabled={state.identity_status === 'rejected' && !!remediation && !remediation.editId} />
 
-          <label class="block">
-            <span class="mb-2 block text-sm font-medium text-text">Student ID</span>
-            <input
-              bind:value={studentId}
-              maxlength="10"
-              autocomplete="off"
-              class="h-12 w-full rounded-xl border border-border bg-surface-level-1 px-4 uppercase text-text outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:opacity-60"
-              disabled={state.identity_status === 'rejected' && remediation && !remediation.editId}
-              placeholder="A123456789"
-            />
-          </label>
-
-          <div class="mt-5">
-            <span class="mb-2 block text-sm font-medium text-text">Student card photo</span>
-            <label class="block cursor-pointer rounded-2xl border border-dashed border-border bg-surface-level-1 p-4 transition hover:border-primary">
+          <div>
+            <span class="mb-1.5 block text-sm font-semibold text-text">{copy.card}</span>
+            <label class={`block cursor-pointer rounded-2xl border p-4 transition-colors ${fileState === 'invalid' ? 'border-danger bg-danger-light/20' : fileState === 'valid' ? 'border-success/70 bg-success-light/20' : 'border-border bg-surface hover:bg-surface-level-1'}`}>
               <input class="sr-only" type="file" accept="image/jpeg,image/png,image/webp" on:change={chooseCard} />
               {#if previewUrl}
                 <img src={previewUrl} alt="Student card preview" class="mb-3 max-h-56 w-full rounded-xl object-contain" />
-                <p class="text-center text-sm font-medium text-primary">Choose a different photo</p>
+                <div class="flex items-center justify-center gap-2 text-sm font-semibold text-primary"><Icon name="camera" size={17} />{copy.replaceCard}</div>
               {:else}
-                <div class="flex min-h-[132px] flex-col items-center justify-center text-center">
-                  <div class="mb-3 grid h-11 w-11 place-items-center rounded-full bg-primary-light text-primary"><Icon name="camera" size={20} /></div>
-                  <p class="font-medium text-text">Add a clear card photo</p>
-                  <p class="mt-1 text-xs text-text-muted">JPG, PNG or WebP · up to 5 MB</p>
+                <div class="flex min-h-[120px] flex-col items-center justify-center text-center">
+                  <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-primary-light text-primary"><Icon name="camera" size={19} /></div>
+                  <p class="font-semibold text-text">{copy.addCard}</p>
+                  <p class="mt-1 text-xs text-text-muted">{copy.cardHint}</p>
                 </div>
               {/if}
             </label>
+            <div class={`mt-1.5 flex min-h-5 items-center gap-1.5 px-1 text-xs font-medium ${fileState === 'valid' ? 'text-success' : fileState === 'invalid' ? 'text-danger' : 'text-text-muted'}`}>
+              {#if fileState !== 'idle'}<Icon name={fileState === 'valid' ? 'check' : 'x'} size={13} />{/if}
+              <span>{fileState === 'valid' ? copy.cardReady : fileError}</span>
+            </div>
           </div>
 
-          {#if error}
-            <div class="mt-4 rounded-xl bg-danger-light p-3 text-sm text-danger" role="alert">{error}</div>
-          {/if}
+          {#if error}<div class="rounded-2xl bg-danger-light p-4 text-sm font-medium leading-6 text-danger" role="alert">{error}</div>{/if}
 
-          <button
-            on:click={submit}
-            disabled={!canSubmit}
-            class="mt-5 w-full rounded-xl bg-primary px-4 py-3.5 font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-45"
-          >
-            {submitting ? 'Submitting securely…' : state.identity_status === 'rejected' ? 'Resubmit for review' : 'Submit for review'}
-          </button>
-          <p class="mt-3 text-center text-xs leading-5 text-text-muted">Your card is private and visible only to authorized reviewers.</p>
-        </section>
+          <Button on:click={submit} variant="primary" size="lg" loading={submitting} disabled={submitting} className="w-full">{submitting ? copy.submitting : state.identity_status === 'rejected' ? copy.resubmit : copy.submit}</Button>
+          <p class="text-center text-xs leading-5 text-text-muted">{copy.private}</p>
+
+          <div class="grid grid-cols-2 gap-3 pt-1">
+            <ActionLink href="/pending-approval" variant="secondary" size="md" icon="arrow-left">{copy.accountStatus}</ActionLink>
+            <ActionLink href="/help" variant="secondary" size="md" icon="info">{copy.help}</ActionLink>
+          </div>
+        </div>
       {/if}
-    {/if}
-  </main>
-</div>
+    </section>
+  {/if}
+</AuthShell>
