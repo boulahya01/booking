@@ -49,6 +49,22 @@ export type OpenMatch = {
   organized_by_me: boolean
 }
 
+export type MyMatch = {
+  match_id: string
+  booking_id: string
+  pitch_name: string
+  location: string
+  sport_type: string | null
+  starts_at: string
+  ends_at: string
+  organizer_name: string
+  capacity: number
+  reserved_spots: number
+  joined_count: number
+  member_role: 'organizer' | 'player'
+  visibility: 'private' | 'open'
+}
+
 export type MatchRosterMember = {
   user_id: string
   full_name: string
@@ -72,6 +88,12 @@ function throwMatchError(error: any): never {
 
 export async function listOpenMatches(): Promise<OpenMatch[]> {
   const { data, error } = await supabase.rpc('list_open_matches')
+  if (error) throwMatchError(error)
+  return Array.isArray(data) ? data : []
+}
+
+export async function listMyMatches(): Promise<MyMatch[]> {
+  const { data, error } = await supabase.rpc('list_my_matches')
   if (error) throwMatchError(error)
   return Array.isArray(data) ? data : []
 }
