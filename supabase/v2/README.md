@@ -2,7 +2,7 @@
 
 This directory contains the proposed clean V2 database contract.
 
-It is intentionally **not** inside `supabase/migrations/`. Nothing here should be pushed to the current production database until the schema and migration path have been validated in an isolated Supabase/Postgres environment.
+It is intentionally **not** inside `supabase/migrations/`. Nothing here should be pushed to the current production database until the schema and migration path have been validated in an isolated local Postgres/Supabase environment.
 
 ## Why this is separate
 
@@ -11,11 +11,13 @@ The current production project contains schema and migration-history drift. Repl
 V2 therefore follows this sequence:
 
 1. keep production V1 read-only while the baseline is designed
-2. validate `schema.sql` against a clean database
-3. add database-level tests for auth, booking conflicts, frequency limits and cancellation
+2. validate `schema.sql` against a clean local database
+3. run the database contract tests
 4. write an explicit V1 -> V2 data migration
 5. verify row counts and relationships using a production snapshot/export
 6. cut over only after application smoke tests pass
+
+No paid Supabase development branch is required for this workflow.
 
 ## Product rules represented here
 
@@ -34,5 +36,30 @@ V2 therefore follows this sequence:
 ## Files
 
 - `schema.sql` — clean V2 schema/RLS/RPC baseline for an isolated target
+- `tests/booking_contract.sql` — transactional database contract tests for booking behavior and security boundaries
+
+## Zero-cost local validation
+
+Use a disposable local Supabase/Postgres database. Do **not** point these commands at production.
+
+With `psql` available:
+
+```bash
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/schema.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/tests/booking_contract.sql
+```
+
+The contract test transaction rolls back all fixtures after the run. The schema itself is intended for a fresh/disposable database.
+
+The current contract suite checks:
+
+- successful one-hour booking creation
+- database-level same-pitch overlap protection
+- peer display-name visibility in availability
+- facility booking-frequency enforcement
+- blocking direct authenticated booking inserts
+- cancellation cutoff enforcement
+- successful cancellation outside the cutoff
+- derived completed lifecycle without cron/jobs
 
 Do not treat this directory as an applied migration history yet.
