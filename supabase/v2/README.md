@@ -24,13 +24,15 @@ Apply the complete stack before enabling real registration or application traffi
 16. `016_match_lifecycle_integrity.sql`
 17. `017_admin_operations.sql`
 18. `018_backend_read_contract.sql`
-19. `tests/booking_contract.sql`
-20. `tests/security_contract.sql`
-21. `tests/identity_contract.sql`
-22. `tests/support_contract.sql`
-23. `tests/match_contract.sql`
-24. `tests/admin_operations_contract.sql`
-25. `tests/backend_read_contract.sql`
+19. `019_user_access_moderation.sql`
+20. `tests/booking_contract.sql`
+21. `tests/security_contract.sql`
+22. `tests/identity_contract.sql`
+23. `tests/support_contract.sql`
+24. `tests/match_contract.sql`
+25. `tests/admin_operations_contract.sql`
+26. `tests/backend_read_contract.sql`
+27. `tests/user_moderation_contract.sql`
 
 Every contract suite is transactional and rolls back its fixtures. A hosted V2 project is not launch-ready until the full ordered stack is applied, all suites pass, Supabase security/performance advisors are reviewed, and generated database types match the resulting schema.
 
@@ -47,6 +49,7 @@ Affiliation proof and Student ID ownership are separate security properties.
 - Verification retries stay on the same Auth account. Duplicate-identity conflicts route to safe recovery/Help rather than exposing who owns the identity.
 - `get_my_session_context()` is the preferred application bootstrap payload; `get_my_account_state()` remains the narrow account-state contract used by verification/remediation flows.
 - Student-card evidence is private, image-only, size-limited and user-scoped. Admin access is only through the verification workflow.
+- Access suspension is a separate moderation state from identity remediation. A suspension reason must not overwrite a verification rejection/conflict reason.
 
 The baseline schema and layer 005 already implement the academic/personal split. Layer 013 adds the final username requirement to signup. **Do not expose signup while only a partial stack is installed.**
 
@@ -109,9 +112,12 @@ Admin authorization is enforced in PostgreSQL, not by UI visibility.
 - `admin_list_bookings()` + `admin_cancel_booking()`
 - `admin_save_pitch()` + `admin_archive_pitch()`
 - `admin_list_users()` — server-side search/status/pagination over narrow profile fields.
+- `admin_set_user_access()` — audited student Suspend / Restore access with structured reasons.
 - verification queue/review RPCs
 - support inbox/context/reply/status RPCs
 - admin match read model
+
+Layer 019 revokes direct authenticated `profiles UPDATE`. Self-profile edits remain narrow through `update_my_profile()`, verification decisions stay in the verification workflow, and routine access moderation cannot mutate admin identities or approve a pending personal-email identity. Suspension and restoration are audited separately from identity verification.
 
 Sensitive or destructive operations are audited where defined by their domain contract.
 
@@ -128,6 +134,7 @@ Sensitive or destructive operations are audited where defined by their domain co
 - `014`–`016` — open-match mutation/read/lifecycle integrity.
 - `017_admin_operations.sql` — audited booking/facility administration and direct facility-write closure.
 - `018_backend_read_contract.sql` — authoritative session, bookings, support, verification-attempt and admin-user read models.
+- `019_user_access_moderation.sql` — close direct profile writes; separate audited student access suspension/restoration from identity review.
 - `tests/*.sql` — transactional domain/security contracts.
 
 ## Zero-cost validation
@@ -152,13 +159,15 @@ for file in \
   supabase/v2/016_match_lifecycle_integrity.sql \
   supabase/v2/017_admin_operations.sql \
   supabase/v2/018_backend_read_contract.sql \
+  supabase/v2/019_user_access_moderation.sql \
   supabase/v2/tests/booking_contract.sql \
   supabase/v2/tests/security_contract.sql \
   supabase/v2/tests/identity_contract.sql \
   supabase/v2/tests/support_contract.sql \
   supabase/v2/tests/match_contract.sql \
   supabase/v2/tests/admin_operations_contract.sql \
-  supabase/v2/tests/backend_read_contract.sql
+  supabase/v2/tests/backend_read_contract.sql \
+  supabase/v2/tests/user_moderation_contract.sql
 do
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$file" || exit 1
 done
