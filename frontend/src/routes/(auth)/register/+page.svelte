@@ -7,7 +7,6 @@
   import Button from '$lib/components/Button.svelte'
   import Icon from '$lib/components/Icon.svelte'
   import AuthShell from '$lib/components/AuthShell.svelte'
-  import ActionLink from '$lib/components/ActionLink.svelte'
   import { isValidEmail, isValidStudentId, isValidPassword, isValidUsername } from '$lib/utils/cn'
   import { sanitizeInput, sanitizeName, sanitizeStudentId } from '$lib/validation'
 
@@ -52,29 +51,32 @@
 
   $: copy = $language === 'ar'
     ? {
-        emailTitle: 'إنشاء حساب', detailsTitle: 'معلوماتك', passwordTitle: 'كلمة المرور',
-        email: 'البريد الإلكتروني', emailPlaceholder: 'mehdi@usmba.ac.ma', academicEmailValid: 'بريد جامعي — دخول أسرع', personalEmailValid: 'بريد شخصي — البطاقة مطلوبة', invalidEmail: 'أدخل بريداً صحيحاً.',
-        universityEmail: 'بريد جامعي', universityAccess: 'يمكنك الحجز بعد تأكيد البريد', personalEmail: 'بريد شخصي', personalAccess: 'تأكيد بطاقة الطالب مطلوب قبل الحجز',
+        emailTitle: 'إنشاء حساب', detailsTitle: 'معلوماتك', passwordTitle: 'اختر كلمة مرور',
+        emailSubtitle: 'ابدأ ببريدك الإلكتروني', detailsSubtitle: 'معلومات قصيرة فقط', passwordSubtitle: 'اجعلها آمنة وسهلة التذكر',
+        email: 'البريد الإلكتروني', emailPlaceholder: 'mehdi@usmba.ac.ma', academicEmailValid: 'بريد جامعي · دخول أسرع', personalEmailValid: 'بريد شخصي · البطاقة مطلوبة', invalidEmail: 'أدخل بريداً صحيحاً.',
+        universityEmail: 'بريد جامعي', universityAccess: 'يمكنك الحجز بعد تأكيد البريد', personalEmail: 'بريد شخصي', personalAccess: 'بطاقة الطالب مطلوبة قبل الحجز',
         continue: 'متابعة', back: 'رجوع', fullName: 'الاسم الكامل', fullNamePlaceholder: 'Mehdi El Amrani', fullNameValid: 'الاسم واضح', invalidName: 'اكتب الاسم الكامل.',
         username: 'اسم المستخدم', usernamePlaceholder: 'mehdi01', usernameValid: 'سيظهر كـ', invalidUsername: '3–24 حرفاً أو رقماً أو _',
         studentId: 'رقم الطالب', studentIdPlaceholder: 'S123456789', studentIdValid: 'الصيغة صحيحة', invalidStudentId: 'حرف واحد + 9 أرقام',
         password: 'كلمة المرور', passwordPlaceholder: '8 أحرف أو أكثر', confirmPassword: 'تأكيد كلمة المرور', confirmPlaceholder: 'أعد كتابة كلمة المرور',
         passwordReady: 'جاهزة', passwordRequired: 'أنشئ كلمة مرور.', match: 'متطابقة', mismatch: 'غير متطابقة',
-        ruleLength: '8+ أحرف', ruleNumber: 'رقم', ruleSymbol: 'رمز', create: 'إنشاء الحساب', signIn: 'تسجيل الدخول', help: 'المساعدة'
+        ruleLength: '8+ أحرف', ruleNumber: 'رقم', ruleSymbol: 'رمز', create: 'إنشاء الحساب', haveAccount: 'لديك حساب؟', signIn: 'تسجيل الدخول', help: 'تحتاج مساعدة؟'
       }
     : {
         emailTitle: 'Create account', detailsTitle: 'Your details', passwordTitle: 'Set password',
-        email: 'Email', emailPlaceholder: 'mehdi@usmba.ac.ma', academicEmailValid: 'USMBA email · faster access', personalEmailValid: 'Personal email · card approval required', invalidEmail: 'Enter a valid email.',
-        universityEmail: 'University email', universityAccess: 'Book after confirming your email', personalEmail: 'Personal email', personalAccess: 'Student-card approval required before booking',
+        emailSubtitle: 'Start with your email', detailsSubtitle: 'Just the essentials', passwordSubtitle: 'Keep it secure and memorable',
+        email: 'Email address', emailPlaceholder: 'mehdi@usmba.ac.ma', academicEmailValid: 'USMBA email · faster access', personalEmailValid: 'Personal email · card approval required', invalidEmail: 'Enter a valid email.',
+        universityEmail: 'University email', universityAccess: 'Book after confirming your email', personalEmail: 'Personal email', personalAccess: 'Student card required before booking',
         continue: 'Continue', back: 'Back', fullName: 'Full name', fullNamePlaceholder: 'Mehdi El Amrani', fullNameValid: 'Looks good', invalidName: 'Use your full name.',
         username: 'Username', usernamePlaceholder: 'mehdi01', usernameValid: 'Will be', invalidUsername: '3–24 letters, numbers or _',
         studentId: 'Student ID', studentIdPlaceholder: 'S123456789', studentIdValid: 'Valid format', invalidStudentId: '1 letter + 9 digits',
         password: 'Password', passwordPlaceholder: '8+ characters', confirmPassword: 'Confirm password', confirmPlaceholder: 'Repeat password',
         passwordReady: 'Ready', passwordRequired: 'Create a password.', match: 'Passwords match', mismatch: 'Doesn’t match',
-        ruleLength: '8+ chars', ruleNumber: '1 number', ruleSymbol: '1 symbol', create: 'Create account', signIn: 'Sign in', help: 'Help'
+        ruleLength: '8+ chars', ruleNumber: '1 number', ruleSymbol: '1 symbol', create: 'Create account', haveAccount: 'Already have an account?', signIn: 'Sign in', help: 'Need help?'
       }
 
   $: title = step === 'email' ? copy.emailTitle : step === 'details' ? copy.detailsTitle : copy.passwordTitle
+  $: subtitle = step === 'email' ? copy.emailSubtitle : step === 'details' ? copy.detailsSubtitle : copy.passwordSubtitle
   $: emailHint = emailState === 'valid' ? (academic ? copy.academicEmailValid : copy.personalEmailValid) : emailState === 'invalid' ? copy.invalidEmail : ''
   $: usernameHint = usernameState === 'valid' ? `${copy.usernameValid} @${cleanUsername}` : usernameState === 'invalid' ? copy.invalidUsername : ''
   $: loginHref = emailValid ? `/login?email=${encodeURIComponent(cleanEmail)}` : '/login'
@@ -83,10 +85,12 @@
     if (!active) return 'idle'
     return valid ? 'valid' : 'invalid'
   }
+
   function ruleClass(passed: boolean) {
     if (!password.length) return 'text-text-muted'
     return passed ? 'text-success' : 'text-danger'
   }
+
   function goBack() {
     submitError = ''
     if (step === 'password') step = 'details'
@@ -105,12 +109,14 @@
     if (!emailValid) return
     step = 'details'
   }
+
   function continueFromDetails() {
     submitError = ''
     detailsAttempted = true
     if (!detailsValid) return
     step = 'password'
   }
+
   async function submit() {
     submitError = ''
     passwordAttempted = true
@@ -135,63 +141,70 @@
 
 <AuthShell>
   <section class="w-full">
-    <div class="mb-7">
-      <div class="mb-5 flex gap-1.5" aria-hidden="true">
+    <div class="mb-8">
+      <div class="mb-7 flex gap-1.5" aria-hidden="true">
         <span class="h-1 flex-1 rounded-full bg-primary"></span>
         <span class={`h-1 flex-1 rounded-full ${step === 'details' || step === 'password' ? 'bg-primary' : 'bg-surface-level-2'}`}></span>
         <span class={`h-1 flex-1 rounded-full ${step === 'password' ? 'bg-primary' : 'bg-surface-level-2'}`}></span>
       </div>
-      <div class="flex items-center gap-3">
+
+      <div class="relative text-center">
         {#if step !== 'email'}
-          <button type="button" on:click={goBack} class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-surface-level-1 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/25" aria-label={copy.back}>
+          <button type="button" on:click={goBack} class="absolute start-0 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-surface-level-1 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/25" aria-label={copy.back}>
             <Icon name={$language === 'ar' ? 'arrow-right' : 'arrow-left'} size={18} />
           </button>
         {/if}
-        <h1 class="text-3xl font-semibold tracking-[-0.035em] text-text sm:text-4xl">{title}</h1>
+        <h1 class="text-[30px] font-semibold tracking-[-0.035em] text-text">{title}</h1>
+        <p class="mt-2 text-sm text-text-secondary">{subtitle}</p>
       </div>
     </div>
 
     {#if submitError}
-      <div class="mb-5 rounded-2xl bg-danger-light p-4 text-danger" role="alert"><div class="flex items-start gap-3"><Icon name="alert-circle" size={20} className="mt-0.5 shrink-0" /><p class="text-sm font-medium leading-6">{submitError}</p></div></div>
+      <div class="mb-5 rounded-[18px] bg-danger-light p-4 text-danger" role="alert"><div class="flex items-start gap-3"><Icon name="alert-circle" size={19} className="mt-0.5 shrink-0" /><p class="text-sm font-medium leading-6">{submitError}</p></div></div>
     {/if}
 
     {#if step === 'email'}
       <form on:submit|preventDefault={continueFromEmail} class="space-y-5">
-        <TextField label={copy.email} type="email" placeholder={copy.emailPlaceholder} icon="mail" autocomplete="email" bind:value={email} validation={emailState} hint={emailHint} disabled={loading} />
+        <TextField ariaLabel={copy.email} type="email" placeholder={copy.emailPlaceholder} icon="mail" autocomplete="email" bind:value={email} validation={emailState} hint={emailHint} disabled={loading} />
         <Button type="submit" variant="primary" size="lg" className="w-full" disabled={loading}>{copy.continue}</Button>
       </form>
     {:else if step === 'details'}
-      <div class="mb-5 flex items-center gap-3 rounded-2xl bg-surface-level-1 px-4 py-3">
+      <div class="mb-5 flex items-center gap-3 rounded-[18px] bg-surface-level-1 px-4 py-3.5">
         <span class={`h-2.5 w-2.5 shrink-0 rounded-full ${academic ? 'bg-success' : 'bg-warning'}`}></span>
         <div class="min-w-0"><p class="text-sm font-semibold text-text">{academic ? copy.universityEmail : copy.personalEmail}</p><p class="mt-0.5 text-xs text-text-muted">{academic ? copy.universityAccess : copy.personalAccess}</p></div>
       </div>
       <form on:submit|preventDefault={continueFromDetails} class="space-y-4">
-        <TextField label={copy.fullName} placeholder={copy.fullNamePlaceholder} icon="user" autocomplete="name" bind:value={fullName} validation={nameState} hint={nameState === 'invalid' ? copy.invalidName : ''} validHint={copy.fullNameValid} disabled={loading} />
-        <TextField label={copy.username} placeholder={copy.usernamePlaceholder} icon="users" autocomplete="username" bind:value={username} validation={usernameState} hint={usernameHint} disabled={loading} />
+        <TextField ariaLabel={copy.fullName} placeholder={copy.fullNamePlaceholder} icon="user" autocomplete="name" bind:value={fullName} validation={nameState} hint={nameState === 'invalid' ? copy.invalidName : ''} validHint={copy.fullNameValid} disabled={loading} />
+        <TextField ariaLabel={copy.username} placeholder={copy.usernamePlaceholder} icon="users" autocomplete="username" bind:value={username} validation={usernameState} hint={usernameHint} disabled={loading} />
         {#if !academic}
-          <TextField label={copy.studentId} placeholder={copy.studentIdPlaceholder} icon="id-card" bind:value={studentId} validation={studentIdState} hint={studentIdState === 'invalid' ? copy.invalidStudentId : ''} validHint={copy.studentIdValid} disabled={loading} />
+          <TextField ariaLabel={copy.studentId} placeholder={copy.studentIdPlaceholder} icon="id-card" bind:value={studentId} validation={studentIdState} hint={studentIdState === 'invalid' ? copy.invalidStudentId : ''} validHint={copy.studentIdValid} disabled={loading} />
         {/if}
         <Button type="submit" variant="primary" size="lg" className="mt-2 w-full" disabled={loading}>{copy.continue}</Button>
       </form>
     {:else}
       <form on:submit|preventDefault={submit} class="space-y-4">
-        <TextField label={copy.password} type="password" placeholder={copy.passwordPlaceholder} icon="lock" autocomplete="new-password" bind:value={password} validation={passwordState} hint={passwordState === 'invalid' && passwordAttempted && !password.length ? copy.passwordRequired : ''} validHint={copy.passwordReady} disabled={loading} />
+        <TextField ariaLabel={copy.password} type="password" placeholder={copy.passwordPlaceholder} icon="lock" autocomplete="new-password" bind:value={password} validation={passwordState} hint={passwordState === 'invalid' && passwordAttempted && !password.length ? copy.passwordRequired : ''} validHint={copy.passwordReady} disabled={loading} />
+
         <div class="grid grid-cols-3 gap-2 px-1" aria-live="polite">
           {#each [{ label: copy.ruleLength, passed: passwordLength }, { label: copy.ruleNumber, passed: passwordNumber }, { label: copy.ruleSymbol, passed: passwordSymbol }] as rule}
-            <div class={`flex items-center gap-1.5 text-xs font-medium ${ruleClass(rule.passed)}`}>
+            <div class={`flex items-center justify-center gap-1.5 text-xs font-medium ${ruleClass(rule.passed)}`}>
               {#if password.length}<Icon name={rule.passed ? 'check' : 'x'} size={12} strokeWidth={2.4} />{:else}<span class="h-1.5 w-1.5 rounded-full bg-current opacity-45"></span>{/if}
               <span>{rule.label}</span>
             </div>
           {/each}
         </div>
-        <TextField label={copy.confirmPassword} type="password" placeholder={copy.confirmPlaceholder} icon="lock" autocomplete="new-password" bind:value={confirmPassword} validation={confirmState} hint={confirmState === 'invalid' ? copy.mismatch : ''} validHint={copy.match} disabled={loading} />
+
+        <TextField ariaLabel={copy.confirmPassword} type="password" placeholder={copy.confirmPlaceholder} icon="lock" autocomplete="new-password" bind:value={confirmPassword} validation={confirmState} hint={confirmState === 'invalid' ? copy.mismatch : ''} validHint={copy.match} disabled={loading} />
         <Button type="submit" variant="primary" size="lg" {loading} className="mt-2 w-full" disabled={loading}>{copy.create}</Button>
       </form>
     {/if}
 
-    <div class="mt-4 grid grid-cols-2 gap-3">
-      <ActionLink href={loginHref} variant="secondary" size="md" icon="arrow-left">{copy.signIn}</ActionLink>
-      <ActionLink href="/help" variant="secondary" size="md" icon="info">{copy.help}</ActionLink>
-    </div>
+    <p class="mt-7 text-center text-sm text-text-secondary">
+      {copy.haveAccount}<a href={loginHref} class="ms-1 font-semibold text-primary transition-colors hover:text-primary-hover">{copy.signIn}</a>
+    </p>
   </section>
+
+  <div slot="footer" class="text-center">
+    <a href="/help" class="inline-flex min-h-11 items-center justify-center gap-2 px-3 text-sm text-text-muted transition-colors hover:text-text"><Icon name="info" size={17} /><span>{copy.help}</span></a>
+  </div>
 </AuthShell>
