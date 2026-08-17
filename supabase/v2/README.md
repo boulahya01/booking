@@ -24,27 +24,31 @@ The V2 initialization order is:
 10. `010_support_report_admin_context.sql`
 11. `011_guest_support_optional_contact.sql`
 12. `012_support_rate_limit_scope.sql`
-13. `tests/booking_contract.sql`
-14. `tests/security_contract.sql`
-15. `tests/identity_contract.sql`
-16. `tests/support_contract.sql`
+13. `013_public_username_identity.sql`
+14. `tests/booking_contract.sql`
+15. `tests/security_contract.sql`
+16. `tests/identity_contract.sql`
+17. `tests/support_contract.sql`
 
 When the hosted V2 project is created, these schema layers become the first real V2 migration history. Do not replay historical V1 migrations.
 
 ## Identity and access rules
 
-Membership proof and Student ID proof are deliberately separate.
+Membership proof, public identity and Student ID proof are deliberately separate.
 
 - a confirmed `@usmba.ac.ma` email is the fast university-membership proof
 - academic-email students may receive normal sports access after email confirmation while Student ID verification remains required
 - a personal-email account is allowed, but stays restricted from normal booking/match access until manual student-card verification succeeds
-- Student ID is trusted only after student-card review
+- username is the public UNEEM handle used for search and invitations; it is normalized to lowercase and unique case-insensitively
+- Student ID remains private and is trusted only after student-card review
+- username never replaces Student ID as the authoritative private identity binding
 - an unverified Student ID claim does **not** reserve that ID globally
 - only a verified Student ID is unique, enforced by a partial PostgreSQL unique index
 - competing approvals for the same Student ID are serialized and still protected by the unique index
 - verification retries stay on the same Auth account and preserve attempt history
 - structured rejection reasons drive remediation instead of dead-end statuses
 - duplicate-identity conflicts return a generic error and must route to secure recovery/Help rather than exposing another account
+- registration username/email/identity collisions converge on a generic registration failure rather than exposing account existence
 - `get_my_account_state()` is the narrow authoritative payload for routing/access/status UI
 - student-card evidence lives in the private `student-verification` bucket with a 5 MB image-only limit
 - evidence paths are scoped to the authenticated user; students can manage only their own evidence while authorized admins can read it for review
@@ -110,9 +114,10 @@ Support and moderation use one private admin inbox but keep their semantics dist
 - `010_support_report_admin_context.sql` — narrow report target/reason context for authorized admins
 - `011_guest_support_optional_contact.sql` — keeps no-auth support accessible while preserving burst protection
 - `012_support_rate_limit_scope.sql` — separates new-thread throttles from reply/message throttles
+- `013_public_username_identity.sql` — public handle format/uniqueness plus signup-time username binding without an enumeration preflight
 - `tests/booking_contract.sql` — transactional booking behavior tests
 - `tests/security_contract.sql` — transactional approval/RLS tests
-- `tests/identity_contract.sql` — academic fast path, personal restriction, verified-only uniqueness and reject → remediate → approve behavior
+- `tests/identity_contract.sql` — academic fast path, personal restriction, verified-only Student ID uniqueness, public username invariants, and reject → remediate → approve behavior
 - `tests/support_contract.sql` — structured report, self-target prevention, generic-report rejection and support throttle tests
 
 ## Zero-cost validation
@@ -132,6 +137,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/009_support_reports_abuse
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/010_support_report_admin_context.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/011_guest_support_optional_contact.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/012_support_rate_limit_scope.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/013_public_username_identity.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/tests/booking_contract.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/tests/security_contract.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/tests/identity_contract.sql

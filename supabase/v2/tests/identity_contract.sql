@@ -1,5 +1,5 @@
 -- UNEEM V2 identity verification contract tests.
--- Run after schema layers 001-005. All fixtures roll back.
+-- Run after schema layers 001-013. All fixtures roll back.
 
 \set ON_ERROR_STOP on
 
@@ -7,12 +7,12 @@ begin;
 set local session_replication_role = replica;
 
 insert into public.profiles (
-  id, student_id, full_name, role, status, email_kind, identity_status
+  id, student_id, full_name, username, role, status, email_kind, identity_status
 ) values
-  ('51000000-0000-4000-8000-000000000001', null, 'Academic Student', 'student', 'approved', 'academic', 'required'),
-  ('51000000-0000-4000-8000-000000000002', 'S510000002', 'Personal Student', 'student', 'pending', 'personal', 'required'),
-  ('51000000-0000-4000-8000-000000000003', 'S510000003', 'Verified Student', 'student', 'approved', 'personal', 'verified'),
-  ('51000000-0000-4000-8000-000000000004', null, 'Review Admin', 'admin', 'approved', 'academic', 'verified');
+  ('51000000-0000-4000-8000-000000000001', null, 'Academic Student', 'academic_player', 'student', 'approved', 'academic', 'required'),
+  ('51000000-0000-4000-8000-000000000002', 'S510000002', 'Personal Student', 'personal_player', 'student', 'pending', 'personal', 'required'),
+  ('51000000-0000-4000-8000-000000000003', 'S510000003', 'Verified Student', 'verified_player', 'student', 'approved', 'personal', 'verified'),
+  ('51000000-0000-4000-8000-000000000004', null, 'Review Admin', 'review_admin', 'admin', 'approved', 'academic', 'verified');
 
 set local session_replication_role = origin;
 
@@ -146,6 +146,34 @@ begin
   ) then
     raise exception 'FAIL: remediation approval did not verify identity';
   end if;
+end;
+$$;
+
+-- 7. Public usernames are case-insensitively unique and remain separate from Student ID.
+do $$
+begin
+  begin
+    update public.profiles
+    set username = 'VERIFIED_PLAYER'
+    where id = '51000000-0000-4000-8000-000000000002';
+    raise exception 'FAIL: duplicate username unexpectedly succeeded';
+  exception
+    when unique_violation then null;
+  end;
+end;
+$$;
+
+-- 8. Invalid usernames cannot be persisted even when direct table access is simulated in this contract fixture.
+do $$
+begin
+  begin
+    update public.profiles
+    set username = 'bad handle!'
+    where id = '51000000-0000-4000-8000-000000000002';
+    raise exception 'FAIL: invalid username unexpectedly succeeded';
+  exception
+    when check_violation then null;
+  end;
 end;
 $$;
 

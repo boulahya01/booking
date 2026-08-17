@@ -7,13 +7,14 @@
   import Button from '$lib/components/Button.svelte'
   import Card from '$lib/components/Card.svelte'
   import Icon from '$lib/components/Icon.svelte'
-  import { isValidEmail, isValidStudentId, isValidPassword } from '$lib/utils/cn'
+  import { isValidEmail, isValidStudentId, isValidPassword, isValidUsername } from '$lib/utils/cn'
   import { sanitizeInput, sanitizeName, sanitizeStudentId } from '$lib/validation'
 
   type Step = 'email' | 'details'
 
   let step: Step = 'email'
   let fullName = ''
+  let username = ''
   let email = ''
   let studentId = ''
   let password = ''
@@ -23,6 +24,7 @@
 
   $: academic = isAcademicEmail(email)
   $: emailValid = isValidEmail(email)
+  $: usernameValid = isValidUsername(username)
   $: studentIdValid = academic || isValidStudentId(studentId.toUpperCase())
   $: passwordValid = isValidPassword(password)
   $: passwordsMatch = password.length > 0 && password === confirmPassword
@@ -44,16 +46,20 @@
         personalPathHelp: 'يلزم رقم الطالب وبطاقة الطالب. لن يتاح الحجز حتى يراجع المشرف طلبك.',
         fullName: 'الاسم الكامل',
         fullNamePlaceholder: 'الاسم كما يظهر في بطاقتك',
+        username: 'اسم المستخدم',
+        usernamePlaceholder: 'مثال: marwan_23',
+        usernameHelp: 'اسم عام داخل مجتمع UNEEM للدعوات والبحث. استخدم 3 إلى 24 حرفاً إنجليزياً صغيراً أو رقماً أو _.',
         studentId: 'رقم الطالب',
         studentIdPlaceholder: 'S123456789',
         password: 'كلمة المرور',
         confirmPassword: 'تأكيد كلمة المرور',
-        passwordHelp: '8 أحرف على الأقل مع حرف كبير ورقم ورمز.',
+        passwordHelp: '8 أحرف على الأقل مع رقم ورمز.',
         create: 'إنشاء الحساب',
         haveAccount: 'لديك حساب؟',
         signIn: 'تسجيل الدخول',
         invalidEmail: 'أدخل بريداً إلكترونياً صحيحاً.',
         invalidName: 'أدخل اسمك الكامل.',
+        invalidUsername: 'اسم المستخدم يجب أن يكون من 3 إلى 24 حرفاً إنجليزياً صغيراً أو رقماً أو _.',
         invalidStudentId: 'رقم الطالب يجب أن يكون مثل S123456789.',
         invalidPassword: 'كلمة المرور لا تستوفي المتطلبات.',
         mismatch: 'كلمتا المرور غير متطابقتين.'
@@ -73,16 +79,20 @@
         personalPathHelp: 'Student ID and student-card verification are required. Booking stays locked until an admin approves your verification.',
         fullName: 'Full name',
         fullNamePlaceholder: 'Name as shown on your student card',
+        username: 'Username',
+        usernamePlaceholder: 'e.g. marwan_23',
+        usernameHelp: 'Your public UNEEM handle for invites and search. Use 3–24 lowercase letters, numbers, or _.',
         studentId: 'Student ID',
         studentIdPlaceholder: 'S123456789',
         password: 'Password',
         confirmPassword: 'Confirm password',
-        passwordHelp: 'Use 8+ characters with an uppercase letter, number and symbol.',
+        passwordHelp: 'Use 8+ characters with a number and symbol.',
         create: 'Create account',
         haveAccount: 'Already have an account?',
         signIn: 'Sign in',
         invalidEmail: 'Enter a valid email address.',
         invalidName: 'Enter your full name.',
+        invalidUsername: 'Use 3–24 lowercase letters, numbers, or underscores for your username.',
         invalidStudentId: 'Student ID should look like S123456789.',
         invalidPassword: 'Your password does not meet the requirements.',
         mismatch: 'Passwords do not match.'
@@ -116,6 +126,10 @@
       submitError = copy.invalidName
       return
     }
+    if (!usernameValid) {
+      submitError = copy.invalidUsername
+      return
+    }
     if (!studentIdValid) {
       submitError = copy.invalidStudentId
       return
@@ -132,11 +146,12 @@
     loading = true
     try {
       const cleanFullName = sanitizeName(fullName)
+      const cleanUsername = sanitizeInput(username).trim().toLowerCase()
       const cleanEmail = sanitizeInput(email).trim().toLowerCase()
       const cleanPassword = sanitizeInput(password)
       const cleanStudentId = academic ? null : sanitizeStudentId(studentId).toUpperCase()
 
-      const result = await register(cleanEmail, cleanPassword, cleanStudentId, cleanFullName)
+      const result = await register(cleanEmail, cleanPassword, cleanStudentId, cleanFullName, cleanUsername)
       if (result.error) {
         submitError = result.error.message
         return
@@ -241,6 +256,16 @@
               bind:value={fullName}
               disabled={loading}
             />
+
+            <div class="space-y-2">
+              <TextField
+                label={copy.username}
+                placeholder={copy.usernamePlaceholder}
+                bind:value={username}
+                disabled={loading}
+              />
+              <p class="text-xs text-text-muted px-1 leading-relaxed">{copy.usernameHelp}</p>
+            </div>
 
             {#if !academic}
               <TextField
