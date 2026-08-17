@@ -6,16 +6,13 @@
   import SlotCard from '$lib/components/SlotCard.svelte'
   import BookingModal from '$lib/components/BookingModal.svelte'
   import LoadingSkeleton from '$lib/components/LoadingSkeleton.svelte'
+  import Icon from '$lib/components/Icon.svelte'
   import { _ } from 'svelte-i18n'
   import { locale } from 'svelte-i18n'
   import { USE_MOCK, mockPitches, mockSlots } from '$lib/mock'
   import { uiState } from '$lib/stores/ui'
   import { logger } from '$lib/logger'
-  import {
-    getPitchAvailability,
-    cancelBooking as cancelBookingRpc,
-    BookingApiError
-  } from '$lib/bookingApi'
+  import { getPitchAvailability, cancelBooking as cancelBookingRpc, BookingApiError } from '$lib/bookingApi'
   import { bookingFailureMessage } from '$lib/ux/bookingFailure'
 
   let pitch: any = null
@@ -28,49 +25,34 @@
   let showModal = false
   let selectedDate: string | null = null
   let currentTime = new Date()
+  let cancelSlot: any = null
+  let canceling = false
 
   $: pitchId = $page.params.id
 
   let fetchVersion = 0
   let slotsRequestVersion: number | null = null
-
   let refreshInterval: ReturnType<typeof setInterval> | null = null
   let cleanupVisibility: (() => void) | null = null
 
   function startAutoRefresh() {
-    refreshInterval = setInterval(() => {
-      if (pitchId) fetchSlots()
-    }, 120_000)
-
-    const handleVisibility = () => {
-      if (!document.hidden && pitchId) fetchSlots()
-    }
+    refreshInterval = setInterval(() => { if (pitchId) fetchSlots() }, 120_000)
+    const handleVisibility = () => { if (!document.hidden && pitchId) fetchSlots() }
     document.addEventListener('visibilitychange', handleVisibility)
     cleanupVisibility = () => document.removeEventListener('visibilitychange', handleVisibility)
   }
 
   function stopAutoRefresh() {
-    if (refreshInterval) {
-      clearInterval(refreshInterval)
-      refreshInterval = null
-    }
+    if (refreshInterval) clearInterval(refreshInterval)
+    refreshInterval = null
     cleanupVisibility?.()
     cleanupVisibility = null
   }
 
   async function fetchPitch() {
-    const thisVersion = ++fetchVersion
-    if (!pitchId) {
-      pitch = null
-      loading = false
-      return
-    }
-
-    if (USE_MOCK) {
-      pitch = mockPitches.find(p => p.id === pitchId) || null
-      loading = false
-      return
-    }
+    const version = ++fetchVersion
+    if (!pitchId) { pitch = null; loading = false; return }
+    if (USE_MOCK) { pitch = mockPitches.find((item) => item.id === pitchId) || null; loading = false; return }
 
     const { data, error: fetchError } = await supabase
       .from('pitches')
@@ -78,28 +60,22 @@
       .eq('id', pitchId)
       .maybeSingle()
 
-    if (thisVersion !== fetchVersion) return
-
+    if (version !== fetchVersion) return
     if (fetchError) {
       logger.error('[Pitch Page] Failed to load pitch:', fetchError)
       error = $_('common.error')
       pitch = null
-    } else if (!data) {
-      error = null
-      pitch = null
     } else {
       error = null
-      pitch = data
+      pitch = data || null
     }
     loading = false
   }
 
   async function fetchSlots() {
-    const thisVersion = fetchVersion
-    if (!pitchId) return
-    if (slotsRequestVersion === thisVersion) return
-
-    slotsRequestVersion = thisVersion
+    const version = fetchVersion
+    if (!pitchId || slotsRequestVersion === version) return
+    slotsRequestVersion = version
     loadingSlots = true
     errorSlots = null
 
@@ -113,19 +89,17 @@
 
     try {
       const data = await getPitchAvailability(pitchId)
-      if (thisVersion !== fetchVersion) return
-
+      if (version !== fetchVersion) return
       slots = data
       syncSelectedDate()
     } catch (fetchError) {
-      if (thisVersion !== fetchVersion) return
+      if (version !== fetchVersion) return
       logger.error('[Pitch Page] Failed to load availability:', fetchError)
-      slots = []
       const code = fetchError instanceof BookingApiError ? fetchError.code : 'unknown'
       errorSlots = bookingFailureMessage(code, $locale)
     } finally {
-      if (slotsRequestVersion === thisVersion) slotsRequestVersion = null
-      if (thisVersion === fetchVersion) loadingSlots = false
+      if (slotsRequestVersion === version) slotsRequestVersion = null
+      if (version === fetchVersion) loadingSlots = false
     }
   }
 
@@ -135,6 +109,7 @@
     pitch = null
     slots = []
     selectedDate = null
+    cancelSlot = null
     stopAutoRefresh()
     fetchPitch()
     fetchSlots()
@@ -145,63 +120,46 @@
     showModal = true
   }
 
-  function onModalClose() {
-    showModal = false
-    selectedSlot = null
-  }
+  function onModalClose() { showModal = false; selectedSlot = null }
+  async function onBookingCompleted() { await fetchSlots() }
+  function requestCancellation(slot: any) { if (slot.booking_id) cancelSlot = slot }
+  function closeCancellation() { if (!canceling) cancelSlot = null }
 
-  async function onBookingCompleted() {
-    await fetchSlots()
-  }
-
-  async function cancelBooking(slot: any) {
-    if (!slot.booking_id) return
-    if (!confirm($_('pitch.cancel_confirm'))) return
-
+  async function confirmCancellation() {
+    if (!cancelSlot?.booking_id || canceling) return
+    canceling = true
     try {
-      await cancelBookingRpc(slot.booking_id)
+      await cancelBookingRpc(cancelSlot.booking_id)
       uiState.addToast($_('pitch.cancelled_success'), 'success')
+      cancelSlot = null
       await fetchSlots()
     } catch (cancelError) {
       const code = cancelError instanceof BookingApiError ? cancelError.code : 'unknown'
       uiState.addToast(bookingFailureMessage(code, $locale), 'error')
+    } finally {
+      canceling = false
     }
   }
 
   onMount(() => {
-    currentTime = new Date()
     const timer = setInterval(() => { currentTime = new Date() }, 60_000)
     startAutoRefresh()
-    return () => {
-      clearInterval(timer)
-      stopAutoRefresh()
-    }
+    return () => { clearInterval(timer); stopAutoRefresh() }
   })
 
   function facilityDateKey(value: string): string {
     const parts = new Intl.DateTimeFormat('en', {
-      timeZone: pitch?.timezone || 'Africa/Casablanca',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
+      timeZone: pitch?.timezone || 'Africa/Casablanca', year: 'numeric', month: '2-digit', day: '2-digit'
     }).formatToParts(new Date(value))
-
-    const year = parts.find((part) => part.type === 'year')?.value || ''
-    const month = parts.find((part) => part.type === 'month')?.value || ''
-    const day = parts.find((part) => part.type === 'day')?.value || ''
-    return `${year}-${month}-${day}`
+    return `${parts.find((p) => p.type === 'year')?.value || ''}-${parts.find((p) => p.type === 'month')?.value || ''}-${parts.find((p) => p.type === 'day')?.value || ''}`
   }
 
   function syncSelectedDate() {
-    if (!slots.length) {
-      selectedDate = null
-      return
-    }
-
+    if (!slots.length) { selectedDate = null; return }
     const availableDates = [...new Set(slots.map((slot) => facilityDateKey(slot.datetime_start)))].sort()
-    if (!selectedDate || !availableDates.includes(selectedDate)) {
-      selectedDate = availableDates[0] || null
-    }
+    if (selectedDate && availableDates.includes(selectedDate)) return
+    const useful = availableDates.find((date) => slots.some((slot) => facilityDateKey(slot.datetime_start) === date && (slot.is_available || slot.booked_by_me)))
+    selectedDate = useful || availableDates[0] || null
   }
 
   $: grouped = slots.reduce<Record<string, any[]>>((acc, slot) => {
@@ -209,162 +167,103 @@
     ;(acc[key] ??= []).push(slot)
     return acc
   }, {})
-
   $: dates = Object.keys(grouped).sort()
+  $: selectedSlots = selectedDate ? grouped[selectedDate] || [] : []
+  $: selectedAvailableCount = selectedSlots.filter((slot) => slot.is_available).length
 
-  function displayDate(dateKey: string) {
-    return new Date(`${dateKey}T12:00:00`)
-  }
-
+  function availableCount(dateKey: string) { return (grouped[dateKey] || []).filter((slot) => slot.is_available).length }
+  function displayDate(dateKey: string) { return new Date(`${dateKey}T12:00:00`) }
+  function formatDayLabel(dateKey: string) { return displayDate(dateKey).toLocaleDateString($locale || 'en', { weekday: 'short' }) }
   function formatDateHeader(dateKey: string) {
-    const date = displayDate(dateKey)
-    const today = new Date()
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
-
-    const todayKey = facilityDateKey(today.toISOString())
-    const tomorrowKey = facilityDateKey(tomorrow.toISOString())
-
-    const currentLocale = $locale || 'en'
-    const weekday = date.toLocaleDateString(currentLocale, { weekday: 'long' })
-    const monthDay = date.toLocaleDateString(currentLocale, { month: 'short', day: 'numeric' })
-
-    if (dateKey === todayKey) return `Today — ${weekday}, ${monthDay}`
-    if (dateKey === tomorrowKey) return `Tomorrow — ${weekday}, ${monthDay}`
-    return `${weekday}, ${monthDay}`
-  }
-
-  function formatDayLabel(dateKey: string) {
-    return displayDate(dateKey).toLocaleDateString($locale || 'en', { weekday: 'short' })
+    return displayDate(dateKey).toLocaleDateString($locale || 'en', { weekday: 'long', month: 'short', day: 'numeric' })
   }
 </script>
 
 <div class="min-h-screen" style="background: var(--bg);">
-  <div class="max-w-3xl mx-auto px-4 py-5">
+  <main class="mx-auto max-w-4xl px-4 pb-28 pt-4 sm:px-6 sm:pb-10 sm:pt-6">
     {#if loading}
       <div class="space-y-5">
-        <div class="h-5 w-28 rounded animate-pulse" style="background: var(--surface-level-1);"></div>
-        <div class="rounded-xl p-5 animate-pulse" style="background: var(--surface); border: 1px solid var(--border);">
-          <div class="flex items-start justify-between gap-4">
-            <div class="flex-1 space-y-3">
-              <div class="flex gap-2">
-                <div class="h-6 w-20 rounded-md animate-pulse" style="background: var(--surface-level-1);"></div>
-                <div class="h-6 w-16 rounded-md animate-pulse" style="background: var(--surface-level-1);"></div>
-              </div>
-              <div class="h-8 w-3/4 rounded animate-pulse" style="background: var(--surface-level-1);"></div>
-              <div class="h-5 w-1/2 rounded animate-pulse" style="background: var(--surface-level-1);"></div>
-              <div class="h-4 w-2/3 rounded animate-pulse" style="background: var(--surface-level-1);"></div>
-            </div>
-            <div class="w-12 h-12 rounded-lg animate-pulse" style="background: var(--surface-level-1);"></div>
-          </div>
-        </div>
-        <div class="flex gap-2 overflow-x-auto pb-2">
-          {#each Array(4) as _}
-            <div class="flex-shrink-0 w-16 h-16 rounded-xl animate-pulse" style="background: var(--surface-level-1);"></div>
-          {/each}
-        </div>
+        <div class="h-10 w-32 animate-pulse rounded-xl" style="background: var(--surface-level-1);"></div>
+        <div class="h-40 animate-pulse rounded-[24px]" style="background: var(--surface-level-1);"></div>
+        <div class="flex gap-2 overflow-hidden">{#each Array(5) as _}<div class="h-20 w-20 shrink-0 animate-pulse rounded-2xl" style="background: var(--surface-level-1);"></div>{/each}</div>
         <LoadingSkeleton type="slot" count={4} />
       </div>
     {:else if error}
-      <div class="text-center py-16 rounded-xl" style="background: var(--danger-light);">
-        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-4"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <section class="rounded-[24px] p-6 text-center" style="background: var(--danger-light);">
+        <Icon name="alert-triangle" size={34} className="mx-auto mb-3" />
         <p class="font-medium" style="color: var(--danger);">{error}</p>
-        <button on:click={fetchPitch} class="mt-4 text-sm font-medium hover:underline" style="color: var(--primary);">{$_('common.retry')}</button>
-      </div>
+        <button on:click={fetchPitch} class="mt-4 min-h-[48px] rounded-xl px-5 text-sm font-semibold" style="background: var(--surface); color: var(--primary);">{$_('common.retry')}</button>
+      </section>
     {:else if pitch}
-      <a href="/home"
-         class="inline-flex items-center gap-1.5 text-sm font-medium mb-5 no-underline transition-all duration-200 hover:-translate-y-0.5"
-         style="color: var(--text-secondary);">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-        <span>{$_('home.browse_pitches')}</span>
+      <a href="/home" class="mb-4 inline-flex min-h-[44px] items-center gap-2 rounded-xl pe-3 text-sm font-medium no-underline" style="color: var(--text-secondary);">
+        <Icon name={$locale === 'ar' ? 'arrow-right' : 'arrow-left'} size={17} /><span>{$_('home.browse_pitches')}</span>
       </a>
 
-      <div class="relative rounded-xl mb-5 p-5"
-           style="background: var(--surface); border: 1px solid var(--border); box-shadow: 0 0 0 1px var(--border);">
+      <section class="rounded-[24px] p-5 sm:p-6" style="background: var(--surface); border: 1px solid var(--border);">
         <div class="flex items-start justify-between gap-4">
-          <div class="flex-1">
-            <h1 class="text-2xl font-medium mb-2" style="color: var(--text); font-family: var(--font-serif);">{pitch.name}</h1>
-            <p class="flex items-center gap-1.5 text-sm mb-1" style="color: var(--text-secondary);">
-              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-              {pitch.location || $_('bookings.unknown_location')}
-            </p>
-            {#if pitch.open_time && pitch.close_time}
-              <p class="flex items-center gap-1.5 text-sm" style="color: var(--text-muted);">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                {pitch.open_time.slice(0, 5)} — {pitch.close_time.slice(0, 5)}
-              </p>
-            {/if}
+          <div class="min-w-0 flex-1">
+            {#if pitch.sport_type}<div class="mb-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold" style="background: var(--primary-light); color: var(--primary);">{pitch.sport_type}</div>{/if}
+            <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl" style="color: var(--text);">{pitch.name}</h1>
+            <div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm" style="color: var(--text-secondary);">
+              <span class="inline-flex items-center gap-1.5"><Icon name="map-pin" size={15} />{pitch.location || $_('bookings.unknown_location')}</span>
+              {#if pitch.open_time && pitch.close_time}<span class="inline-flex items-center gap-1.5"><Icon name="clock" size={15} />{pitch.open_time.slice(0, 5)} — {pitch.close_time.slice(0, 5)}</span>{/if}
+              {#if pitch.capacity}<span class="inline-flex items-center gap-1.5"><Icon name="users" size={15} />{pitch.capacity} · {$_('pitch.capacity')}</span>{/if}
+            </div>
           </div>
-          <div class="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0" style="background: var(--primary-light);">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5C7 4 6 9 6 9Z"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5C17 4 18 9 18 9Z"/><path d="M4 22H20"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55-.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
-          </div>
+          <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl" style="background: var(--primary-light); color: var(--primary);"><Icon name="trophy" size={23} /></div>
         </div>
-      </div>
+      </section>
 
-      {#if dates.length > 0}
-        <div class="mb-5">
-          <h2 class="text-base font-medium mb-3" style="color: var(--text); font-family: var(--font-serif);">{$_('pitch.slots_title')}</h2>
-          <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+      <section class="mt-7">
+        <div class="mb-3 flex items-end justify-between gap-4">
+          <div><h2 class="text-lg font-semibold tracking-tight" style="color: var(--text);">{$_('pitch.slots_title')}</h2>{#if selectedDate}<p class="mt-1 text-sm" style="color: var(--text-secondary);">{formatDateHeader(selectedDate)}</p>{/if}</div>
+          {#if loadingSlots && slots.length > 0}<span class="inline-flex items-center gap-2 text-xs" style="color: var(--text-muted);" aria-live="polite"><span class="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"></span>{$_('common.loading')}</span>{/if}
+        </div>
+
+        {#if dates.length > 0}
+          <div class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0 scrollbar-none">
             {#each dates as date}
-              {@const d = displayDate(date)}
-              {@const isSelected = selectedDate === date}
-              <button
-                on:click={() => (selectedDate = date)}
-                class="flex-shrink-0 min-w-[68px] p-2.5 rounded-xl text-center transition-all duration-200 hover:-translate-y-0.5"
-                style={isSelected
-                  ? 'background: var(--primary-gradient); color: white; border: 1px solid var(--primary); box-shadow: 0 0 0 1px var(--primary);'
-                  : 'background: var(--surface); color: var(--text-secondary); border: 1px solid var(--border);'}
-              >
-                <div class="text-[10px] font-medium uppercase tracking-wide" style={isSelected ? 'color: rgba(255,255,255,0.9);' : 'opacity: 0.7;'}>
-                  {formatDayLabel(date)}
-                </div>
-                <div class="text-lg font-bold" style={isSelected ? 'color: white;' : ''}>{d.getDate()}</div>
+              {@const d = displayDate(date)}{@const isSelected = selectedDate === date}{@const count = availableCount(date)}
+              <button on:click={() => (selectedDate = date)} class="min-h-[76px] min-w-[76px] shrink-0 rounded-2xl px-3 py-2.5 text-center transition-colors" style={isSelected ? 'background: var(--primary); color: white; border: 1px solid var(--primary);' : 'background: var(--surface); color: var(--text-secondary); border: 1px solid var(--border);'} aria-pressed={isSelected}>
+                <div class="text-[11px] font-semibold uppercase tracking-wide" style={isSelected ? 'color: rgba(255,255,255,.82);' : 'color: var(--text-muted);'}>{formatDayLabel(date)}</div>
+                <div class="mt-0.5 text-xl font-semibold">{d.getDate()}</div>
+                <div class="mt-0.5 text-[10px] font-medium" style={isSelected ? 'color: rgba(255,255,255,.82);' : 'color: var(--text-muted);'}>{count} · {$_('pitch.book')}</div>
               </button>
             {/each}
           </div>
-        </div>
-      {/if}
+        {/if}
+      </section>
 
-      {#if loadingSlots}
-        <LoadingSkeleton type="slot" count={4} />
-      {:else if errorSlots}
-        <div class="text-center py-12 rounded-xl" style="background: var(--danger-light);">
-          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-3"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          <p class="font-medium" style="color: var(--danger);">{errorSlots}</p>
-          <button on:click={fetchSlots} class="mt-4 text-sm font-medium transition-colors hover:underline" style="color: var(--primary);">{$_('common.retry')}</button>
-        </div>
-      {:else if slots.length === 0}
-        <div class="text-center py-12 rounded-xl" style="background: var(--surface-level-1); border: 1px dashed var(--border);">
-          <div class="w-14 h-14 mx-auto mb-3 rounded-full flex items-center justify-center" style="background: var(--surface-level-2); color: var(--text-muted);">
-            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          </div>
-          <p class="font-medium" style="color: var(--text-secondary);">{$_('pitch.no_slots')}</p>
-        </div>
-      {:else if selectedDate && grouped[selectedDate]}
-        <div class="mb-4">
-          <h3 class="text-xs font-semibold uppercase tracking-wider mb-3 flex items-center justify-between" style="color: var(--text-muted);">
-            <span>{formatDateHeader(selectedDate)}</span>
-            <span class="text-xs font-normal normal-case">{currentTime.toLocaleTimeString($locale || 'en', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
-          </h3>
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {#each grouped[selectedDate] as slot, i (slot.id || `${slot.datetime_start}-${i}`)}
-              <SlotCard slotData={slot} onBook={() => openBooking(slot)} onCancel={cancelBooking} />
-            {/each}
-          </div>
-        </div>
-      {:else}
-        <div class="text-center py-8" style="color: var(--text-muted);">{$_('pitch.select_date')}</div>
-      {/if}
+      <section class="mt-4">
+        {#if loadingSlots && slots.length === 0}
+          <LoadingSkeleton type="slot" count={4} />
+        {:else if errorSlots && slots.length === 0}
+          <div class="rounded-[24px] p-6 text-center" style="background: var(--danger-light);"><Icon name="alert-circle" size={30} className="mx-auto mb-3" /><p class="font-medium" style="color: var(--danger);">{errorSlots}</p><button on:click={fetchSlots} class="mt-4 min-h-[48px] rounded-xl px-5 text-sm font-semibold" style="background: var(--surface); color: var(--primary);">{$_('common.retry')}</button></div>
+        {:else if slots.length === 0}
+          <div class="rounded-[24px] p-8 text-center" style="background: var(--surface); border: 1px solid var(--border);"><div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full" style="background: var(--surface-level-1); color: var(--text-muted);"><Icon name="clock" size={22} /></div><p class="mt-3 font-medium" style="color: var(--text-secondary);">{$_('pitch.no_slots')}</p></div>
+        {:else if selectedDate && selectedSlots.length > 0}
+          {#if errorSlots}<div class="mb-3 flex items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm" style="background: var(--danger-light); color: var(--danger);" role="status"><span>{errorSlots}</span><button on:click={fetchSlots} class="shrink-0 font-semibold">{$_('common.retry')}</button></div>{/if}
+          <div class="mb-3 flex items-center justify-between text-xs" style="color: var(--text-muted);"><span>{selectedAvailableCount} · {$_('pitch.slots_title')}</span><span>{currentTime.toLocaleTimeString($locale || 'en', { hour: '2-digit', minute: '2-digit', hour12: false })}</span></div>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">{#each selectedSlots as slot, i (slot.id || `${slot.datetime_start}-${i}`)}<SlotCard slotData={slot} onBook={() => openBooking(slot)} onCancel={requestCancellation} />{/each}</div>
+        {:else}
+          <div class="rounded-2xl p-6 text-center text-sm" style="background: var(--surface-level-1); color: var(--text-muted);">{$_('pitch.select_date')}</div>
+        {/if}
+      </section>
 
-      {#if showModal && selectedSlot}
-        <BookingModal slotData={selectedSlot} onClose={onModalClose} onBooked={onBookingCompleted} />
+      {#if showModal && selectedSlot}<BookingModal slotData={selectedSlot} onClose={onModalClose} onBooked={onBookingCompleted} />{/if}
+      {#if cancelSlot}
+        <div class="fixed inset-0 z-40 flex items-end justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="cancel-booking-title">
+          <button class="absolute inset-0 bg-black/35 backdrop-blur-[2px]" on:click={closeCancellation} aria-label={$_('common.close')}></button>
+          <section class="relative z-50 w-full rounded-t-[24px] p-5 sm:max-w-md sm:rounded-[24px] sm:p-6" style="background: var(--surface); box-shadow: var(--shadow-lg);">
+            <div class="mx-auto mb-4 h-1 w-10 rounded-full sm:hidden" style="background: var(--border);"></div>
+            <div class="flex h-11 w-11 items-center justify-center rounded-full" style="background: var(--danger-light); color: var(--danger);"><Icon name="calendar" size={20} /></div>
+            <h2 id="cancel-booking-title" class="mt-4 text-xl font-semibold" style="color: var(--text);">{$_('pitch.cancel_booking')}</h2><p class="mt-2 text-sm leading-6" style="color: var(--text-secondary);">{$_('pitch.cancel_confirm')}</p>
+            <div class="mt-5 grid gap-2"><button on:click={confirmCancellation} disabled={canceling} class="flex min-h-[52px] items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white disabled:opacity-50" style="background: var(--danger);">{#if canceling}<span class="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white"></span>{/if}{$_('pitch.cancel_booking')}</button><button on:click={closeCancellation} disabled={canceling} class="min-h-[48px] rounded-xl px-4 text-sm font-medium disabled:opacity-50" style="color: var(--text-secondary);">{$_('common.cancel')}</button></div>
+          </section>
+        </div>
       {/if}
     {:else}
-      <div class="text-center py-16">
-        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-4"><circle cx="12" cy="12" r="10"/><path d="m14.5 9.5-5 5"/><path d="m9.5 9.5 5 5"/></svg>
-        <h2 class="text-xl font-medium mb-2" style="color: var(--text);">{$_('pitch.not_found')}</h2>
-        <a href="/home" class="inline-block mt-4 text-sm font-medium no-underline transition-colors hover:underline" style="color: var(--primary);">{$_('home.browse_pitches')}</a>
-      </div>
+      <section class="rounded-[24px] p-8 text-center" style="background: var(--surface); border: 1px solid var(--border);"><Icon name="x-circle" size={40} className="mx-auto mb-4" /><h2 class="text-xl font-semibold" style="color: var(--text);">{$_('pitch.not_found')}</h2><a href="/home" class="mt-4 inline-flex min-h-[48px] items-center rounded-xl px-5 text-sm font-semibold no-underline" style="background: var(--primary-light); color: var(--primary);">{$_('home.browse_pitches')}</a></section>
     {/if}
-  </div>
+  </main>
 </div>

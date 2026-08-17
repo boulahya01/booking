@@ -1,94 +1,116 @@
 <script lang="ts">
   import { _ } from 'svelte-i18n'
   import { authState } from '$lib/stores/auth'
+  import Icon from './Icon.svelte'
 
   export let slotData: any
   export let onBook: (s: any) => void
   export let onCancel: (s: any) => void = () => {}
 
-  const slot = slotData
+  $: slot = slotData
   $: bookedByMe = Boolean(slot.booked_by_me)
+  $: state = bookedByMe ? 'mine' : slot.is_available ? 'available' : 'occupied'
 
   function formatTime(dateString: string) {
-    return new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+    return new Date(dateString).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    })
   }
 </script>
 
-<div
-  class="w-full rounded-xl flex flex-col justify-between
-    transition-all duration-300 ease-in-out
-    {bookedByMe
-      ? 'bg-warning/5 hover:-translate-y-1'
-      : slot.is_available
-        ? 'bg-surface hover:-translate-y-1'
-        : 'bg-surface-level-1 opacity-85 cursor-not-allowed'}"
-  style={bookedByMe
-    ? 'border: 1px solid var(--border); border-top: 3px solid var(--warning); box-shadow: 0 0 0 1px var(--border);'
-    : slot.is_available
-      ? 'border: 1px solid var(--border); box-shadow: 0 0 0 1px var(--border);'
-      : 'border: 1px solid var(--border); opacity: 0.85;'}
+<article
+  class="group rounded-2xl p-4 transition-colors"
+  style={state === 'mine'
+    ? 'background: var(--warning-light); border: 1px solid color-mix(in srgb, var(--warning) 28%, var(--border));'
+    : state === 'available'
+      ? 'background: var(--surface); border: 1px solid var(--border);'
+      : 'background: var(--surface-level-1); border: 1px solid var(--border);'}
   aria-label={bookedByMe ? $_('pitch.booked_by_you') : slot.is_available ? $_('pitch.book') : $_('pitch.booked')}
 >
-  <div class="text-center pt-5 pb-3 px-4">
-    <div class="font-medium tracking-tight leading-none
-      {bookedByMe ? 'text-warning' : slot.is_available ? 'text-primary' : 'text-text-muted/60'}"
-      style="font-size: clamp(2.5rem, 8vw, 3.5rem);"
-    >
-      {formatTime(slot.datetime_start)}
+  <div class="flex items-start justify-between gap-4">
+    <div class="min-w-0">
+      <div class="flex items-baseline gap-2">
+        <span class="text-2xl font-semibold tracking-tight" style="color: var(--text);">
+          {formatTime(slot.datetime_start)}
+        </span>
+        {#if slot.datetime_end}
+          <span class="text-sm" style="color: var(--text-muted);">
+            — {formatTime(slot.datetime_end)}
+          </span>
+        {/if}
+      </div>
+
+      <div class="mt-2 flex items-center gap-2 text-sm">
+        {#if state === 'available'}
+          <span class="inline-flex items-center gap-1.5 font-medium" style="color: var(--primary);">
+            <span class="h-2 w-2 rounded-full" style="background: var(--primary);"></span>
+            {$_('pitch.book')}
+          </span>
+        {:else if state === 'mine'}
+          <span class="inline-flex items-center gap-1.5 font-medium" style="color: var(--warning);">
+            <Icon name="check" size={14} />
+            {$_('pitch.booked_by_you')}
+          </span>
+        {:else}
+          <span class="inline-flex items-center gap-1.5 font-medium" style="color: var(--text-muted);">
+            <span class="h-2 w-2 rounded-full" style="background: var(--text-muted);"></span>
+            {$_('pitch.booked')}
+          </span>
+        {/if}
+      </div>
     </div>
-    {#if slot.datetime_end}
-      <div class="text-sm font-medium mt-1.5" style="color: var(--text-muted);">
-        {formatTime(slot.datetime_end)}
+
+    {#if state === 'mine'}
+      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style="background: var(--surface); color: var(--warning);">
+        <Icon name="user" size={18} />
+      </div>
+    {:else if state === 'available'}
+      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style="background: var(--primary-light); color: var(--primary);">
+        <Icon name="clock" size={18} />
+      </div>
+    {:else}
+      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style="background: var(--surface-level-2); color: var(--text-muted);">
+        <Icon name="lock" size={17} />
       </div>
     {/if}
   </div>
 
-  {#if bookedByMe}
-    <div class="flex items-center justify-center gap-2.5 px-4 pb-3">
-      <div class="flex items-center justify-center gap-2 px-3 py-2 rounded-lg" style="background: var(--warning-light);">
-        <div class="flex items-center justify-center w-6 h-6 rounded-md text-white font-bold" style="background: var(--primary-gradient);">
-          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-        </div>
-        <span class="text-sm font-medium truncate" style="color: var(--text);">{$authState.user?.full_name || $_('pitch.booked_by_you')}</span>
-      </div>
+  {#if state === 'mine'}
+    <div class="mt-3 text-sm" style="color: var(--text-secondary);">
+      {$authState.user?.full_name || $_('pitch.booked_by_you')}
     </div>
-  {:else if !slot.is_available && slot.booker_name}
-    <div class="flex items-center justify-center gap-2.5 px-4 pb-3">
-      <div class="flex items-center justify-center gap-2 px-3 py-2 rounded-lg" style="background: var(--surface-level-2);">
-        <div class="flex items-center justify-center w-6 h-6 rounded-md font-bold" style="background: var(--surface-level-1); color: var(--text-muted);">
-          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-        </div>
-        <span class="text-sm font-medium truncate" style="color: var(--text-muted);">{slot.booker_name}</span>
-      </div>
+  {:else if state === 'occupied' && slot.booker_name}
+    <div class="mt-3 truncate text-sm" style="color: var(--text-secondary);">
+      {slot.booker_name}
     </div>
   {/if}
 
-  <div class="px-4 pb-4 mt-auto">
-    {#if bookedByMe && slot.booking_id}
+  <div class="mt-4">
+    {#if state === 'mine' && slot.booking_id}
       <button
         on:click={() => onCancel(slot)}
-        class="w-full px-4 py-3 rounded-lg text-white text-sm font-semibold tracking-wide
-          transition-all duration-250 hover:-translate-y-0.5 active:translate-y-0
-          disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
-        style="background: var(--danger); box-shadow: 0 0 0 1px var(--danger);"
+        class="min-h-[48px] w-full rounded-xl px-4 text-sm font-semibold transition-colors"
+        style="background: var(--surface); color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 24%, var(--border));"
       >
         {$_('pitch.cancel_booking')}
       </button>
-    {:else if slot.is_available}
+    {:else if state === 'available'}
       <button
         on:click={() => onBook(slot)}
-        class="w-full px-4 py-3 rounded-lg text-white text-sm font-semibold tracking-wide
-          transition-all duration-250 hover:-translate-y-0.5 active:translate-y-0
-          disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
-        style="background: var(--primary-gradient); box-shadow: 0 0 0 1px var(--primary);"
+        class="min-h-[48px] w-full rounded-xl px-4 text-sm font-semibold text-white transition-opacity hover:opacity-95 active:opacity-90"
+        style="background: var(--primary);"
       >
         {$_('pitch.book')}
       </button>
     {:else}
-      <div class="w-full px-4 py-3 rounded-lg text-center text-sm font-semibold tracking-wide"
-        style="background: var(--surface-level-2); color: var(--text-muted); border: 1px solid var(--border);">
+      <div
+        class="flex min-h-[48px] w-full items-center justify-center rounded-xl px-4 text-sm font-medium"
+        style="background: var(--surface-level-2); color: var(--text-muted);"
+      >
         {$_('pitch.booked')}
       </div>
     {/if}
   </div>
-</div>
+</article>

@@ -11,24 +11,38 @@
   export let onClose: () => void
   export let onBooked: () => void = () => {}
 
-  const slot = slotData
+  $: slot = slotData
   let loading = false
   let error: string | null = null
 
+  function formatDate(value: string) {
+    return new Date(value).toLocaleDateString($locale || 'en', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric'
+    })
+  }
+
+  function formatTime(value: string) {
+    return new Date(value).toLocaleTimeString($locale || 'en', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    })
+  }
+
   async function confirmBooking() {
+    if (loading || !slot.is_available) return
     loading = true
     error = null
 
     try {
       if (USE_MOCK) {
         await mockDelay()
-        uiState.addToast($_('common.success'), 'success')
-        onBooked()
-        onClose()
-        return
+      } else {
+        await createBooking(slot.pitch_id, slot.datetime_start)
       }
 
-      await createBooking(slot.pitch_id, slot.datetime_start)
       uiState.addToast($_('common.success'), 'success')
       onBooked()
       onClose()
@@ -41,92 +55,104 @@
   }
 </script>
 
-<div class="fixed inset-0 z-40 flex items-end sm:items-center justify-center"
-     on:click|preventDefault|stopPropagation
-     on:click={(e) => e.target === e.currentTarget && onClose()}
-     on:keydown={(e) => e.key === 'Escape' && onClose()}
-     role="dialog"
-     tabindex="-1"
-     aria-modal="true">
-  <div class="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm"></div>
+<div
+  class="fixed inset-0 z-40 flex items-end justify-center sm:items-center sm:p-4"
+  on:click|preventDefault|stopPropagation
+  on:click={(e) => e.target === e.currentTarget && !loading && onClose()}
+  on:keydown={(e) => e.key === 'Escape' && !loading && onClose()}
+  role="dialog"
+  tabindex="-1"
+  aria-modal="true"
+  aria-labelledby="booking-title"
+>
+  <div class="absolute inset-0 bg-black/35 backdrop-blur-[2px]"></div>
 
-  <div class="relative w-full sm:max-w-sm bg-surface sm:rounded-2xl rounded-t-2xl shadow-2xl z-50 overflow-hidden animate-in">
-    <button on:click={onClose}
-            disabled={loading}
-            class="absolute top-4 end-4 z-10 w-8 h-8 rounded-full flex items-center justify-center
-                   bg-surface-level-1/80 hover:bg-surface-level-1 text-text-muted hover:text-text
-                   transition-colors duration-150 disabled:opacity-50"
-            aria-label={$_('common.close')}>
-      <Icon name="x" size={14} />
-    </button>
+  <section
+    class="relative z-50 w-full overflow-hidden rounded-t-[24px] sm:max-w-md sm:rounded-[24px]"
+    style="background: var(--surface); box-shadow: var(--shadow-lg);"
+  >
+    <div class="mx-auto mt-2 h-1 w-10 rounded-full sm:hidden" style="background: var(--border-strong, var(--border));"></div>
 
-    <div class="pt-8 pb-5 px-6 text-center border-b border-border">
-      <div class="mx-auto mb-4 w-14 h-14 rounded-2xl flex items-center justify-center
-                  bg-primary-light/60 ring-1 ring-primary/20">
-        <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24"
-             fill="none" stroke="var(--primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/>
-          <line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/>
-          <path d="m9 16 2 2 4-4"/>
-        </svg>
+    <div class="px-5 pb-4 pt-5 sm:px-6 sm:pt-6">
+      <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0">
+          <p class="mb-1 text-xs font-semibold uppercase tracking-[0.12em]" style="color: var(--primary);">
+            {$_('pitch.book')}
+          </p>
+          <h2 id="booking-title" class="text-xl font-semibold tracking-tight" style="color: var(--text);">
+            {$_('pitch.confirm_title')}
+          </h2>
+          <p class="mt-1 text-sm" style="color: var(--text-secondary);">
+            {slot.pitch_name || $_('bookings.unknown_pitch')}
+          </p>
+        </div>
+
+        <button
+          on:click={onClose}
+          disabled={loading}
+          class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-50"
+          style="background: var(--surface-level-1); color: var(--text-secondary);"
+          aria-label={$_('common.close')}
+        >
+          <Icon name="x" size={17} />
+        </button>
       </div>
-      <h2 class="text-xl font-serif font-medium text-text mb-1">{$_('pitch.confirm_title')}</h2>
-      <p class="text-sm text-text-secondary">You're about to reserve this slot</p>
     </div>
 
-    <div class="p-6 space-y-4">
-      <div class="rounded-xl p-4 bg-surface-level-1/50 ring-1 ring-border/50">
-        <div class="flex items-start gap-3">
-          <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-surface-level-1 ring-1 ring-border/60">
-            <Icon name="building-2" size={18} className="text-text-secondary" />
+    <div class="px-5 pb-5 sm:px-6">
+      <div class="rounded-2xl p-4" style="background: var(--surface-level-1);">
+        <div class="flex items-center gap-3 py-1">
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style="background: var(--surface); color: var(--primary);">
+            <Icon name="calendar" size={18} />
           </div>
-          <div class="min-w-0 flex-1">
-            <p class="font-semibold text-text text-sm truncate">{slot.pitch_name || $_('bookings.unknown_pitch')}</p>
-            <div class="flex flex-col gap-1 mt-2">
-              <span class="flex items-center gap-1.5 text-xs text-text-secondary">
-                <Icon name="calendar" size={12} />
-                {new Date(slot.datetime_start).toLocaleDateString($locale || 'en', { weekday: 'long', month: 'long', day: 'numeric' })}
-              </span>
-              <span class="flex items-center gap-1.5 text-xs text-text-secondary">
-                <Icon name="clock" size={12} />
-                {new Date(slot.datetime_start).toLocaleTimeString($locale || 'en', { hour: '2-digit', minute: '2-digit', hour12: false })}
-                {#if slot.datetime_end}
-                  — {new Date(slot.datetime_end).toLocaleTimeString($locale || 'en', { hour: '2-digit', minute: '2-digit', hour12: false })}
-                {/if}
-              </span>
+          <div class="min-w-0">
+            <div class="text-xs font-medium" style="color: var(--text-muted);">{$_('admin.date_label')}</div>
+            <div class="truncate text-sm font-semibold" style="color: var(--text);">{formatDate(slot.datetime_start)}</div>
+          </div>
+        </div>
+
+        <div class="my-3 h-px" style="background: var(--border);"></div>
+
+        <div class="flex items-center gap-3 py-1">
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style="background: var(--surface); color: var(--primary);">
+            <Icon name="clock" size={18} />
+          </div>
+          <div class="min-w-0">
+            <div class="text-xs font-medium" style="color: var(--text-muted);">{$_('admin.time_label')}</div>
+            <div class="text-sm font-semibold" style="color: var(--text);">
+              {formatTime(slot.datetime_start)}{#if slot.datetime_end} — {formatTime(slot.datetime_end)}{/if}
             </div>
           </div>
         </div>
       </div>
 
       {#if !slot.is_available}
-        <div class="rounded-xl p-3.5 bg-warning-light/60 ring-1 ring-warning/15 flex items-center gap-2.5 text-sm text-warning">
-          <Icon name="alert-triangle" size={16} />
-          {$_('pitch.no_slots')}
+        <div class="mt-4 flex items-start gap-2.5 rounded-xl p-3.5 text-sm" style="background: var(--warning-light); color: var(--warning);">
+          <Icon name="alert-triangle" size={17} />
+          <span>{$_('pitch.no_slots')}</span>
         </div>
       {/if}
 
       {#if error}
-        <div class="rounded-xl p-3.5 bg-danger-light/60 ring-1 ring-danger/15 flex items-center gap-2.5 text-sm text-danger">
-          <Icon name="alert-circle" size={16} />
-          {error}
+        <div class="mt-4 flex items-start gap-2.5 rounded-xl p-3.5 text-sm" style="background: var(--danger-light); color: var(--danger);" role="alert">
+          <Icon name="alert-circle" size={17} />
+          <span>{error}</span>
         </div>
       {/if}
     </div>
 
-    <div class="px-6 pb-6 pt-2 space-y-3">
+    <div class="sticky bottom-0 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2 sm:px-6 sm:pb-6">
       <button
         on:click={confirmBooking}
         disabled={loading || !slot.is_available}
-        class="w-full py-3.5 rounded-xl text-white font-semibold text-sm tracking-wide
-               transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
-               hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2"
-        style="background: var(--primary-gradient); box-shadow: 0 0 0 1px var(--primary), var(--shadow-md);">
+        class="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
+        style="background: var(--primary);"
+      >
         {#if loading}
-          <span class="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+          <span class="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white"></span>
           {$_('pitch.booking')}
         {:else}
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          <Icon name="check" size={17} strokeWidth={2.5} />
           {$_('pitch.confirm_booking')}
         {/if}
       </button>
@@ -134,11 +160,11 @@
       <button
         on:click={onClose}
         disabled={loading}
-        class="w-full py-3.5 rounded-xl font-medium text-sm tracking-wide
-               transition-all duration-150 disabled:opacity-50
-               text-text-secondary hover:text-text hover:bg-surface-level-1/60">
+        class="mt-2 min-h-[48px] w-full rounded-xl px-4 text-sm font-medium transition-colors disabled:opacity-50"
+        style="color: var(--text-secondary);"
+      >
         {$_('pitch.cancel')}
       </button>
     </div>
-  </div>
+  </section>
 </div>
