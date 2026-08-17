@@ -10,7 +10,6 @@
   import { _ } from 'svelte-i18n'
   import { isValidEmail, isValidStudentId, isValidPassword } from '$lib/utils/cn'
   import { sanitizeInput, sanitizeName, sanitizeStudentId } from '$lib/validation'
-  import { supabase } from '$lib/supabaseClient'
 
   let fullName = ''
   let email = ''
@@ -19,11 +18,6 @@
   let confirmPassword = ''
   let submitError = ''
   let loading = false
-
-  let emailDuplicateError = ''
-  let studentIdDuplicateError = ''
-  let checkingEmail = false
-  let checkingStudentId = false
 
   let passwordFocused = false
   let showPasswordHints = false
@@ -64,69 +58,13 @@
     }
   })
 
-  async function checkEmailDuplicate(value: string): Promise<string> {
-    if (!value || !isValidEmail(value)) return ''
-    const { data, error } = await supabase
-      .rpc('check_registration_duplicate', {
-        p_email: value.toLowerCase().trim(),
-        p_student_id: ''
-      })
-    if (error) return ''
-    return (data === 'email' || data === 'both') ? $_('register.error_email_exists') : ''
-  }
-
-  async function checkStudentIdDuplicate(value: string): Promise<string> {
-    if (!value || !isValidStudentId(value)) return ''
-    const normalized = value.replace(/\s+/g, '').toUpperCase()
-    const { data, error } = await supabase
-      .rpc('check_registration_duplicate', {
-        p_email: '',
-        p_student_id: normalized
-      })
-    if (error) return ''
-    return (data === 'student_id' || data === 'both') ? $_('register.error_student_id_exists') : ''
-  }
-
-  async function handleEmailBlur() {
-    emailFocused = false
-    emailDuplicateError = ''
-    if (email && isValidEmail(email) && email.endsWith('@usmba.ac.ma')) {
-      checkingEmail = true
-      emailDuplicateError = await checkEmailDuplicate(email)
-      checkingEmail = false
-    }
-  }
-
-  async function handleStudentIdBlur() {
-    studentIdFocused = false
-    studentIdDuplicateError = ''
-    const normalized = studentId.toUpperCase()
-    if (studentId && isValidStudentId(normalized)) {
-      checkingStudentId = true
-      studentIdDuplicateError = await checkStudentIdDuplicate(normalized)
-      checkingStudentId = false
-    }
-  }
-
   function validate(): boolean {
-    if (!fullName || !email || !studentId || !password || !confirmPassword) {
-      return false
-    }
-    if (!isValidEmail(email)) {
-      return false
-    }
-    if (!email.endsWith('@usmba.ac.ma')) {
-      return false
-    }
-    if (!isValidStudentId(studentId.toUpperCase())) {
-      return false
-    }
-    if (!isValidPassword(password)) {
-      return false
-    }
-    if (password !== confirmPassword) {
-      return false
-    }
+    if (!fullName || !email || !studentId || !password || !confirmPassword) return false
+    if (!isValidEmail(email)) return false
+    if (!email.endsWith('@usmba.ac.ma')) return false
+    if (!isValidStudentId(studentId.toUpperCase())) return false
+    if (!isValidPassword(password)) return false
+    if (password !== confirmPassword) return false
     return true
   }
 
@@ -135,36 +73,21 @@
 
     loading = true
     submitError = ''
-    emailDuplicateError = ''
-    studentIdDuplicateError = ''
+
     try {
       const cleanFullName = sanitizeName(fullName)
       const cleanEmail = sanitizeInput(email).trim().toLowerCase()
       const cleanStudentId = sanitizeStudentId(studentId).toUpperCase()
       const cleanPassword = sanitizeInput(password)
 
-      const { data: dupType, error } = await supabase
-        .rpc('check_registration_duplicate', {
-          p_email: cleanEmail,
-          p_student_id: cleanStudentId
-        })
-      if (error) {
-        // The database registration path remains authoritative for duplicate protection.
-      } else if (dupType === 'email' || dupType === 'both') {
-        emailDuplicateError = $_('register.error_email_exists')
-        submitError = $_('register.error_email_exists')
-        return
-      } else if (dupType === 'student_id' || dupType === 'both') {
-        studentIdDuplicateError = $_('register.error_student_id_exists')
-        submitError = $_('register.error_student_id_exists')
-        return
-      }
-
+      // V2 intentionally has no public duplicate-enumeration RPC. Supabase Auth,
+      // the profile trigger and the unique Student ID constraint are authoritative.
       const result = await register(cleanEmail, cleanPassword, cleanStudentId, cleanFullName)
       if (result.error) {
         submitError = result.error.message
         return
       }
+
       uiState.addToast($_('register.created'), 'success')
       await goto('/verify-email')
     } catch (err: any) {
@@ -222,6 +145,7 @@
           placeholder={$_('register.full_name_placeholder')}
           bind:value={fullName}
           disabled={loading}
+          error={fullNameTouched && !fullNameValid ? $_('register.error_registration_failed') : ''}
           on:focus={() => fullNameFocused = true}
           on:blur={() => fullNameFocused = false}
         />
@@ -233,28 +157,19 @@
             placeholder={$_('register.email_placeholder')}
             bind:value={email}
             disabled={loading}
-            error={emailDuplicateError || (email.length > 0 && (!emailValid || !emailUsmba) ? (emailValid && !emailUsmba ? $_('register.error_invalid_email_domain') : $_('register.error_invalid_email')) : '')}
-            on:focus={() => { emailFocused = true; emailDuplicateError = '' }}
-            on:blur={handleEmailBlur}
+            error={email.length > 0 && (!emailValid || !emailUsmba) ? (emailValid && !emailUsmba ? $_('register.error_invalid_email_domain') : $_('register.error_invalid_email')) : ''}
+            on:focus={() => emailFocused = true}
+            on:blur={() => emailFocused = false}
           />
-          {#if checkingEmail}
-            <div class="flex items-center gap-2 text-xs px-1">
-              <Icon name="loader" size={14} className="text-text-muted animate-spin" />
-              <span class="text-text-muted">{$_('register.checking_email')}</span>
-            </div>
-          {:else if emailFocused || (emailTouched && (!emailValid || !emailUsmba))}
+          {#if emailFocused || (emailTouched && (!emailValid || !emailUsmba))}
             <div class="space-y-1 px-1">
               <div class="flex items-center gap-2 text-xs">
                 <Icon name={emailValid ? 'check' : 'x'} size={14} className={emailValid ? 'text-success' : 'text-text-muted'} />
-                <span class={emailValid ? 'text-success' : 'text-text-secondary'}>
-                  {$_('register.hint_email_format')}
-                </span>
+                <span class={emailValid ? 'text-success' : 'text-text-secondary'}>{$_('register.hint_email_format')}</span>
               </div>
               <div class="flex items-center gap-2 text-xs">
                 <Icon name={emailUsmba ? 'check' : 'x'} size={14} className={emailUsmba ? 'text-success' : 'text-text-muted'} />
-                <span class={emailUsmba ? 'text-success' : 'text-text-secondary'}>
-                  {$_('register.email_domain_info')}
-                </span>
+                <span class={emailUsmba ? 'text-success' : 'text-text-secondary'}>{$_('register.email_domain_info')}</span>
               </div>
             </div>
           {/if}
@@ -266,28 +181,19 @@
             placeholder={$_('register.student_id_placeholder')}
             bind:value={studentId}
             disabled={loading}
-            error={studentIdDuplicateError || (studentId.length > 0 && !studentIdValid ? $_('register.error_invalid_student') : '')}
-            on:focus={() => { studentIdFocused = true; studentIdDuplicateError = '' }}
-            on:blur={handleStudentIdBlur}
+            error={studentId.length > 0 && !studentIdValid ? $_('register.error_invalid_student') : ''}
+            on:focus={() => studentIdFocused = true}
+            on:blur={() => studentIdFocused = false}
           />
-          {#if checkingStudentId}
-            <div class="flex items-center gap-2 text-xs px-1">
-              <Icon name="loader" size={14} className="text-text-muted animate-spin" />
-              <span class="text-text-muted">{$_('register.checking_student_id')}</span>
-            </div>
-          {:else if studentIdFocused || (studentIdTouched && !studentIdValid)}
+          {#if studentIdFocused || (studentIdTouched && !studentIdValid)}
             <div class="space-y-1 px-1">
               <div class="flex items-center gap-2 text-xs">
                 <Icon name={studentIdFormat ? 'check' : 'x'} size={14} className={studentIdFormat ? 'text-success' : 'text-text-muted'} />
-                <span class={studentIdFormat ? 'text-success' : 'text-text-secondary'}>
-                  {$_('register.hint_id_start')}
-                </span>
+                <span class={studentIdFormat ? 'text-success' : 'text-text-secondary'}>{$_('register.hint_id_start')}</span>
               </div>
               <div class="flex items-center gap-2 text-xs">
                 <Icon name={studentIdDigits ? 'check' : 'x'} size={14} className={studentIdDigits ? 'text-success' : 'text-text-muted'} />
-                <span class={studentIdDigits ? 'text-success' : 'text-text-secondary'}>
-                  {$_('register.hint_id_digits')}
-                </span>
+                <span class={studentIdDigits ? 'text-success' : 'text-text-secondary'}>{$_('register.hint_id_digits')}</span>
               </div>
             </div>
           {/if}
@@ -309,27 +215,19 @@
               <p class="text-xs font-medium text-text-secondary mb-2">{$_('register.password_requirements')}</p>
               <div class="flex items-center gap-2 text-xs">
                 <Icon name={passwordLength ? 'check' : 'x'} size={14} className={checkMark(passwordLength, passwordFocused || password.length > 0)} />
-                <span class={passwordLength ? 'text-success' : 'text-text-secondary'}>
-                  {$_('register.hint_password_length')}
-                </span>
+                <span class={passwordLength ? 'text-success' : 'text-text-secondary'}>{$_('register.hint_password_length')}</span>
               </div>
               <div class="flex items-center gap-2 text-xs">
                 <Icon name={passwordUppercase ? 'check' : 'x'} size={14} className={checkMark(passwordUppercase, passwordFocused || password.length > 0)} />
-                <span class={passwordUppercase ? 'text-success' : 'text-text-secondary'}>
-                  {$_('register.hint_password_uppercase')}
-                </span>
+                <span class={passwordUppercase ? 'text-success' : 'text-text-secondary'}>{$_('register.hint_password_uppercase')}</span>
               </div>
               <div class="flex items-center gap-2 text-xs">
                 <Icon name={passwordNumber ? 'check' : 'x'} size={14} className={checkMark(passwordNumber, passwordFocused || password.length > 0)} />
-                <span class={passwordNumber ? 'text-success' : 'text-text-secondary'}>
-                  {$_('register.hint_password_number')}
-                </span>
+                <span class={passwordNumber ? 'text-success' : 'text-text-secondary'}>{$_('register.hint_password_number')}</span>
               </div>
               <div class="flex items-center gap-2 text-xs">
                 <Icon name={passwordSpecial ? 'check' : 'x'} size={14} className={checkMark(passwordSpecial, passwordFocused || password.length > 0)} />
-                <span class={passwordSpecial ? 'text-success' : 'text-text-secondary'}>
-                  {$_('register.hint_password_special')}
-                </span>
+                <span class={passwordSpecial ? 'text-success' : 'text-text-secondary'}>{$_('register.hint_password_special')}</span>
               </div>
             </div>
           {/if}
@@ -349,9 +247,7 @@
           {#if confirmTouched || (confirmFocused && confirmPassword.length > 0)}
             <div class="flex items-center gap-2 text-xs px-1">
               <Icon name={passwordsMatch ? 'check' : 'x'} size={14} className={passwordsMatch ? 'text-success' : 'text-danger'} />
-              <span class={passwordsMatch ? 'text-success' : 'text-text-secondary'}>
-                {$_('register.hint_password_match')}
-              </span>
+              <span class={passwordsMatch ? 'text-success' : 'text-text-secondary'}>{$_('register.hint_password_match')}</span>
             </div>
           {/if}
         </div>
@@ -364,9 +260,7 @@
       <div class="text-center">
         <p class="text-text-secondary">
           {$_('register.have_account')}
-          <a href={loginHref} class="text-primary font-semibold hover:underline">
-            {$_('register.sign_in')}
-          </a>
+          <a href={loginHref} class="text-primary font-semibold hover:underline">{$_('register.sign_in')}</a>
         </p>
       </div>
     </div>
