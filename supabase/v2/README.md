@@ -27,11 +27,12 @@ The V2 initialization order is:
 13. `013_public_username_identity.sql`
 14. `014_open_match_core.sql`
 15. `015_open_match_reads.sql`
-16. `tests/booking_contract.sql`
-17. `tests/security_contract.sql`
-18. `tests/identity_contract.sql`
-19. `tests/support_contract.sql`
-20. `tests/match_contract.sql`
+16. `016_match_lifecycle_integrity.sql`
+17. `tests/booking_contract.sql`
+18. `tests/security_contract.sql`
+19. `tests/identity_contract.sql`
+20. `tests/support_contract.sql`
+21. `tests/match_contract.sql`
 
 When the hosted V2 project is created, these schema layers become the first real V2 migration history. Do not replay historical V1 migrations.
 
@@ -116,6 +117,8 @@ Matches extend an existing booking; they never create another facility reservati
 - direct student reads/writes to match tables remain closed; narrow RPCs own visibility, roster and mutation rules
 - once a public student has joined, the match cannot be changed back to private
 - reserved spots cannot be increased in a way that displaces already joined students
+- an empty organizer-owned match may move private and be reopened without creating a second match or booking
+- cancelling the authoritative facility booking automatically closes the linked match while preserving its participant history for audit/history
 - a participant may leave before the match starts
 - discovery/roster expose only public sports identity (`full_name`, `username`), never Student ID, email, verification evidence or moderation notes
 - waitlists, invites and notification fan-out should build on this core only after hosted runtime validation
@@ -139,11 +142,12 @@ See `docs/v2/open-match-contract.md` for the focused contract.
 - `013_public_username_identity.sql` — public handle format/uniqueness plus signup-time username binding without an enumeration preflight
 - `014_open_match_core.sql` — match/participant tables and authoritative create/join/leave/reserved/visibility transitions
 - `015_open_match_reads.sql` — narrow Open Matches, roster, My Matches and admin read models
+- `016_match_lifecycle_integrity.sql` — idempotent empty-match reopening plus booking-cancellation → match-cancellation synchronization
 - `tests/booking_contract.sql` — transactional booking behavior tests
 - `tests/security_contract.sql` — transactional approval/RLS tests
 - `tests/identity_contract.sql` — academic fast path, personal restriction, verified-only Student ID uniqueness, public username invariants, and reject → remediate → approve behavior
 - `tests/support_contract.sql` — structured report, self-target prevention, generic-report rejection and support throttle tests
-- `tests/match_contract.sql` — booking-to-match ownership, capacity, join/private/reserved rules, restricted access and direct-write rejection
+- `tests/match_contract.sql` — booking-to-match ownership, capacity, reopen/cancellation lifecycle, join/private/reserved rules, restricted access and direct-write rejection
 
 ## Zero-cost validation
 
@@ -165,6 +169,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/012_support_rate_limit_sc
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/013_public_username_identity.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/014_open_match_core.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/015_open_match_reads.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/016_match_lifecycle_integrity.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/tests/booking_contract.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/tests/security_contract.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/tests/identity_contract.sql
