@@ -4,6 +4,7 @@
   import { browser } from '$app/environment'
   import { page } from '$app/stores'
   import '$lib/styles/global.css'
+  import '$lib/styles/system.css'
   import TopBar from '$lib/components/TopBar.svelte'
   import SideNav from '$lib/components/SideNav.svelte'
   import Toast from '$lib/components/Toast.svelte'
@@ -27,13 +28,15 @@
   let unsubAuth: (() => void) | null = null
 
   const authPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/logout']
+  const publicSupportPaths = ['/help']
   $: isAuthPage = authPaths.includes($page.url.pathname)
+  $: isPublicSupportPage = publicSupportPaths.includes($page.url.pathname)
+  $: chromeFreePage = isAuthPage || isPublicSupportPage
 
   // Routing is driven by the authoritative account-state RPC rather than the
-  // legacy profile status alone. This preserves the academic-email fast path:
-  // an approved academic user can use sports while Student ID verification is
-  // still required, whereas a personal-email account remains restricted until
-  // manual verification grants can_use_sports.
+  // legacy profile status alone. Help is intentionally outside the access gate:
+  // a student must still be able to appeal or recover when normal sports access
+  // is restricted, and a guest must be able to ask for help before login.
   $: if (
     browser &&
     !$authState.loading &&
@@ -44,6 +47,7 @@
     const hasSession = $authState.user !== null
     const account = $authState.account
     const isAuthPath = authPaths.includes(pathname)
+    const isSupportPath = publicSupportPaths.includes(pathname)
     const isPendingPath = pathname === '/pending-approval'
     const isProfilePath = pathname === '/profile'
     const isVerificationPath = pathname === '/verification'
@@ -57,13 +61,11 @@
 
     let targetPath: string | null = null
 
-    if (!hasSession && !isAuthPath) {
+    if (!hasSession && !isAuthPath && !isSupportPath) {
       targetPath = '/login'
     } else if (hasSession && isAuthPath) {
       targetPath = canUseSports ? '/home' : '/pending-approval'
-    } else if (hasSession && !account) {
-      // A signed-in session without an authoritative account state must not
-      // receive optimistic access to protected product routes.
+    } else if (hasSession && !account && !isSupportPath) {
       targetPath = '/pending-approval'
     } else if (hasSession && isAdminPath && !isAdminAccount) {
       targetPath = canUseSports ? '/home' : '/pending-approval'
@@ -77,6 +79,7 @@
       !isPendingPath &&
       !isProfilePath &&
       !isVerificationPath &&
+      !isSupportPath &&
       !isAuthPath
     ) {
       targetPath = '/pending-approval'
@@ -133,8 +136,6 @@
           status: profile.status
         }, account)
       } catch {
-        // A failed account-state request must fail closed. RLS remains the
-        // authorization boundary and the next session refresh can recover.
         authState.clear()
       }
     }
@@ -237,17 +238,17 @@
 </script>
 
 <svelte:head>
-  <title>Booking App</title>
+  <title>UNEEM</title>
 </svelte:head>
 
 <div class="app-shell">
-  {#if !isAuthPage}
+  {#if !chromeFreePage}
     <TopBar onMenuToggle={toggleSideNav} />
   {/if}
-  <main class="app-content">
+  <main class:app-content={!chromeFreePage} class:app-content-plain={chromeFreePage}>
     <slot />
   </main>
-  {#if !isAuthPage}
+  {#if !chromeFreePage}
     <SideNav bind:isOpen={sideNavOpen} on:close={() => sideNavOpen = false} />
   {/if}
 
@@ -272,6 +273,11 @@
     --safe-area-inset-bottom: 0;
     --safe-area-inset-left: 0;
     --safe-area-inset-right: 0;
+  }
+
+  :global(.app-content-plain) {
+    flex: 1;
+    width: 100%;
   }
 
   @supports (padding: max(0px)) {
