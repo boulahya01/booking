@@ -20,18 +20,20 @@
       loading = false
       return
     }
+
     const unsub = user.subscribe(async (u) => {
       if (!u) {
         booking = null
         loading = false
         return
       }
+
       loading = true
       try {
         const now = new Date().toISOString()
         const { data, error } = await supabase
           .from('bookings')
-          .select('id,pitch_id,slot_datetime,status')
+          .select('id,pitch_id,slot_datetime,status,pitches(name)')
           .eq('user_id', u.id)
           .eq('status', 'active')
           .gt('slot_datetime', now)
@@ -39,13 +41,19 @@
           .limit(1)
 
         if (!error && data && data.length) {
-          booking = data[0]
-          const { data: pitchData } = await supabase.from('pitches').select('name').eq('id', booking.pitch_id).maybeSingle()
-          booking.pitch_name = pitchData?.name || booking.pitch_id
+          const row: any = data[0]
+          const relatedPitch = Array.isArray(row.pitches) ? row.pitches[0] : row.pitches
+          booking = {
+            id: row.id,
+            pitch_id: row.pitch_id,
+            slot_datetime: row.slot_datetime,
+            status: row.status,
+            pitch_name: relatedPitch?.name || row.pitch_id
+          }
         } else {
           booking = null
         }
-      } catch (err) {
+      } catch {
         booking = null
       }
       loading = false
@@ -66,7 +74,6 @@
   }
 </script>
 
-<!-- Next Booking Card — Claude-inspired: ring shadows, warm tones -->
 <div class="rounded-xl p-4 transition-all duration-200"
      style={booking
        ? 'background: var(--primary-light/40); box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12);'
@@ -79,18 +86,15 @@
   {:else if booking}
     {@const time = formatBookingTime(booking.slot_datetime)}
     <a href="/bookings" class="flex items-center gap-4 group">
-      <!-- Date badge -->
       <div class="w-14 h-14 rounded-xl flex flex-col items-center justify-center flex-shrink-0"
            style="background: var(--primary-light/60); color: var(--primary); box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.1);">
         <span class="text-[10px] font-semibold uppercase tracking-wide">{time.month}</span>
         <span class="text-lg font-bold leading-none">{time.day}</span>
       </div>
-      <!-- Info -->
       <div class="flex-1 min-w-0">
         <h3 class="font-semibold truncate" style="color: var(--text);">{booking.pitch_name}</h3>
         <p class="text-sm" style="color: var(--text-secondary);">{time.weekday} at {time.time}</p>
       </div>
-      <!-- Arrow -->
       <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 group-hover:-translate-y-0.5"
            style="background: var(--primary-light); color: var(--primary);">
         <Icon name="arrow-right" size={20} />
@@ -98,12 +102,10 @@
     </a>
   {:else}
     <div class="flex items-center gap-4">
-      <!-- Empty icon -->
       <div class="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
            style="background: var(--surface-level-1); color: var(--text-muted);">
         <Icon name="calendar-x" size={24} />
       </div>
-      <!-- Info -->
       <div class="flex-1 min-w-0">
         <p class="font-semibold" style="color: var(--text);">{$_('home.no_upcoming_bookings')}</p>
         <p class="text-sm" style="color: var(--text-muted);">{$_('home.no_upcoming_bookings_hint')}</p>
