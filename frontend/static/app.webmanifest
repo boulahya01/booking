@@ -1,12 +1,12 @@
 {
-  "name": "UnemBook",
-  "short_name": "UnemBook",
-  "description": "University sports facility booking",
+  "name": "UNEEM",
+  "short_name": "UNEEM",
+  "description": "University sport, bookings and open matches.",
   "start_url": "/home",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ff6b35",
+  "background_color": "#101214",
+  "theme_color": "#f26419",
   "icons": [
     {
       "src": "/icon.svg",

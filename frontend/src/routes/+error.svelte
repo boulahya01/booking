@@ -1,54 +1,30 @@
 <script lang="ts">
   import { page } from '$app/stores'
-  import { _ } from 'svelte-i18n'
+  import { language } from '$lib/stores/ui'
+  import Icon from '$lib/components/Icon.svelte'
 
   $: status = $page.status
-  $: message = $page.error?.message ?? 'Something went wrong'
+  $: ar = $language === 'ar'
+  $: isNotFound = status === 404
 </script>
 
-<div class="min-h-screen flex items-center justify-center px-4 py-8" style="background: var(--bg);">
-  <div class="max-w-md w-full text-center space-y-6">
-    <div class="w-20 h-20 mx-auto rounded-full flex items-center justify-center"
-         style="background: var(--danger-light/50);">
-      <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none"
-           stroke="var(--danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"/>
-        <line x1="12" y1="8" x2="12" y2="12"/>
-        <line x1="12" y1="16" x2="12.01" y2="16"/>
-      </svg>
-    </div>
+<svelte:head><title>{isNotFound ? (ar ? 'الصفحة غير موجودة' : 'Page not found') : (ar ? 'حدث خطأ' : 'Something went wrong')} · UNEEM</title></svelte:head>
 
-    <div>
-      <h1 class="text-2xl font-serif font-medium" style="color: var(--text);">
-        {status >= 500 ? 'Server Error' : status >= 400 ? 'Page Not Found' : 'Error'}
-      </h1>
-      <p class="text-text-secondary mt-2">
-        {status === 404
-          ? 'The page you\'re looking for doesn\'t exist.'
-          : 'An unexpected error occurred. Please try refreshing the page.'}
-      </p>
+<main class="grid min-h-screen place-items-center bg-background px-5 py-10">
+  <section class="w-full max-w-sm text-center">
+    <div class="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-danger-light text-danger">
+      <Icon name={isNotFound ? 'search' : 'alert-circle'} size={24} />
     </div>
-
-    {#if message && status !== 404}
-      <div class="rounded-xl p-4 text-sm text-start"
-           style="background: var(--surface-level-1); border: 1px solid var(--border);">
-        <p class="font-medium mb-1" style="color: var(--text-muted);">Details:</p>
-        <p style="color: var(--text-secondary);">{message}</p>
-      </div>
-    {/if}
-
-    <div class="flex gap-3">
-      <a href="/home"
-         class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold text-white transition-all duration-200 hover:-translate-y-0.5"
-         style="background: var(--primary-gradient); box-shadow: 0 0 0 1px var(--primary);">
-        Go Home
-      </a>
-      <button
-        on:click={() => window.location.reload()}
-        class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all duration-200 hover:-translate-y-0.5"
-        style="background: var(--surface-level-1); color: var(--text); border: 1px solid var(--border);">
-        Refresh Page
-      </button>
+    <p class="mt-5 text-xs font-extrabold uppercase tracking-[0.16em] text-text-muted">{status}</p>
+    <h1 class="mt-2 text-2xl font-extrabold tracking-[-0.03em] text-text">
+      {isNotFound ? (ar ? 'الصفحة غير موجودة' : 'Page not found') : (ar ? 'تعذر فتح الصفحة' : 'Couldn’t open this page')}
+    </h1>
+    <p class="mt-2 text-sm leading-6 text-text-secondary">
+      {isNotFound ? (ar ? 'تأكد من الرابط أو ارجع للرئيسية.' : 'Check the link or go back home.') : (ar ? 'حاول مرة أخرى.' : 'Try again.')}
+    </p>
+    <div class="mt-6 grid gap-2.5">
+      <a href="/home" class="uneem-primary-action">{ar ? 'الرئيسية' : 'Go home'}</a>
+      <button on:click={() => window.location.reload()} class="uneem-secondary-action">{ar ? 'إعادة المحاولة' : 'Try again'}</button>
     </div>
-  </div>
-</div>
+  </section>
+</main>
