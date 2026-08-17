@@ -1,5 +1,5 @@
 -- UNEEM V2 audited admin operations contract tests.
--- Run after schema layers 001-017. All fixtures roll back.
+-- Run after the complete V2 schema stack through 019. All fixtures roll back.
 
 \set ON_ERROR_STOP on
 
