@@ -4,8 +4,7 @@
   import { authState } from '$lib/stores/auth'
   import { uiState } from '$lib/stores/ui'
   import Icon from './Icon.svelte'
-  import { _ } from 'svelte-i18n'
-  import { locale } from 'svelte-i18n'
+  import { _ , locale } from 'svelte-i18n'
   import { logger } from '$lib/logger'
 
   const dispatch = createEventDispatcher()
@@ -107,9 +106,7 @@
     const userId = currentUserId
     if (!userId) return
 
-    const { error } = await supabase
-      .from('announcement_dismissals')
-      .insert({ user_id: userId, announcement_id: announcementId })
+    const { error } = await supabase.from('announcement_dismissals').insert({ user_id: userId, announcement_id: announcementId })
 
     if (error) {
       logger.error('Failed to dismiss announcement:', error)
@@ -124,55 +121,36 @@
 </script>
 
 {#if loading}
-  <div class="animate-pulse space-y-3" aria-busy="true">
-    <div class="h-20 rounded-xl bg-surface-level-2"></div>
-  </div>
+  <div class="h-20 animate-pulse rounded-[22px] bg-surface-level-1" aria-busy="true"></div>
 {:else if loadError && notifications.length === 0}
-  <div class="flex items-center gap-3 rounded-xl px-4 py-3 bg-surface border border-border" role="status">
-    <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-danger-light text-danger">
-      <Icon name="alert-triangle" size={17} />
-    </div>
-    <div class="flex-1 min-w-0"><p class="text-sm font-medium text-text">{$_('common.error')}</p></div>
-    <button type="button" on:click={retry} class="text-sm font-semibold text-primary hover:underline">{$_('common.retry')}</button>
+  <div class="uneem-card flex items-center gap-3" role="status">
+    <div class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-danger-light text-danger"><Icon name="alert-triangle" size={18} /></div>
+    <div class="min-w-0 flex-1"><p class="text-sm font-semibold text-text">{$_('common.error')}</p></div>
+    <button type="button" on:click={retry} class="min-h-10 text-sm font-bold text-primary">{$_('common.retry')}</button>
   </div>
 {:else if notifications.length > 0}
-  <div class="space-y-3">
+  <div class="space-y-2.5">
     {#if loadError}
-      <div class="flex items-center justify-between gap-3 rounded-lg px-3 py-2 bg-warning-light text-sm">
-        <span class="text-text-secondary">{$_('common.error')}</span>
-        <button type="button" on:click={retry} class="font-semibold text-primary hover:underline">{$_('common.retry')}</button>
+      <div class="flex items-center justify-between gap-3 rounded-2xl bg-warning-light px-4 py-3 text-sm text-warning">
+        <span>{$_('common.error')}</span>
+        <button type="button" on:click={retry} class="font-bold">{$_('common.retry')}</button>
       </div>
     {/if}
 
     {#each notifications as notification (notification.id)}
-      <div class="group relative overflow-hidden rounded-xl bg-gradient-to-br from-primary-light/30 via-surface to-surface shadow-md hover:shadow-lg transition-all duration-300">
-        <div class="absolute -top-4 -start-4 w-20 h-20 rounded-full bg-primary/10 blur-xl"></div>
-        <div class="absolute inset-y-0 start-0 w-1 bg-gradient-to-b from-primary via-primary/80 to-primary/40"></div>
-
-        <button
-          class="absolute top-3 end-3 p-1.5 rounded-lg text-text-muted/60 hover:text-text hover:bg-surface-raised/60 transition-all duration-200"
-          on:click={() => dismissNotification(notification.id)}
-          title={$_('notification_banner.dismiss')}
-        >
-          <Icon name="x" size={14} />
+      <article class="uneem-card relative pe-12">
+        <button class="absolute end-2.5 top-2.5 grid h-9 w-9 place-items-center rounded-full text-text-muted hover:bg-surface-level-1 hover:text-text" on:click={() => dismissNotification(notification.id)} title={$_('notification_banner.dismiss')}>
+          <Icon name="x" size={15} />
         </button>
-
-        <div class="relative flex items-start gap-3.5 p-4 ps-5 rtl:ps-4 rtl:pe-5">
-          <div class="flex-shrink-0 mt-0.5">
-            <div class="relative w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5 text-primary shadow-sm">
-              <Icon name="bell" size={18} />
-            </div>
-          </div>
-          <div class="flex-1 min-w-0">
-            <h3 class="text-[15px] font-semibold text-text leading-snug">{isArabic ? notification.title_ar : notification.title_en}</h3>
-            <p class="text-sm mt-1 leading-relaxed whitespace-pre-wrap text-text-secondary">{isArabic ? notification.body_ar : notification.body_en}</p>
-            <div class="flex items-center gap-1.5 mt-2.5">
-              <div class="w-1 h-1 rounded-full bg-primary/40"></div>
-              <time class="text-xs text-text-muted">{new Date(notification.published_at).toLocaleDateString(isArabic ? 'ar' : 'en', { month: 'short', day: 'numeric', year: 'numeric' })}</time>
-            </div>
+        <div class="flex items-start gap-3">
+          <div class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary-light text-primary"><Icon name="bell" size={18} /></div>
+          <div class="min-w-0 flex-1">
+            <h3 class="text-sm font-bold leading-5 text-text">{isArabic ? notification.title_ar : notification.title_en}</h3>
+            <p class="mt-1 whitespace-pre-wrap text-sm leading-6 text-text-secondary">{isArabic ? notification.body_ar : notification.body_en}</p>
+            <time class="mt-2 block text-xs text-text-muted">{new Date(notification.published_at).toLocaleDateString(isArabic ? 'ar-MA' : 'en', { month: 'short', day: 'numeric' })}</time>
           </div>
         </div>
-      </div>
+      </article>
     {/each}
   </div>
 {/if}

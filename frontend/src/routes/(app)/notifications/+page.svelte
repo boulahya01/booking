@@ -1,31 +1,34 @@
 <script lang="ts">
-  import { _ } from 'svelte-i18n'
+  import { language } from '$lib/stores/ui'
   import NotificationBanner from '$lib/components/NotificationBanner.svelte'
-  import Card from '$lib/components/Card.svelte'
   import Icon from '$lib/components/Icon.svelte'
 
   let notificationCount: number | null = null
+  $: ar = $language === 'ar'
 
   function handleCount(event: CustomEvent<{ count: number }>) {
     notificationCount = event.detail.count
   }
 </script>
 
-<div class="max-w-3xl mx-auto p-4 min-h-screen">
-  <div class="mb-6">
-    <h1 class="text-2xl font-medium font-serif text-text mb-1">{$_('notifications.title')}</h1>
-    <p class="text-text-secondary text-sm">{$_('notifications.subtitle')}</p>
-  </div>
+<svelte:head><title>{ar ? 'الإشعارات' : 'Notifications'} · UNEEM</title></svelte:head>
+
+<main class="uneem-page-narrow">
+  <header class="uneem-page-header">
+    <div>
+      <p class="uneem-kicker">UNEEM</p>
+      <h1 class="uneem-title">{ar ? 'الإشعارات' : 'Notifications'}</h1>
+      <p class="uneem-subtitle">{ar ? 'آخر التحديثات المهمة.' : 'Important updates.'}</p>
+    </div>
+  </header>
 
   <NotificationBanner on:count={handleCount} />
 
   {#if notificationCount === 0}
-    <Card variant="outlined" className="text-center py-12 mt-6">
-      <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-surface-level-2 flex items-center justify-center text-text-muted">
-        <Icon name="bell-off" size={28} />
-      </div>
-      <p class="text-text-secondary font-medium">{$_('notifications.no_active')}</p>
-      <p class="text-text-muted text-sm mt-2">{$_('notifications.check_back_later')}</p>
-    </Card>
+    <section class="uneem-empty mt-4">
+      <div class="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-surface text-text-muted"><Icon name="bell-off" size={22} /></div>
+      <p class="mt-3 font-bold text-text">{ar ? 'ما كاين حتى جديد' : 'You’re all caught up'}</p>
+      <p class="mt-1 text-sm text-text-muted">{ar ? 'التحديثات الجديدة غادي تبان هنا.' : 'New updates will appear here.'}</p>
+    </section>
   {/if}
-</div>
+</main>

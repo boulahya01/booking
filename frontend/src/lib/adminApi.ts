@@ -1,0 +1,127 @@
+import { supabase } from './supabaseClient'
+
+export type AdminBookingLifecycle = 'upcoming' | 'in_progress' | 'completed' | 'cancelled'
+export type AdminBookingCancelReason = 'maintenance' | 'safety' | 'scheduling_error' | 'university_event' | 'policy' | 'other'
+export type FacilityArchiveReason = 'maintenance' | 'retired' | 'duplicate' | 'other'
+
+export type AdminBooking = {
+  booking_id: string
+  user_id: string
+  pitch_id: string
+  starts_at: string
+  ends_at: string
+  booking_status: 'scheduled' | 'cancelled'
+  lifecycle_status: AdminBookingLifecycle
+  created_at: string
+  full_name: string
+  student_id: string | null
+  email: string | null
+  pitch_name: string
+  pitch_location: string
+  total_count: number
+}
+
+export type AdminBookingFilters = {
+  query?: string
+  pitchId?: string
+  lifecycle?: AdminBookingLifecycle
+  from?: string
+  to?: string
+  limit?: number
+  offset?: number
+}
+
+export type AdminFacility = {
+  id: string
+  name: string
+  location: string
+  sport_type: string | null
+  capacity: number
+  timezone: string
+  open_time: string
+  close_time: string
+  slot_duration_minutes: number
+  booking_window_hours: number
+  booking_frequency_enabled: boolean
+  booking_frequency_days: number
+  cancellation_cutoff_minutes: number
+  is_active: boolean
+  sort_order: number
+  created_at?: string
+  updated_at?: string
+}
+
+export type AdminFacilityInput = Omit<AdminFacility, 'id' | 'created_at' | 'updated_at'> & { id?: string | null }
+
+function message(error: any, fallback: string) {
+  return String(error?.message || fallback)
+}
+
+export async function listAdminBookings(filters: AdminBookingFilters = {}): Promise<{ rows: AdminBooking[]; total: number }> {
+  const { data, error } = await supabase.rpc('admin_list_bookings', {
+    p_query: filters.query?.trim() || null,
+    p_pitch_id: filters.pitchId || null,
+    p_lifecycle: filters.lifecycle || null,
+    p_from: filters.from || null,
+    p_to: filters.to || null,
+    p_limit: filters.limit ?? 30,
+    p_offset: filters.offset ?? 0
+  })
+  if (error) throw new Error(message(error, 'Unable to load bookings'))
+  const rows = (Array.isArray(data) ? data : []) as AdminBooking[]
+  return { rows, total: Number(rows[0]?.total_count || 0) }
+}
+
+export async function adminCancelBooking(bookingId: string, reason: AdminBookingCancelReason) {
+  const { data, error } = await supabase.rpc('admin_cancel_booking', {
+    p_booking_id: bookingId,
+    p_reason_code: reason
+  })
+  if (error) throw new Error(message(error, 'Unable to cancel booking'))
+  return Array.isArray(data) ? data[0] : data
+}
+
+export async function listAdminFacilities(): Promise<AdminFacility[]> {
+  const { data, error } = await supabase
+    .from('pitches')
+    .select('id,name,location,sport_type,capacity,timezone,open_time,close_time,slot_duration_minutes,booking_window_hours,booking_frequency_enabled,booking_frequency_days,cancellation_cutoff_minutes,is_active,sort_order,created_at,updated_at')
+    .order('sort_order', { ascending: true })
+    .order('name', { ascending: true })
+  if (error) throw new Error(message(error, 'Unable to load facilities'))
+  return (data || []) as AdminFacility[]
+}
+
+export async function adminSaveFacility(input: AdminFacilityInput): Promise<AdminFacility> {
+  const { data, error } = await supabase.rpc('admin_save_pitch', {
+    p_pitch_id: input.id || null,
+    p_name: input.name,
+    p_location: input.location,
+    p_sport_type: input.sport_type || null,
+    p_capacity: Number(input.capacity),
+    p_open_time: input.open_time,
+    p_close_time: input.close_time,
+    p_slot_duration_minutes: Number(input.slot_duration_minutes),
+    p_booking_window_hours: Number(input.booking_window_hours),
+    p_booking_frequency_enabled: Boolean(input.booking_frequency_enabled),
+    p_booking_frequency_days: Number(input.booking_frequency_days),
+    p_cancellation_cutoff_minutes: Number(input.cancellation_cutoff_minutes),
+    p_is_active: Boolean(input.is_active),
+    p_sort_order: Number(input.sort_order),
+    p_timezone: input.timezone || 'Africa/Casablanca'
+  })
+  if (error) throw new Error(message(error, 'Unable to save facility'))
+  const row = Array.isArray(data) ? data[0] : data
+  if (!row) throw new Error('Facility save returned no data')
+  return row as AdminFacility
+}
+
+export async function adminArchiveFacility(id: string, reason: FacilityArchiveReason): Promise<AdminFacility> {
+  const { data, error } = await supabase.rpc('admin_archive_pitch', {
+    p_pitch_id: id,
+    p_reason_code: reason
+  })
+  if (error) throw new Error(message(error, 'Unable to archive facility'))
+  const row = Array.isArray(data) ? data[0] : data
+  if (!row) throw new Error('Facility archive returned no data')
+  return row as AdminFacility
+}
