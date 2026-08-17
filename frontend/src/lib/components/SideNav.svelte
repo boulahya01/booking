@@ -82,40 +82,19 @@
 
     <div class="flex-1 overflow-y-auto py-3">
       {#each regularItems as item}
-        <button
-          on:click={() => navigate(item.href)}
-          class={cn(
-            'w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors',
-            isActive(item.href) ? 'text-primary bg-primary-light' : 'text-text-secondary hover:text-text hover:bg-surface-level-1'
-          )}
-          aria-label={$_(item.labelKey)}
-        >
+        <button on:click={() => navigate(item.href)} class={cn('w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors', isActive(item.href) ? 'text-primary bg-primary-light' : 'text-text-secondary hover:text-text hover:bg-surface-level-1')} aria-label={$_(item.labelKey)}>
           <Icon name={item.icon} size={20} strokeWidth={isActive(item.href) ? 2.5 : 2} />
           <span>{$_(item.labelKey)}</span>
         </button>
       {/each}
 
-      <button
-        on:click={() => navigate('/help')}
-        class={cn(
-          'w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors',
-          isActive('/help') ? 'text-primary bg-primary-light' : 'text-text-secondary hover:text-text hover:bg-surface-level-1'
-        )}
-        aria-label={$language === 'ar' ? 'المساعدة والدعم' : 'Help and support'}
-      >
-        <Icon name="message-circle" size={20} />
+      <button on:click={() => navigate('/help')} class={cn('w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors', isActive('/help') ? 'text-primary bg-primary-light' : 'text-text-secondary hover:text-text hover:bg-surface-level-1')} aria-label={$language === 'ar' ? 'المساعدة والدعم' : 'Help and support'}>
+        <Icon name="mail" size={20} />
         <span>{$language === 'ar' ? 'المساعدة والدعم' : 'Help & support'}</span>
       </button>
 
       {#if $needsIdentityAction}
-        <button
-          on:click={() => navigate('/verification')}
-          class={cn(
-            'mx-3 mt-2 w-[calc(100%-1.5rem)] flex items-center gap-3 rounded-2xl px-3 py-3 text-sm transition-colors',
-            isActive('/verification') ? 'text-primary bg-primary-light' : 'text-text bg-surface-level-1 hover:bg-primary-light'
-          )}
-          aria-label={$language === 'ar' ? 'توثيق هوية الطالب' : 'Verify student identity'}
-        >
+        <button on:click={() => navigate('/verification')} class={cn('mx-3 mt-2 w-[calc(100%-1.5rem)] flex items-center gap-3 rounded-2xl px-3 py-3 text-sm transition-colors', isActive('/verification') ? 'text-primary bg-primary-light' : 'text-text bg-surface-level-1 hover:bg-primary-light')} aria-label={$language === 'ar' ? 'توثيق هوية الطالب' : 'Verify student identity'}>
           <Icon name="shield" size={20} />
           <div class="min-w-0 text-start">
             <div class="font-medium">{$language === 'ar' ? 'توثيق الطالب' : 'Student verification'}</div>
@@ -131,39 +110,18 @@
           <div class="flex-1 h-[1px] bg-border/60"></div>
         </div>
 
-        <button
-          on:click={() => navigate('/admin/support')}
-          class={cn(
-            'w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors',
-            isActive('/admin/support') ? 'text-primary bg-primary-light' : 'text-text-secondary hover:text-text hover:bg-surface-level-1'
-          )}
-          aria-label={$language === 'ar' ? 'الدعم والتقارير' : 'Help and reports inbox'}
-        >
-          <Icon name="message-circle" size={20} strokeWidth={isActive('/admin/support') ? 2.5 : 2} />
+        <button on:click={() => navigate('/admin/support')} class={cn('w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors', isActive('/admin/support') ? 'text-primary bg-primary-light' : 'text-text-secondary hover:text-text hover:bg-surface-level-1')} aria-label={$language === 'ar' ? 'الدعم والتقارير' : 'Help and reports inbox'}>
+          <Icon name="mail" size={20} strokeWidth={isActive('/admin/support') ? 2.5 : 2} />
           <span>{$language === 'ar' ? 'الدعم والتقارير' : 'Help & reports'}</span>
         </button>
 
-        <button
-          on:click={() => navigate('/admin/verification')}
-          class={cn(
-            'w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors',
-            isActive('/admin/verification') ? 'text-primary bg-primary-light' : 'text-text-secondary hover:text-text hover:bg-surface-level-1'
-          )}
-          aria-label={$language === 'ar' ? 'طلبات توثيق الطلبة' : 'Student verification queue'}
-        >
+        <button on:click={() => navigate('/admin/verification')} class={cn('w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors', isActive('/admin/verification') ? 'text-primary bg-primary-light' : 'text-text-secondary hover:text-text hover:bg-surface-level-1')} aria-label={$language === 'ar' ? 'طلبات توثيق الطلبة' : 'Student verification queue'}>
           <Icon name="shield" size={20} strokeWidth={isActive('/admin/verification') ? 2.5 : 2} />
           <span>{$language === 'ar' ? 'توثيق الطلبة' : 'Verification queue'}</span>
         </button>
 
         {#each adminItems as item}
-          <button
-            on:click={() => navigate(item.href)}
-            class={cn(
-              'w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors',
-              isActive(item.href) ? 'text-primary bg-primary-light' : 'text-text-secondary hover:text-text hover:bg-surface-level-1'
-            )}
-            aria-label={$_(item.labelKey)}
-          >
+          <button on:click={() => navigate(item.href)} class={cn('w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors', isActive(item.href) ? 'text-primary bg-primary-light' : 'text-text-secondary hover:text-text hover:bg-surface-level-1')} aria-label={$_(item.labelKey)}>
             <Icon name={item.icon} size={20} strokeWidth={isActive(item.href) ? 2.5 : 2} />
             <span>{$_(item.labelKey)}</span>
           </button>
@@ -173,18 +131,11 @@
 
     <div class="border-t border-border-light py-3 px-3 space-y-1">
       <button on:click={toggleTheme} class="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-text-secondary hover:text-text hover:bg-surface-level-1 rounded-xl transition" aria-label={$theme === 'dark' ? $_('nav.light_mode') : $_('nav.dark_mode')}>
-        {#if $theme === 'dark'}
-          <Icon name="sun" size={18} /><span>{$_('nav.dark_mode')}</span>
-        {:else}
-          <Icon name="moon" size={18} /><span>{$_('nav.light_mode')}</span>
-        {/if}
+        {#if $theme === 'dark'}<Icon name="sun" size={18} /><span>{$_('nav.dark_mode')}</span>{:else}<Icon name="moon" size={18} /><span>{$_('nav.light_mode')}</span>{/if}
       </button>
-
       <button on:click={toggleLanguage} class="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-text-secondary hover:text-text hover:bg-surface-level-1 rounded-xl transition" aria-label={$_('nav.toggle_language')}>
-        <span class="w-[18px] h-[18px] flex items-center justify-center text-text-muted font-semibold text-xs">Aa</span>
-        <span>{$language === 'en' ? 'العربية' : 'English'}</span>
+        <span class="w-[18px] h-[18px] flex items-center justify-center text-text-muted font-semibold text-xs">Aa</span><span>{$language === 'en' ? 'العربية' : 'English'}</span>
       </button>
-
       {#if $isAuthenticated}
         <button on:click={handleLogout} class="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-danger hover:bg-danger-light rounded-xl transition" aria-label={$_('nav.logout')}>
           <Icon name="log-out" size={18} /><span>{$_('nav.logout')}</span>
