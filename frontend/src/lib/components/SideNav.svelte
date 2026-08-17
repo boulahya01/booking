@@ -2,7 +2,7 @@
   import { goto } from '$app/navigation'
   import { page } from '$app/stores'
   import { createEventDispatcher } from 'svelte'
-  import { authState, isAdmin, isAuthenticated } from '$lib/stores/auth'
+  import { isAdmin, isAuthenticated, needsIdentityAction } from '$lib/stores/auth'
   import { theme, language, uiState } from '$lib/stores/ui'
   import { signOut } from '$lib/auth'
   import { cn } from '$lib/utils/cn'
@@ -16,7 +16,6 @@
     labelKey: string
     href: string
     icon: string
-    adminOnly?: boolean
   }
 
   const regularItems: NavItem[] = [
@@ -58,7 +57,6 @@
   }
 </script>
 
-<!-- Backdrop -->
 {#if isOpen}
   <div
     class="fixed inset-0 bg-black/40 dark:bg-black/60 z-40"
@@ -67,7 +65,6 @@
   ></div>
 {/if}
 
-<!-- Side Navigation Panel -->
 <nav
   class={cn(
     'fixed top-0 left-0 bottom-0 z-50 w-72 bg-surface border-r border-border dark:border-white/6',
@@ -77,13 +74,12 @@
   aria-label="Side navigation"
 >
   <div class="flex flex-col h-full">
-    <!-- Header -->
     <div class="flex items-center justify-between px-5 py-4 border-b border-border dark:border-white/6">
       <div class="flex items-center gap-2.5">
         <div class="w-8 h-8 bg-gradient-to-br from-primary to-primary-dark rounded-lg flex items-center justify-center text-white font-bold text-sm">
-          B
+          U
         </div>
-        <span class="font-medium font-serif text-text">Booking</span>
+        <span class="font-medium font-serif text-text">UNEEM</span>
       </div>
       <button
         on:click={() => dispatch('close')}
@@ -94,9 +90,7 @@
       </button>
     </div>
 
-    <!-- Navigation Links -->
     <div class="flex-1 overflow-y-auto py-3">
-      <!-- Regular items -->
       {#each regularItems as item}
         <button
           on:click={() => navigate(item.href)}
@@ -113,13 +107,45 @@
         </button>
       {/each}
 
-      <!-- Admin section -->
+      {#if $needsIdentityAction}
+        <button
+          on:click={() => navigate('/verification')}
+          class={cn(
+            'mx-3 mt-2 w-[calc(100%-1.5rem)] flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors',
+            isActive('/verification')
+              ? 'text-primary bg-primary-light'
+              : 'text-text bg-surface-level-1 hover:bg-primary-light'
+          )}
+          aria-label={$language === 'ar' ? 'توثيق هوية الطالب' : 'Verify student identity'}
+        >
+          <Icon name="shield" size={20} />
+          <div class="min-w-0 text-start">
+            <div class="font-medium">{$language === 'ar' ? 'توثيق الطالب' : 'Student verification'}</div>
+            <div class="text-xs text-text-muted mt-0.5">{$language === 'ar' ? 'أكمل توثيق بطاقتك' : 'Complete your student identity'}</div>
+          </div>
+        </button>
+      {/if}
+
       {#if $isAdmin}
         <div class="flex items-center gap-3 px-5 py-3 mt-1">
           <div class="flex-1 h-[1px] bg-border/60"></div>
           <span class="text-[10px] font-bold uppercase tracking-widest text-text-muted/70">Admin</span>
           <div class="flex-1 h-[1px] bg-border/60"></div>
         </div>
+
+        <button
+          on:click={() => navigate('/admin/verification')}
+          class={cn(
+            'w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors',
+            isActive('/admin/verification')
+              ? 'text-primary bg-primary-light'
+              : 'text-text-secondary hover:text-text hover:bg-surface-level-1'
+          )}
+          aria-label={$language === 'ar' ? 'طلبات توثيق الطلبة' : 'Student verification queue'}
+        >
+          <Icon name="shield" size={20} strokeWidth={isActive('/admin/verification') ? 2.5 : 2} />
+          <span>{$language === 'ar' ? 'توثيق الطلبة' : 'Verification queue'}</span>
+        </button>
 
         {#each adminItems as item}
           <button
@@ -139,9 +165,7 @@
       {/if}
     </div>
 
-    <!-- Footer Actions -->
     <div class="border-t border-border dark:border-white/6 py-3 px-3 space-y-1">
-      <!-- Theme Toggle -->
       <button
         on:click={toggleTheme}
         class="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-text-secondary hover:text-text hover:bg-surface-level-1 rounded-lg transition"
@@ -156,7 +180,6 @@
         {/if}
       </button>
 
-      <!-- Language Toggle -->
       <button
         on:click={toggleLanguage}
         class="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-text-secondary hover:text-text hover:bg-surface-level-1 rounded-lg transition"
@@ -166,7 +189,6 @@
         <span>{$language === 'en' ? 'العربية' : 'English'}</span>
       </button>
 
-      <!-- Logout -->
       {#if $isAuthenticated}
         <button
           on:click={handleLogout}

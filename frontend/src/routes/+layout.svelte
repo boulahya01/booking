@@ -11,7 +11,7 @@
   import { initializeI18n } from '$lib/i18n'
   import { supabase } from '$lib/supabaseClient'
   import { authState } from '$lib/stores/auth'
-  import { getUserProfile } from '$lib/auth'
+  import { getMyAccountState, getUserProfile } from '$lib/auth'
   import { locale } from 'svelte-i18n'
   import { USE_MOCK } from '$lib/mock'
 
@@ -29,9 +29,11 @@
   const authPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/logout']
   $: isAuthPage = authPaths.includes($page.url.pathname)
 
-  // Never make a routing decision while the persisted session is still being
-  // restored. V1 previously treated this short window as "signed out", which
-  // caused returning users to bounce through /login and made the app feel slow.
+  // Routing is driven by the authoritative account-state RPC rather than the
+  // legacy profile status alone. This preserves the academic-email fast path:
+  // an approved academic user can use sports while Student ID verification is
+  // still required, whereas a personal-email account remains restricted until
+  // manual verification grants can_use_sports.
   $: if (
     browser &&
     !$authState.loading &&
@@ -40,28 +42,43 @@
   ) {
     const pathname = $page.url.pathname
     const hasSession = $authState.user !== null
-    const userStatus = $authState.user?.status
+    const account = $authState.account
     const isAuthPath = authPaths.includes(pathname)
     const isPendingPath = pathname === '/pending-approval'
     const isProfilePath = pathname === '/profile'
-    const isRestrictedStatus = userStatus === 'pending' || userStatus === 'rejected' || userStatus === 'suspended'
-    const isAppPath = pathname.startsWith('/home') ||
-                      pathname.startsWith('/bookings') ||
-                      pathname.startsWith('/pitch/') ||
-                      pathname.startsWith('/notifications') ||
-                      pathname.startsWith('/admin/')
+    const isVerificationPath = pathname === '/verification'
+    const isAdminPath = pathname.startsWith('/admin/')
+    const isSportsPath = pathname.startsWith('/home') ||
+                         pathname.startsWith('/bookings') ||
+                         pathname.startsWith('/pitch/') ||
+                         pathname.startsWith('/notifications')
+    const canUseSports = account?.can_use_sports === true
+    const isAdminAccount = account?.role === 'admin'
 
     let targetPath: string | null = null
 
     if (!hasSession && !isAuthPath) {
       targetPath = '/login'
     } else if (hasSession && isAuthPath) {
-      targetPath = isRestrictedStatus ? '/pending-approval' : '/home'
-    } else if (hasSession && userStatus === 'approved' && isPendingPath) {
-      targetPath = '/home'
-    } else if (hasSession && isRestrictedStatus && isAppPath) {
+      targetPath = canUseSports ? '/home' : '/pending-approval'
+    } else if (hasSession && !account) {
+      // A signed-in session without an authoritative account state must not
+      // receive optimistic access to protected product routes.
       targetPath = '/pending-approval'
-    } else if (hasSession && isRestrictedStatus && !isPendingPath && !isProfilePath && !isAuthPath) {
+    } else if (hasSession && isAdminPath && !isAdminAccount) {
+      targetPath = canUseSports ? '/home' : '/pending-approval'
+    } else if (hasSession && !canUseSports && (isSportsPath || isAdminPath)) {
+      targetPath = '/pending-approval'
+    } else if (hasSession && canUseSports && isPendingPath) {
+      targetPath = '/home'
+    } else if (
+      hasSession &&
+      !canUseSports &&
+      !isPendingPath &&
+      !isProfilePath &&
+      !isVerificationPath &&
+      !isAuthPath
+    ) {
       targetPath = '/pending-approval'
     }
 
@@ -97,23 +114,27 @@
       }
 
       try {
-        const profile = await getUserProfile(session.user.id)
-        if (!profile) {
+        const [profile, account] = await Promise.all([
+          getUserProfile(session.user.id),
+          getMyAccountState()
+        ])
+
+        if (!profile || !account) {
           authState.clear()
           return
         }
 
-        authState.setUser({
+        authState.setSessionContext({
           id: profile.id,
           email: session.user.email ?? undefined,
           student_id: profile.student_id,
           full_name: profile.full_name,
           role: profile.role === 'admin' ? 'admin' : 'user',
-          status: profile.status as import('$lib/stores/auth').UserStatus
-        })
+          status: profile.status
+        }, account)
       } catch {
-        // A failed profile request should not leave the whole application in an
-        // unresolved loading state. RLS remains the authorization boundary.
+        // A failed account-state request must fail closed. RLS remains the
+        // authorization boundary and the next session refresh can recover.
         authState.clear()
       }
     }
@@ -140,14 +161,23 @@
       if (stored) {
         try {
           const user = JSON.parse(stored)
-          authState.setUser({
-            id: user.id,
-            email: user.email,
-            student_id: user.student_id,
-            full_name: user.full_name,
-            role: user.role === 'admin' ? 'admin' : 'user',
-            status: user.status
-          })
+          void Promise.all([
+            getUserProfile(user.id),
+            getMyAccountState()
+          ]).then(([profile, account]) => {
+            if (!profile || !account) {
+              authState.clear()
+              return
+            }
+            authState.setSessionContext({
+              id: profile.id,
+              email: user.email,
+              student_id: profile.student_id,
+              full_name: profile.full_name,
+              role: profile.role === 'admin' ? 'admin' : 'user',
+              status: profile.status
+            }, account)
+          }).catch(() => authState.clear())
         } catch {
           authState.clear()
         }
