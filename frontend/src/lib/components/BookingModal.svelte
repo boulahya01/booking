@@ -9,6 +9,7 @@
 
   export let slotData: any
   export let onClose: () => void
+  export let onBooked: () => void = () => {}
 
   const slot = slotData
   let loading = false
@@ -22,12 +23,14 @@
       if (USE_MOCK) {
         await mockDelay()
         uiState.addToast($_('common.success'), 'success')
+        onBooked()
         onClose()
         return
       }
 
       await createBooking(slot.pitch_id, slot.datetime_start)
       uiState.addToast($_('common.success'), 'success')
+      onBooked()
       onClose()
     } catch (err) {
       const code = err instanceof BookingApiError ? err.code : 'unknown'
@@ -47,9 +50,7 @@
      aria-modal="true">
   <div class="absolute inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm"></div>
 
-  <div class="relative w-full sm:max-w-sm bg-surface sm:rounded-2xl rounded-t-2xl shadow-2xl z-50 overflow-hidden
-              animate-in">
-
+  <div class="relative w-full sm:max-w-sm bg-surface sm:rounded-2xl rounded-t-2xl shadow-2xl z-50 overflow-hidden animate-in">
     <button on:click={onClose}
             disabled={loading}
             class="absolute top-4 end-4 z-10 w-8 h-8 rounded-full flex items-center justify-center
@@ -76,8 +77,7 @@
     <div class="p-6 space-y-4">
       <div class="rounded-xl p-4 bg-surface-level-1/50 ring-1 ring-border/50">
         <div class="flex items-start gap-3">
-          <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0
-                      bg-surface-level-1 ring-1 ring-border/60">
+          <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-surface-level-1 ring-1 ring-border/60">
             <Icon name="building-2" size={18} className="text-text-secondary" />
           </div>
           <div class="min-w-0 flex-1">
@@ -120,8 +120,7 @@
         disabled={loading || !slot.is_available}
         class="w-full py-3.5 rounded-xl text-white font-semibold text-sm tracking-wide
                transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
-               hover:-translate-y-0.5 active:translate-y-0
-               flex items-center justify-center gap-2"
+               hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2"
         style="background: var(--primary-gradient); box-shadow: 0 0 0 1px var(--primary), var(--shadow-md);">
         {#if loading}
           <span class="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
