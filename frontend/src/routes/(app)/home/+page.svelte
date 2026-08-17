@@ -46,36 +46,32 @@
 </script>
 
 <div class="min-h-screen" style="background: var(--bg);">
-  <div class="max-w-5xl mx-auto px-4 py-6 space-y-6">
-    <NotificationBanner />
-
-    <div class="flex items-center gap-3">
-      <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-           style="background: var(--primary-light);">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-        </svg>
-      </div>
-      <div>
-        <h1 class="text-2xl font-serif font-medium" style="color: var(--text);">
-          {$_('home.title')}
-        </h1>
-        {#if $authState.user?.full_name}
-          <p class="text-sm" style="color: var(--text-secondary);">
-            {$_('home.welcome_back')}, {$authState.user.full_name.replace(/\b\w/g, (c: string) => c.toUpperCase())}
-          </p>
-        {/if}
-      </div>
-    </div>
+  <div class="max-w-5xl mx-auto px-4 py-5 sm:py-6 space-y-6">
+    <header class="space-y-1">
+      {#if $authState.user?.full_name}
+        <p class="text-sm font-medium" style="color: var(--text-secondary);">
+          {$_('home.welcome_back')}, {$authState.user.full_name.replace(/\b\w/g, (c: string) => c.toUpperCase())}
+        </p>
+      {/if}
+      <h1 class="text-2xl sm:text-[1.7rem] font-serif font-medium tracking-tight" style="color: var(--text);">
+        {$_('home.title')}
+      </h1>
+    </header>
 
     <NextBookingCard />
 
-    <section>
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-serif font-medium" style="color: var(--text);">{$_('home.available_pitches')}</h2>
-        {#if !pitchesLoading && !pitchesError}
-          <span class="text-xs text-text-muted">{pitches.length} {$_('home.pitches_count')}</span>
-        {/if}
+    <NotificationBanner />
+
+    <section aria-labelledby="facilities-heading">
+      <div class="flex items-end justify-between gap-4 mb-3">
+        <div>
+          <h2 id="facilities-heading" class="text-lg font-serif font-medium" style="color: var(--text);">
+            {$_('home.available_pitches')}
+          </h2>
+          {#if !pitchesLoading && !pitchesError && pitches.length > 0}
+            <p class="mt-0.5 text-xs text-text-muted">{pitches.length} {$_('home.pitches_count')}</p>
+          {/if}
+        </div>
       </div>
 
       {#if pitchesLoading}
@@ -83,38 +79,39 @@
           {#each Array(3) as _}
             <div class="rounded-xl p-4 animate-pulse" style="background: var(--surface); border: 1px solid var(--border);">
               <div class="flex items-start gap-3">
-                <div class="w-12 h-12 rounded-lg" style="background: var(--surface-level-1);"></div>
+                <div class="w-10 h-10 rounded-lg" style="background: var(--surface-level-1);"></div>
                 <div class="flex-1 space-y-2">
                   <div class="h-5 w-3/4 rounded" style="background: var(--surface-level-1);"></div>
                   <div class="h-4 w-1/2 rounded" style="background: var(--surface-level-1);"></div>
                 </div>
               </div>
-              <div class="mt-4 space-y-2">
-                <div class="h-4 w-full rounded" style="background: var(--surface-level-1);"></div>
-                <div class="h-4 w-2/3 rounded" style="background: var(--surface-level-1);"></div>
-              </div>
+              <div class="mt-4 h-4 w-2/3 rounded" style="background: var(--surface-level-1);"></div>
             </div>
           {/each}
         </div>
       {:else if pitchesError}
-        <div class="text-center py-12 rounded-xl" style="background: var(--danger-light); border: 1px solid color-mix(in srgb, var(--danger) 20%, transparent);" role="alert">
-          <div class="w-14 h-14 mx-auto mb-3 rounded-full flex items-center justify-center" style="background: var(--surface); color: var(--danger);">
-            <Icon name="alert-triangle" size={28} />
+        <div class="rounded-xl px-4 py-5" style="background: var(--surface); border: 1px solid var(--border);" role="alert">
+          <div class="flex items-start gap-3">
+            <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style="background: var(--danger-light); color: var(--danger);">
+              <Icon name="alert-triangle" size={18} />
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="font-medium" style="color: var(--text);">{$_('common.error')}</p>
+              <button
+                type="button"
+                on:click={() => void fetchPitches()}
+                class="mt-2 text-sm font-semibold hover:underline"
+                style="color: var(--primary);"
+              >
+                {$_('common.retry')}
+              </button>
+            </div>
           </div>
-          <p class="font-medium" style="color: var(--text);">{$_('common.error')}</p>
-          <button
-            type="button"
-            on:click={() => void fetchPitches()}
-            class="mt-4 px-4 py-2 rounded-lg text-sm font-semibold transition hover:-translate-y-0.5"
-            style="background: var(--primary); color: white;"
-          >
-            {$_('common.retry')}
-          </button>
         </div>
       {:else if pitches.length === 0}
-        <div class="text-center py-12 rounded-xl" style="background: var(--surface-level-1/50); border: 1px dashed var(--border);">
-          <div class="w-14 h-14 mx-auto mb-3 rounded-full flex items-center justify-center" style="background: var(--surface-level-2); color: var(--text-muted);">
-            <Icon name="map-pin" size={28} />
+        <div class="text-center py-10 rounded-xl" style="background: var(--surface-level-1); border: 1px dashed var(--border);">
+          <div class="w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center" style="background: var(--surface-level-2); color: var(--text-muted);">
+            <Icon name="map-pin" size={24} />
           </div>
           <p class="font-medium" style="color: var(--text-secondary);">{$_('home.no_pitches_found')}</p>
         </div>
