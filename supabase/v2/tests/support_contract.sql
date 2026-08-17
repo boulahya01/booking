@@ -1,5 +1,5 @@
 -- UNEEM V2 support/report security contract tests.
--- Run after schema layers 001-009. All fixtures roll back.
+-- Run after schema layers 001-011. All fixtures roll back.
 
 \set ON_ERROR_STOP on
 
@@ -109,28 +109,26 @@ end;
 $$;
 reset role;
 
--- Remove authenticated throttle fixtures before guest tests.
 delete from public.support_threads where user_id = '61000000-0000-4000-8000-000000000003';
 
--- 5. Guest support requires a contact email so the database can apply a stable
--- per-contact throttle while keeping browser capability-token access.
+-- 5. Guest support remains available without a contact email. Capability-token access
+-- is still returned and every anonymous creation is covered by the global burst ceiling.
 set local role anon;
 
 do $$
+declare
+  v_row record;
 begin
-  begin
-    perform * from public.create_guest_support_thread('', 'Need help', 'Guest message');
-    raise exception 'FAIL: guest thread without contact email unexpectedly succeeded';
-  exception
-    when others then
-      if sqlerrm not like '%guest_contact_email_required%' then raise; end if;
-  end;
+  select * into v_row from public.create_guest_support_thread('', 'Need help', 'Guest message');
+  if v_row.thread_id is null or v_row.access_token is null then
+    raise exception 'FAIL: no-email guest support did not return capability access';
+  end if;
 end;
 $$;
 reset role;
 
--- 6. Two recent guest threads for the same normalized contact are allowed; a third
--- inside 30 minutes is throttled.
+-- 6. When a contact email is provided, two recent threads for the same normalized
+-- address are allowed; a third inside 30 minutes is throttled.
 set local role anon;
 select * from public.create_guest_support_thread('Guest@Test.Example', 'First', 'First guest request');
 select * from public.create_guest_support_thread('guest@test.example', 'Second', 'Second guest request');
