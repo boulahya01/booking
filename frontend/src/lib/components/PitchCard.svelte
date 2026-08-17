@@ -10,63 +10,40 @@
   $: isArabic = ($locale || 'en').startsWith('ar')
 </script>
 
-<a
-  href={`/pitch/${pitch.id}`}
-  class="group block overflow-hidden rounded-2xl transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-  style="background: var(--surface); border: 1px solid var(--border);"
->
-  <div class="relative flex min-h-[92px] items-end overflow-hidden px-4 py-3" style="background: var(--surface-level-1);">
-    <div class="absolute -right-5 -top-5 h-24 w-24 rounded-full opacity-70" style="background: var(--primary-light);"></div>
-    <div class="relative flex w-full items-end justify-between gap-3">
-      <div class="flex h-11 w-11 items-center justify-center rounded-2xl shadow-sm" style="background: var(--surface); color: var(--primary);">
-        <Icon name="trophy" size={20} />
+<a href={`/pitch/${pitch.id}`} class="group block rounded-[22px] border border-border-light bg-surface p-4 shadow-xs transition-colors hover:bg-surface-level-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30">
+  <div class="flex items-start gap-3.5">
+    <div class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary-light text-primary">
+      <Icon name="trophy" size={21} />
+    </div>
+
+    <div class="min-w-0 flex-1">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <h3 class="truncate text-base font-bold tracking-[-0.015em] text-text">{pitch.name}</h3>
+          <p class="mt-1 flex items-center gap-1.5 text-sm text-text-secondary">
+            <Icon name="map-pin" size={13} className="shrink-0" />
+            <span class="truncate">{pitch.location || $_('bookings.unknown_location')}</span>
+          </p>
+        </div>
+        <Icon name={isArabic ? 'arrow-left' : 'arrow-right'} size={17} className="mt-1 shrink-0 text-text-muted transition-transform group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5" />
       </div>
 
-      {#if pitch.sport_type}
-        <span class="rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize" style="background: var(--surface); color: var(--text-secondary);">
-          {pitch.sport_type}
-        </span>
-      {/if}
+      <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs font-medium text-text-muted">
+        {#if pitch.sport_type}
+          <span class="capitalize font-semibold text-primary">{pitch.sport_type}</span>
+        {/if}
+        {#if pitch.open_time && pitch.close_time}
+          <span class="inline-flex items-center gap-1.5"><Icon name="clock" size={12} />{pitch.open_time.slice(0, 5)}–{displayCloseTime}</span>
+        {/if}
+        {#if pitch.capacity}
+          <span class="inline-flex items-center gap-1.5"><Icon name="users" size={12} />{pitch.capacity}</span>
+        {/if}
+      </div>
     </div>
   </div>
 
-  <div class="p-4">
-    <div class="flex items-start justify-between gap-3">
-      <div class="min-w-0">
-        <h3 class="truncate text-base font-semibold tracking-[-0.01em] transition-colors group-hover:text-primary" style="color: var(--text);">
-          {pitch.name}
-        </h3>
-        <p class="mt-1 flex items-center gap-1.5 text-sm" style="color: var(--text-secondary);">
-          <Icon name="map-pin" size={13} className="flex-shrink-0" />
-          <span class="truncate">{pitch.location || $_('bookings.unknown_location')}</span>
-        </p>
-      </div>
-
-      <span class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full transition-colors group-hover:bg-primary-light group-hover:text-primary" style="color: var(--text-muted);">
-        <Icon name="chevron-right" size={16} />
-      </span>
-    </div>
-
-    <div class="mt-4 flex flex-wrap gap-2">
-      {#if pitch.open_time && pitch.close_time}
-        <span class="inline-flex min-h-[30px] items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium" style="background: var(--surface-level-1); color: var(--text-secondary);">
-          <Icon name="clock" size={12} />
-          {pitch.open_time.slice(0, 5)}–{displayCloseTime}
-        </span>
-      {/if}
-      {#if pitch.capacity}
-        <span class="inline-flex min-h-[30px] items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium" style="background: var(--surface-level-1); color: var(--text-secondary);">
-          <Icon name="users" size={12} />
-          {pitch.capacity}
-        </span>
-      {/if}
-    </div>
-
-    <div class="mt-4 flex min-h-[44px] items-center justify-between rounded-xl px-3.5 transition-colors group-hover:bg-primary-light" style="background: var(--surface-level-1);">
-      <span class="text-sm font-semibold" style="color: var(--primary);">
-        {isArabic ? 'شوف الأوقات' : 'See available times'}
-      </span>
-      <Icon name="arrow-right" size={15} className="text-primary" />
-    </div>
+  <div class="mt-4 flex min-h-11 items-center justify-between rounded-2xl bg-primary-light px-3.5 text-sm font-bold text-primary">
+    <span>{isArabic ? 'شوف الأوقات' : 'View times'}</span>
+    <Icon name="clock" size={16} />
   </div>
 </a>

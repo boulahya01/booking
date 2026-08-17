@@ -1,8 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { authState } from '$lib/stores/auth'
-  import { _ } from 'svelte-i18n'
-  import { locale } from 'svelte-i18n'
+  import { _ , locale } from 'svelte-i18n'
   import { USE_MOCK } from '$lib/mock'
   import Icon from './Icon.svelte'
   import { getNextBooking, BookingApiError, type MyBooking } from '$lib/bookingApi'
@@ -13,6 +12,8 @@
   let error: string | null = null
   let currentUserId: string | null = null
   let requestVersion = 0
+
+  $: isArabic = ($locale || 'en').startsWith('ar')
 
   onMount(() => {
     if (USE_MOCK) {
@@ -71,59 +72,52 @@
     return {
       day: date.getDate(),
       month: date.toLocaleDateString(currentLocale, { month: 'short' }),
-      weekday: date.toLocaleDateString(currentLocale, { weekday: 'long' }),
+      weekday: date.toLocaleDateString(currentLocale, { weekday: 'short' }),
       time: date.toLocaleTimeString(currentLocale, { hour: '2-digit', minute: '2-digit', hour12: false })
     }
   }
 </script>
 
-<div class="rounded-xl p-4 transition-all duration-200"
-     style={booking
-       ? 'background: var(--primary-light/40); box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12);'
-       : 'background: var(--surface-level-1/40); box-shadow: 0 0 0 1px var(--border);'}>
+<section class="uneem-card">
   {#if loading}
-    <div class="flex items-center gap-3" style="color: var(--text-muted);">
-      <div class="w-10 h-10 rounded-full animate-pulse" style="background: var(--surface-level-1);"></div>
-      <div class="h-4 w-32 animate-pulse rounded" style="background: var(--surface-level-1);"></div>
+    <div class="flex items-center gap-3" aria-busy="true">
+      <div class="h-12 w-12 animate-pulse rounded-2xl bg-surface-level-1"></div>
+      <div class="flex-1 space-y-2">
+        <div class="h-4 w-28 animate-pulse rounded-full bg-surface-level-1"></div>
+        <div class="h-4 w-40 animate-pulse rounded-full bg-surface-level-1"></div>
+      </div>
     </div>
   {:else if error}
-    <div class="flex items-center gap-4">
-      <div class="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0" style="background: var(--danger-light); color: var(--danger);">
-        <Icon name="alert-circle" size={22} />
-      </div>
-      <div class="flex-1 min-w-0">
-        <p class="text-sm font-medium" style="color: var(--danger);">{error}</p>
-        {#if currentUserId}
-          <button on:click={() => void loadBooking(currentUserId!)} class="mt-1 text-sm font-medium hover:underline" style="color: var(--primary);">{$_('common.retry')}</button>
-        {/if}
+    <div class="flex items-center gap-3">
+      <div class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-danger-light text-danger"><Icon name="alert-circle" size={19} /></div>
+      <div class="min-w-0 flex-1">
+        <p class="text-sm font-semibold text-text">{error}</p>
+        {#if currentUserId}<button on:click={() => void loadBooking(currentUserId!)} class="mt-1 min-h-8 text-sm font-bold text-primary">{$_('common.retry')}</button>{/if}
       </div>
     </div>
   {:else if booking}
     {@const time = formatBookingTime(booking.starts_at)}
-    <a href="/bookings" class="flex items-center gap-4 group">
-      <div class="w-14 h-14 rounded-xl flex flex-col items-center justify-center flex-shrink-0"
-           style="background: var(--primary-light/60); color: var(--primary); box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.1);">
-        <span class="text-[10px] font-semibold uppercase tracking-wide">{time.month}</span>
-        <span class="text-lg font-bold leading-none">{time.day}</span>
+    <a href="/bookings" class="group flex items-center gap-3.5">
+      <div class="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-primary-light text-primary">
+        <span class="text-[10px] font-extrabold uppercase tracking-wide">{time.month}</span>
+        <span class="text-xl font-extrabold leading-none">{time.day}</span>
       </div>
-      <div class="flex-1 min-w-0">
-        <h3 class="font-semibold truncate" style="color: var(--text);">{booking.pitches?.name || $_('bookings.unknown_pitch')}</h3>
-        <p class="text-sm" style="color: var(--text-secondary);">{time.weekday} at {time.time}</p>
+      <div class="min-w-0 flex-1">
+        <p class="text-xs font-bold uppercase tracking-[0.1em] text-primary">{isArabic ? 'حجزك الجاي' : 'Next booking'}</p>
+        <h3 class="mt-1 truncate font-bold text-text">{booking.pitches?.name || $_('bookings.unknown_pitch')}</h3>
+        <p class="mt-0.5 text-sm text-text-secondary">{time.weekday} · {time.time}</p>
       </div>
-      <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 group-hover:-translate-y-0.5"
-           style="background: var(--primary-light); color: var(--primary);">
-        <Icon name="arrow-right" size={20} />
-      </div>
+      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-text-muted transition-colors group-hover:bg-primary-light group-hover:text-primary">
+        <Icon name={isArabic ? 'arrow-left' : 'arrow-right'} size={18} />
+      </span>
     </a>
   {:else}
-    <div class="flex items-center gap-4">
-      <div class="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0" style="background: var(--surface-level-1); color: var(--text-muted);">
-        <Icon name="calendar-x" size={24} />
-      </div>
-      <div class="flex-1 min-w-0">
-        <p class="font-semibold" style="color: var(--text);">{$_('home.no_upcoming_bookings')}</p>
-        <p class="text-sm" style="color: var(--text-muted);">{$_('home.no_upcoming_bookings_hint')}</p>
+    <div class="flex items-center gap-3.5">
+      <div class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-surface-level-1 text-text-muted"><Icon name="calendar-x" size={21} /></div>
+      <div class="min-w-0 flex-1">
+        <p class="font-bold text-text">{isArabic ? 'ما عندك حتى حجز جاي' : 'No booking yet'}</p>
+        <a href="/home" class="mt-1 inline-flex min-h-8 items-center text-sm font-bold text-primary">{isArabic ? 'اختار مرفق' : 'Find a facility'}</a>
       </div>
     </div>
   {/if}
-</div>
+</section>
