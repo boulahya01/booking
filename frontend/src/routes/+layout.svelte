@@ -7,6 +7,7 @@
   import TopBar from '$lib/components/TopBar.svelte'
   import SideNav from '$lib/components/SideNav.svelte'
   import Toast from '$lib/components/Toast.svelte'
+  import PwaInstallPrompt from '$lib/components/PwaInstallPrompt.svelte'
   import { theme, toasts, uiState } from '$lib/stores/ui'
   import { initializeI18n } from '$lib/i18n'
   import { supabase } from '$lib/supabaseClient'
@@ -29,9 +30,6 @@
   const authPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/logout']
   $: isAuthPage = authPaths.includes($page.url.pathname)
 
-  // Never make a routing decision while the persisted session is still being
-  // restored. V1 previously treated this short window as "signed out", which
-  // caused returning users to bounce through /login and made the app feel slow.
   $: if (
     browser &&
     !$authState.loading &&
@@ -112,8 +110,6 @@
           status: profile.status as import('$lib/stores/auth').UserStatus
         })
       } catch {
-        // A failed profile request should not leave the whole application in an
-        // unresolved loading state. RLS remains the authorization boundary.
         authState.clear()
       }
     }
@@ -220,6 +216,8 @@
   {#if !isAuthPage}
     <SideNav bind:isOpen={sideNavOpen} on:close={() => sideNavOpen = false} />
   {/if}
+
+  <PwaInstallPrompt />
 
   <div class="fixed bottom-20 md:bottom-4 right-4 space-y-2 z-50 pointer-events-none">
     {#each $toasts as toast (toast.id)}
