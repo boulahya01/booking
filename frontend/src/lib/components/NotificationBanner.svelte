@@ -27,6 +27,11 @@
   let currentUserId: string | null = null
   let requestVersion = 0
 
+  function reportCount() {
+    uiState.setUnreadNotifications(notifications.length)
+    dispatch('count', { count: notifications.length })
+  }
+
   onMount(() => {
     const unsubscribe = authState.subscribe((state) => {
       if (state.loading) {
@@ -43,7 +48,7 @@
       if (!userId) {
         notifications = []
         loadError = false
-        uiState.setUnreadNotifications(0)
+        reportCount()
         loading = false
         return
       }
@@ -81,7 +86,7 @@
 
       const dismissed = new Set((dismissalsResult.data || []).map((row: any) => row.announcement_id))
       notifications = (announcementsResult.data || []).filter((announcement: any) => !dismissed.has(announcement.id))
-      uiState.setUnreadNotifications(notifications.length)
+      reportCount()
     } catch (error) {
       if (version !== requestVersion || userId !== currentUserId) return
       logger.error('Failed to load announcements:', error)
@@ -113,8 +118,8 @@
     }
 
     notifications = notifications.filter((notification) => notification.id !== announcementId)
-    uiState.setUnreadNotifications(notifications.length)
-    dispatch('dismissed', { id: announcementId })
+    reportCount()
+    dispatch('dismissed', { id: announcementId, remaining: notifications.length })
   }
 </script>
 
@@ -127,9 +132,7 @@
     <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 bg-danger-light text-danger">
       <Icon name="alert-triangle" size={17} />
     </div>
-    <div class="flex-1 min-w-0">
-      <p class="text-sm font-medium text-text">{$_('common.error')}</p>
-    </div>
+    <div class="flex-1 min-w-0"><p class="text-sm font-medium text-text">{$_('common.error')}</p></div>
     <button type="button" on:click={retry} class="text-sm font-semibold text-primary hover:underline">{$_('common.retry')}</button>
   </div>
 {:else if notifications.length > 0}
@@ -165,9 +168,7 @@
             <p class="text-sm mt-1 leading-relaxed whitespace-pre-wrap text-text-secondary">{isArabic ? notification.body_ar : notification.body_en}</p>
             <div class="flex items-center gap-1.5 mt-2.5">
               <div class="w-1 h-1 rounded-full bg-primary/40"></div>
-              <time class="text-xs text-text-muted">
-                {new Date(notification.published_at).toLocaleDateString(isArabic ? 'ar' : 'en', { month: 'short', day: 'numeric', year: 'numeric' })}
-              </time>
+              <time class="text-xs text-text-muted">{new Date(notification.published_at).toLocaleDateString(isArabic ? 'ar' : 'en', { month: 'short', day: 'numeric', year: 'numeric' })}</time>
             </div>
           </div>
         </div>
