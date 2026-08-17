@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte'
+  import { onMount } from 'svelte'
   import { browser } from '$app/environment'
   import { page } from '$app/stores'
   import { supabase } from '$lib/supabaseClient'
@@ -25,22 +25,22 @@
 
   $: pitchId = $page.params.id
 
-  // Abort controller to prevent race conditions on rapid navigation
+  // Incremented when navigation changes pitch so stale responses are discarded.
   let fetchVersion = 0
+  let slotsRequestVersion: number | null = null
 
-  // Auto-refresh slots every 2 minutes and on tab visibility change
+  // V1 compatibility refresh. V2 availability will move to one PostgreSQL RPC
+  // and can later be invalidated by Realtime rather than polling aggressively.
   let refreshInterval: ReturnType<typeof setInterval> | null = null
   let cleanupVisibility: (() => void) | null = null
 
   function startAutoRefresh() {
-    // Refresh every 2 minutes
     refreshInterval = setInterval(() => {
       if (pitchId) {
         fetchSlots()
       }
     }, 120_000)
 
-    // Refresh when tab becomes visible
     const handleVisibility = () => {
       if (!document.hidden && pitchId) {
         fetchSlots()
@@ -48,7 +48,6 @@
     }
     document.addEventListener('visibilitychange', handleVisibility)
 
-    // Store cleanup function
     cleanupVisibility = () => {
       document.removeEventListener('visibilitychange', handleVisibility)
     }
@@ -74,44 +73,48 @@
       return
     }
 
-    logger.debug('[Pitch Page] Fetching pitch:', pitchId)
-
     if (USE_MOCK) {
       pitch = mockPitches.find(p => p.id === pitchId) || null
-      logger.debug('[Pitch Page] Mock mode, found:', pitch)
       loading = false
       return
     }
 
-    const { data, error: fetchError } = await supabase.from('pitches').select('*').eq('id', pitchId).maybeSingle()
+    const { data, error: fetchError } = await supabase
+      .from('pitches')
+      .select('id,name,location,open_time,close_time,capacity,sport_type')
+      .eq('id', pitchId)
+      .maybeSingle()
 
-    // Discard stale result if navigation happened during fetch
     if (thisVersion !== fetchVersion) return
 
     if (fetchError) {
-      logger.error('[Pitch Page] Supabase error:', fetchError)
-      error = fetchError.message
+      logger.error('[Pitch Page] Failed to load pitch:', fetchError)
+      error = $_('common.error')
       pitch = null
     } else if (!data) {
-      logger.warn('[Pitch Page] No pitch found with ID:', pitchId)
       pitch = null
     } else {
-      logger.debug('[Pitch Page] Pitch found:', data)
+      error = null
       pitch = data
     }
     loading = false
   }
 
   async function fetchSlots() {
-    const thisVersion = fetchVersion // Use current version, don't increment
+    const thisVersion = fetchVersion
     if (!pitchId) return
 
+    // Interval, visibility, modal and manual refreshes can happen close together.
+    // Only one availability request per pitch version should be in flight.
+    if (slotsRequestVersion === thisVersion) return
+    slotsRequestVersion = thisVersion
     loadingSlots = true
     errorSlots = null
 
     if (USE_MOCK) {
       slots = mockSlots
       loadingSlots = false
+      slotsRequestVersion = null
       if (slots.length > 0 && !selectedDate) {
         const dates = [...new Set(slots.map(s => new Date(s.datetime_start).toLocaleDateString()))]
         selectedDate = dates[0]
@@ -119,55 +122,40 @@
       return
     }
 
-    // Try invoke first
-    let fetchedSlots: any[] = []
     try {
-      const res = await supabase.functions.invoke('available-slots', { body: JSON.stringify({ pitch_id: pitchId }) })
-      let data = (res && (res.data ?? res)) || null
-      if (typeof data === 'string') data = JSON.parse(data)
-      fetchedSlots = Array.isArray(data) ? data : []
-    } catch (invokeErr) {
-      logger.warn('[Pitch Page] invoke failed, trying fallback:', invokeErr)
-    }
+      const { data, error: invokeError } = await supabase.functions.invoke('available-slots', {
+        body: { pitch_id: pitchId }
+      })
 
-    // Discard stale result
-    if (thisVersion !== fetchVersion) return
+      if (thisVersion !== fetchVersion) return
+      if (invokeError) throw invokeError
 
-    // Fallback: direct HTTP fetch
-    if (fetchedSlots.length === 0) {
-      try {
-        const { data: sessionData } = await supabase.auth.getSession()
-        const token = sessionData?.session?.access_token
-        if (token) {
-          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-          const resp = await fetch(`${supabaseUrl}/functions/v1/available-slots`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ pitch_id: pitchId }),
-          })
-          if (resp.ok) {
-            const parsed = await resp.json()
-            fetchedSlots = Array.isArray(parsed) ? parsed : []
-          }
-        }
-      } catch (fetchErr) {
-        logger.error('[Pitch Page] Fallback fetch also failed:', fetchErr)
+      let parsed = data
+      if (typeof parsed === 'string') parsed = JSON.parse(parsed)
+      if (!Array.isArray(parsed)) {
+        throw new Error('Unexpected availability response')
+      }
+
+      // An empty array is a valid availability result. V1 previously treated it
+      // as a failed request and invoked the same Edge Function a second time.
+      slots = parsed
+      const dates = [...new Set(slots.map(s => new Date(s.datetime_start).toLocaleDateString()))]
+      if (dates.length > 0 && !selectedDate) selectedDate = dates[0]
+    } catch (fetchError) {
+      if (thisVersion !== fetchVersion) return
+      logger.error('[Pitch Page] Failed to load availability:', fetchError)
+      slots = []
+      errorSlots = $_('common.error')
+    } finally {
+      if (slotsRequestVersion === thisVersion) {
+        slotsRequestVersion = null
+      }
+      if (thisVersion === fetchVersion) {
+        loadingSlots = false
       }
     }
-
-    // Discard stale result
-    if (thisVersion !== fetchVersion) return
-
-    slots = fetchedSlots
-    const dates = [...new Set(slots.map(s => new Date(s.datetime_start).toLocaleDateString()))]
-    if (dates.length > 0 && !selectedDate) selectedDate = dates[0]
-    loadingSlots = false
   }
 
-  // Re-fetch when pitchId changes (handles client-side navigation)
   $: if (pitchId && browser) {
     loading = true
     pitch = null
@@ -196,7 +184,6 @@
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // Find the booking ID for this slot
       const { data: found, error: findErr } = await supabase
         .from('bookings')
         .select('id')
@@ -268,11 +255,8 @@
 <div class="min-h-screen" style="background: var(--bg);">
   <div class="max-w-3xl mx-auto px-4 py-5">
     {#if loading}
-      <!-- Page loading skeleton -->
       <div class="space-y-5">
-        <!-- Back link skeleton -->
         <div class="h-5 w-28 rounded animate-pulse" style="background: var(--surface-level-1);"></div>
-        <!-- Pitch hero skeleton -->
         <div class="rounded-xl p-5 animate-pulse" style="background: var(--surface); border: 1px solid var(--border);">
           <div class="flex items-start justify-between gap-4">
             <div class="flex-1 space-y-3">
@@ -287,17 +271,14 @@
             <div class="w-12 h-12 rounded-lg animate-pulse" style="background: var(--surface-level-1);"></div>
           </div>
         </div>
-        <!-- Date selector skeleton -->
         <div class="flex gap-2 overflow-x-auto pb-2">
           {#each Array(4) as _}
             <div class="flex-shrink-0 w-16 h-16 rounded-xl animate-pulse" style="background: var(--surface-level-1);"></div>
           {/each}
         </div>
-        <!-- Slots skeleton -->
         <LoadingSkeleton type="slot" count={4} />
       </div>
     {:else if pitch}
-      <!-- Back Link -->
       <a href="/home"
          class="inline-flex items-center gap-1.5 text-sm font-medium mb-5 no-underline transition-all duration-200 hover:-translate-y-0.5"
          style="color: var(--text-secondary);">
@@ -305,7 +286,6 @@
         <span>{$_('home.browse_pitches')}</span>
       </a>
 
-      <!-- Pitch Hero -->
       <div class="relative rounded-xl mb-5 p-5"
            style="background: var(--surface); border: 1px solid var(--border); box-shadow: 0 0 0 1px var(--border);">
         <div class="flex items-start justify-between gap-4">
@@ -324,12 +304,11 @@
           </div>
           <div class="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
                style="background: var(--primary-light);">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5C7 4 6 9 6 9Z"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5C17 4 18 9 18 9Z"/><path d="M4 22H20"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5C7 4 6 9 6 9Z"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5C17 4 18 9 18 9Z"/><path d="M4 22H20"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55-.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
           </div>
         </div>
       </div>
 
-      <!-- Date Selector -->
       {#if dates.length > 0}
         <div class="mb-5">
           <h2 class="text-base font-medium mb-3" style="color: var(--text); font-family: var(--font-serif);">{$_('pitch.slots_title')}</h2>
@@ -355,7 +334,6 @@
         </div>
       {/if}
 
-      <!-- Slots -->
       {#if loadingSlots}
         <LoadingSkeleton type="slot" count={4} />
       {:else if errorSlots}
@@ -391,10 +369,9 @@
       {/if}
 
       {#if showModal && selectedSlot}
-        <BookingModal slotData={selectedSlot} onClose={onModalClose} on:booked={() => onModalClose()} />
+        <BookingModal slotData={selectedSlot} onClose={onModalClose} />
       {/if}
     {:else}
-      <!-- No pitch ID or pitch truly not found -->
       <div class="text-center py-16">
         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-4"><circle cx="12" cy="12" r="10"/><path d="m14.5 9.5-5 5"/><path d="m9.5 9.5 5 5"/></svg>
         <h2 class="text-xl font-medium mb-2" style="color: var(--text);">{$_('pitch.not_found')}</h2>
