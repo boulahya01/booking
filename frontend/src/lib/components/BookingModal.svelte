@@ -106,7 +106,7 @@
             <Icon name="calendar" size={18} />
           </div>
           <div class="min-w-0">
-            <div class="text-xs font-medium" style="color: var(--text-muted);">{$_('pitch.date')}</div>
+            <div class="text-xs font-medium" style="color: var(--text-muted);">{$_('admin.date_label')}</div>
             <div class="truncate text-sm font-semibold" style="color: var(--text);">{formatDate(slot.datetime_start)}</div>
           </div>
         </div>
@@ -118,7 +118,7 @@
             <Icon name="clock" size={18} />
           </div>
           <div class="min-w-0">
-            <div class="text-xs font-medium" style="color: var(--text-muted);">{$_('pitch.time')}</div>
+            <div class="text-xs font-medium" style="color: var(--text-muted);">{$_('admin.time_label')}</div>
             <div class="text-sm font-semibold" style="color: var(--text);">
               {formatTime(slot.datetime_start)}{#if slot.datetime_end} — {formatTime(slot.datetime_end)}{/if}
             </div>
