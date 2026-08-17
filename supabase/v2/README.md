@@ -23,10 +23,11 @@ The V2 initialization order is:
 9. `009_support_reports_abuse_controls.sql`
 10. `010_support_report_admin_context.sql`
 11. `011_guest_support_optional_contact.sql`
-12. `tests/booking_contract.sql`
-13. `tests/security_contract.sql`
-14. `tests/identity_contract.sql`
-15. `tests/support_contract.sql`
+12. `012_support_rate_limit_scope.sql`
+13. `tests/booking_contract.sql`
+14. `tests/security_contract.sql`
+15. `tests/identity_contract.sql`
+16. `tests/support_contract.sql`
 
 When the hosted V2 project is created, these schema layers become the first real V2 migration history. Do not replay historical V1 migrations.
 
@@ -71,8 +72,9 @@ Support and moderation use one private admin inbox but keep their semantics dist
 - guest support uses a 256-bit browser capability token; only its SHA-256 digest is stored
 - guest contact email remains optional so users can get help when account/email access itself is the problem
 - direct table mutations are closed; support writes use narrow RPCs
-- authenticated support/report creation is throttled per user in PostgreSQL
-- authenticated and guest replies are throttled before message insertion
+- authenticated support/report thread creation is throttled per user in PostgreSQL
+- authenticated reply/message throttles are separate from new-thread throttles so an active conversation stays usable even after the thread-creation limit is reached
+- guest replies are throttled before message insertion
 - guest creation receives a conservative global burst ceiling, with a tighter per-contact throttle when an email is supplied
 - the database burst ceiling is not a substitute for an IP-aware server/edge limit; add that before public launch when runtime configuration is available
 - reports are authenticated-only and require structured target type, target ID and reason code
@@ -107,6 +109,7 @@ Support and moderation use one private admin inbox but keep their semantics dist
 - `009_support_reports_abuse_controls.sql` — structured report contract plus authenticated/guest database throttles
 - `010_support_report_admin_context.sql` — narrow report target/reason context for authorized admins
 - `011_guest_support_optional_contact.sql` — keeps no-auth support accessible while preserving burst protection
+- `012_support_rate_limit_scope.sql` — separates new-thread throttles from reply/message throttles
 - `tests/booking_contract.sql` — transactional booking behavior tests
 - `tests/security_contract.sql` — transactional approval/RLS tests
 - `tests/identity_contract.sql` — academic fast path, personal restriction, verified-only uniqueness and reject → remediate → approve behavior
@@ -128,6 +131,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/008_support_admin_ops.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/009_support_reports_abuse_controls.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/010_support_report_admin_context.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/011_guest_support_optional_contact.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/012_support_rate_limit_scope.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/tests/booking_contract.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/tests/security_contract.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/v2/tests/identity_contract.sql
