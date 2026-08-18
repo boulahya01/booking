@@ -25,6 +25,7 @@
   $: passwordError = loginAttempted && !password ? copy.passwordRequired : ''
   $: registerHref = emailValid ? `/register?email=${encodeURIComponent(cleanEmail)}` : '/register'
   $: forgotHref = emailValid ? `/forgot-password?email=${encodeURIComponent(cleanEmail)}` : '/forgot-password'
+  $: verifyHref = emailValid ? `/verify-email?email=${encodeURIComponent(cleanEmail)}` : '/verify-email'
 
   $: copy = $language === 'ar'
     ? {
@@ -32,23 +33,30 @@
         password: 'كلمة المرور', passwordPlaceholder: 'كلمة المرور', signIn: 'تسجيل الدخول', forgot: 'نسيت كلمة المرور؟',
         newTo: 'جديد في UNEEM؟', create: 'إنشاء حساب', help: 'تحتاج مساعدة؟', invalidEmail: 'أدخل بريداً صحيحاً.',
         passwordRequired: 'أدخل كلمة المرور.', invalidCredentials: 'البريد أو كلمة المرور غير صحيحة.', rateLimited: 'محاولات كثيرة. حاول بعد قليل.',
+        emailUnconfirmed: 'أكد بريدك الإلكتروني قبل تسجيل الدخول.', resendConfirmation: 'إعادة إرسال رابط التأكيد',
         trouble: 'تعذر تسجيل الدخول. حاول مرة أخرى أو اطلب المساعدة.'
       }
     : {
         title: 'Welcome back', subtitle: 'Sign in to continue', email: 'Email address', emailPlaceholder: 'name@usmba.ac.ma',
         password: 'Password', passwordPlaceholder: 'Password', signIn: 'Sign in', forgot: 'Forgot password?', newTo: 'New to UNEEM?',
         create: 'Create account', help: 'Need help?', invalidEmail: 'Enter a valid email.', passwordRequired: 'Enter your password.',
-        invalidCredentials: 'Email or password is incorrect.', rateLimited: 'Too many attempts. Try again shortly.', trouble: 'Couldn’t sign in. Try again or get help.'
+        invalidCredentials: 'Email or password is incorrect.', rateLimited: 'Too many attempts. Try again shortly.',
+        emailUnconfirmed: 'Confirm your email before signing in.', resendConfirmation: 'Resend confirmation link',
+        trouble: 'Couldn’t sign in. Try again or get help.'
       }
 
   onMount(() => {
     const hintedEmail = new URLSearchParams(window.location.search).get('email')
     if (hintedEmail && isValidEmail(hintedEmail)) email = hintedEmail.trim().toLowerCase()
-    if ($isAuthenticated) goto('/home')
+    if ($isAuthenticated) {
+      const account = $authState.account
+      void goto(account?.role === 'admin' ? '/admin' : account?.can_use_sports ? '/home' : '/pending-approval')
+    }
   })
 
   function loginError(kind: AuthFailureKind): string {
     if (kind === 'invalid_credentials') return copy.invalidCredentials
+    if (kind === 'email_unconfirmed') return copy.emailUnconfirmed
     if (kind === 'rate_limited') return copy.rateLimited
     return copy.trouble
   }
@@ -70,15 +78,27 @@
         authState.setError(submitError)
         return
       }
+
       const profile = result.data?.profile
-      if (!profile) {
+      const account = result.data?.accountState
+      if (!profile || !account) {
         authFailureKind = 'profile_missing'
         submitError = copy.trouble
         authState.setError(submitError)
         return
       }
-      authState.setUser({ id: profile.id, email: result.data.user?.email, student_id: profile.student_id, full_name: profile.full_name, role: profile.role === 'admin' ? 'admin' : 'user', status: profile.status })
-      await goto('/home')
+
+      authState.setSessionContext({
+        id: profile.id,
+        email: result.data.user?.email,
+        student_id: profile.student_id,
+        full_name: profile.full_name,
+        role: profile.role === 'admin' ? 'admin' : 'user',
+        status: profile.status
+      }, account)
+
+      const nextPath = account.role === 'admin' ? '/admin' : account.can_use_sports ? '/home' : '/pending-approval'
+      await goto(nextPath)
     } catch (error: any) {
       authFailureKind = classifyAuthFailure(error?.message, error?.status)
       submitError = loginError(authFailureKind)
@@ -102,6 +122,9 @@
     {#if submitError}
       <div class="mb-5 rounded-[18px] bg-danger-light p-4 text-danger" role="alert">
         <div class="flex items-start gap-3"><Icon name="alert-circle" size={19} className="mt-0.5 shrink-0" /><p class="text-sm font-medium leading-6">{submitError}</p></div>
+        {#if authFailureKind === 'email_unconfirmed'}
+          <a href={verifyHref} class="mt-3 inline-flex min-h-10 items-center font-semibold text-primary hover:text-primary-hover">{copy.resendConfirmation}</a>
+        {/if}
       </div>
     {/if}
 
