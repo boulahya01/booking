@@ -59,6 +59,17 @@ insert into public.profiles (
   ('81000000-0000-4000-8000-000000000003', null, 'Admin Candidate', 'admin_candidate', 'student', 'pending', 'academic', 'required'),
   ('81000000-0000-4000-8000-000000000004', null, 'Auto Confirm Guard', 'auto_confirm_guard', 'student', 'pending', 'academic', 'required');
 
+-- Student-card object fixtures for auth lifecycle tests.
+insert into storage.objects (bucket_id, name)
+values
+  (
+    'student-verification',
+    '81000000-0000-4000-8000-000000000001/card.webp'
+  ),
+  (
+    'student-verification',
+    '81000000-0000-4000-8000-000000000002/card.webp'
+  );
 insert into public.pitches (
   id, name, location, sport_type, capacity, timezone, open_time, close_time,
   slot_duration_minutes, booking_window_hours, booking_frequency_enabled,
@@ -67,19 +78,6 @@ insert into public.pitches (
   '82000000-0000-4000-8000-000000000001',
   'Auth Contract Court', 'Campus', 'Football', 10, 'Africa/Casablanca',
   '08:00', '22:00', 60, 168, false, 7, 60, true, 0
-);
-
--- Pre-existing booking fixture lets the match contract be exercised even while
--- the user's current credential is deliberately unconfirmed.
-insert into public.bookings (
-  id, user_id, pitch_id, starts_at, ends_at, status
-) values (
-  '83000000-0000-4000-8000-000000000001',
-  '81000000-0000-4000-8000-000000000001',
-  '82000000-0000-4000-8000-000000000001',
-  (((now() at time zone 'Africa/Casablanca')::date + 1 + time '09:00') at time zone 'Africa/Casablanca'),
-  (((now() at time zone 'Africa/Casablanca')::date + 1 + time '10:00') at time zone 'Africa/Casablanca'),
-  'scheduled'
 );
 
 set local session_replication_role = origin;
@@ -117,6 +115,29 @@ begin
 end;
 $$;
 
+-- Create the pre-existing booking only after the booking authorization test.
+-- It exists solely so Test #3 can exercise the match authorization boundary.
+reset role;
+set local session_replication_role = replica;
+
+insert into public.bookings (
+  id, user_id, pitch_id, starts_at, ends_at, status
+) values (
+  '83000000-0000-4000-8000-000000000001',
+  '81000000-0000-4000-8000-000000000001',
+  '82000000-0000-4000-8000-000000000001',
+  (((now() at time zone 'Africa/Casablanca')::date + 1 + time '09:00') at time zone 'Africa/Casablanca'),
+  (((now() at time zone 'Africa/Casablanca')::date + 1 + time '10:00') at time zone 'Africa/Casablanca'),
+  'scheduled'
+);
+
+set local session_replication_role = origin;
+select set_config(
+  'request.jwt.claim.sub',
+  '81000000-0000-4000-8000-000000000001',
+  true
+);
+set local role authenticated;
 -- 3. Match mutations use the same confirmed-email sports gate.
 do $$
 begin
