@@ -25,14 +25,29 @@
 
   let sideNavOpen = false
   let routeGuardProcessing = false
+  let unsubAuth: (() => void) | null = null
+  let unsubEarlyRecovery: (() => void) | null = null
+
+  // Supabase may resolve an implicit recovery URL before child route onMount
+  // callbacks run. Register this minimal listener during client component setup so
+  // the only trusted recovery grant comes from PASSWORD_RECOVERY itself, never
+  // from a user-editable `?type=recovery` URL marker.
+  if (browser && !USE_MOCK) {
+    const { data: earlyRecoveryListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' && session?.user) {
+        markPasswordRecovery(session)
+      } else if (event === 'SIGNED_OUT') {
+        clearPasswordRecovery()
+      }
+    })
+    unsubEarlyRecovery = () => earlyRecoveryListener.subscription.unsubscribe()
+  }
 
   function toggleSideNav() {
     sideNavOpen = !sideNavOpen
   }
 
   initializeI18n('en')
-
-  let unsubAuth: (() => void) | null = null
 
   const authPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/logout']
   const publicSupportPaths = ['/help']
@@ -132,7 +147,6 @@
       try {
         restorePasswordRecovery(session.user.id)
 
-        // One authoritative DB read resolves profile + access/identity routing.
         const context = await getMySessionContext()
         if (!context) {
           authState.clear()
@@ -250,6 +264,7 @@
     return () => {
       mediaQuery.removeEventListener('change', handleChange)
       unsubAuth?.()
+      unsubEarlyRecovery?.()
     }
   })
 
