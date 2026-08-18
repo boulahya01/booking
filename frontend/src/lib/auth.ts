@@ -92,8 +92,6 @@ export function mapAuthError(message: string, status?: number): string {
 
   const lower = message.toLowerCase()
 
-  // Keep registration failures non-enumerating. Existing email addresses,
-  // usernames, Student IDs and identity conflicts intentionally converge on a generic path.
   if (
     lower.includes('user already registered') ||
     lower.includes('already been registered') ||
@@ -304,15 +302,41 @@ export async function resetPasswordForEmail(email: string): Promise<AuthResponse
   }
 }
 
-// Authenticated in-app password changes remain available to an already signed-in
-// user. The password-recovery page uses the stricter recovery-only function below.
-export async function updatePassword(newPassword: string): Promise<AuthResponse> {
+// In-app password changes require the current credential as well as an existing
+// session. This avoids treating possession of an open browser session alone as
+// sufficient proof for a high-impact credential mutation.
+export async function updatePassword(newPassword: string, currentPassword?: string): Promise<AuthResponse> {
   if (USE_MOCK) {
     await mockDelay()
     return { data: {} }
   }
 
   try {
+    if (currentPassword) {
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user?.email) {
+        return { error: { message: 'current_password_required' } }
+      }
+
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword
+      })
+      if (verifyError) {
+        return { error: { message: 'current_password_invalid' } }
+      }
+
+      const { data, error } = await supabase.auth.updateUser({
+        password: newPassword,
+        current_password: currentPassword
+      })
+      if (error) return { error: { message: error.message } }
+
+      const { error: revokeError } = await supabase.auth.signOut({ scope: 'others' })
+      if (revokeError) logger.warn('[updatePassword] Password changed but other-session revocation failed:', revokeError.message)
+      return { data }
+    }
+
     const { data, error } = await supabase.auth.updateUser({ password: newPassword })
     if (error) return { error: { message: error.message } }
     return { data }
@@ -338,8 +362,6 @@ export async function updatePasswordFromRecovery(newPassword: string): Promise<A
     const { data, error } = await supabase.auth.updateUser({ password: newPassword })
     if (error) return { error: { message: error.message } }
 
-    // A recovery link is a security-sensitive session. Remove the temporary
-    // recovery capability and revoke refresh sessions after the password change.
     clearPasswordRecovery()
     await supabase.auth.signOut()
 
