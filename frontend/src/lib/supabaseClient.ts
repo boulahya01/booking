@@ -1,20 +1,36 @@
 import { createClient } from '@supabase/supabase-js'
 import { logger } from './logger'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || ''
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL || '').trim()
+const supabaseKey = String(
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  ''
+).trim()
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  logger.warn('[supabaseClient] Missing Supabase environment variables. Using dummy client.')
+const configured = Boolean(supabaseUrl && supabaseKey)
+
+if (!configured && import.meta.env.PROD) {
+  throw new Error(
+    'UNEEM Supabase configuration is missing. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY (or legacy VITE_SUPABASE_ANON_KEY).'
+  )
 }
 
-export const supabase = createClient(supabaseUrl || 'http://localhost:54321', supabaseAnonKey || 'dummy-key', {
-  auth: {
-    // Prevent lock contention by using a longer timeout and auto refresh
-    flowType: 'implicit',
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true
+if (!configured) {
+  logger.warn('[supabaseClient] Missing Supabase environment variables in development; using a local placeholder client.')
+}
+
+export const supabase = createClient(
+  supabaseUrl || 'http://localhost:54321',
+  supabaseKey || 'development-placeholder-key',
+  {
+    auth: {
+      flowType: 'implicit',
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
+    }
   }
-})
+)
+
 export const supabaseClient = supabase
