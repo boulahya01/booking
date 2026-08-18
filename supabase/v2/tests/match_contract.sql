@@ -2,6 +2,8 @@
 -- Run against the final V2 schema through layer 024. Transactional; rolls back fixtures.
 -- Synthetic confirmed Supabase Auth rows are paired with profile fixtures so the
 -- confirmation-aware match authorization contract is exercised explicitly.
+-- The final schema keeps matches/match_participants RPC-only for browser roles;
+-- authenticated test steps therefore never read those tables directly.
 \set ON_ERROR_STOP on
 begin;
 set local timezone='UTC';
@@ -65,9 +67,18 @@ values
 ('83000000-0000-4000-8000-000000000002','81000000-0000-4000-8000-000000000001','82000000-0000-4000-8000-000000000001',date_trunc('hour',now())+interval '6 hours',date_trunc('hour',now())+interval '7 hours','scheduled');
 
 -- Organizer opens the existing booking with one offline/reserved friend.
-select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000001',true); set local role authenticated;
+select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000001',true);
+set local role authenticated;
 select public.create_open_match('83000000-0000-4000-8000-000000000001',1);
 reset role;
+
+-- Capture fixture ids while privileged. Browser-role steps use only these opaque ids
+-- and public RPCs, matching the production RPC-only table contract.
+select set_config(
+  'uneem.test.match1_id',
+  (select id::text from public.matches where booking_id='83000000-0000-4000-8000-000000000001'),
+  true
+);
 
 do $$ begin
  if (select count(*) from public.matches where booking_id='83000000-0000-4000-8000-000000000001')<>1 then raise exception 'FAIL: open match missing'; end if;
@@ -75,81 +86,126 @@ do $$ begin
 end $$;
 
 -- An empty organizer-owned match can move private and be reopened safely.
--- This protects the create flow from counting the LEFT JOIN match row itself as a participant.
-select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000001',true); set local role authenticated;
+select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000001',true);
+set local role authenticated;
 select public.create_open_match('83000000-0000-4000-8000-000000000002',0);
-select public.set_match_visibility((select id from public.matches where booking_id='83000000-0000-4000-8000-000000000002'),'private');
+reset role;
+
+select set_config(
+  'uneem.test.match2_id',
+  (select id::text from public.matches where booking_id='83000000-0000-4000-8000-000000000002'),
+  true
+);
+
+select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000001',true);
+set local role authenticated;
+select public.set_match_visibility(current_setting('uneem.test.match2_id')::uuid,'private');
 select public.create_open_match('83000000-0000-4000-8000-000000000002',2);
 reset role;
 
 do $$ begin
  if not exists(
    select 1 from public.matches
-   where booking_id='83000000-0000-4000-8000-000000000002'
+   where id=current_setting('uneem.test.match2_id')::uuid
+     and booking_id='83000000-0000-4000-8000-000000000002'
      and visibility='open' and reserved_spots=2 and status='active'
  ) then raise exception 'FAIL: empty private match did not reopen'; end if;
 end $$;
 
 -- Keep the second fixture out of public discovery for the capacity assertions below.
-select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000001',true); set local role authenticated;
-select public.set_match_visibility((select id from public.matches where booking_id='83000000-0000-4000-8000-000000000002'),'private');
+select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000001',true);
+set local role authenticated;
+select public.set_match_visibility(current_setting('uneem.test.match2_id')::uuid,'private');
 reset role;
 
 -- First public player joins. Capacity math is organizer + reserved + joined.
-select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000002',true); set local role authenticated;
-select public.join_open_match((select id from public.matches where booking_id='83000000-0000-4000-8000-000000000001'));
+select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000002',true);
+set local role authenticated;
+select public.join_open_match(current_setting('uneem.test.match1_id')::uuid);
 reset role;
 
 -- Organizer cannot make it private after a public player joined.
-select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000001',true); set local role authenticated;
+select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000001',true);
+set local role authenticated;
 do $$ begin
- begin perform public.set_match_visibility((select id from public.matches where booking_id='83000000-0000-4000-8000-000000000001'),'private'); raise exception 'FAIL: match became private with public player';
- exception when others then if sqlerrm<>'match_has_public_players' then raise; end if; end;
+ begin
+   perform public.set_match_visibility(current_setting('uneem.test.match1_id')::uuid,'private');
+   raise exception 'FAIL: match became private with public player';
+ exception when others then
+   if sqlerrm<>'match_has_public_players' then raise; end if;
+ end;
 end $$;
 reset role;
 
 -- Increasing reserved spots cannot displace joined players.
-select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000001',true); set local role authenticated;
+select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000001',true);
+set local role authenticated;
 do $$ begin
- begin perform public.update_match_reserved_spots((select id from public.matches where booking_id='83000000-0000-4000-8000-000000000001'),3); raise exception 'FAIL: reserved spots exceeded capacity';
- exception when others then if sqlerrm<>'reserved_spots_exceed_capacity' then raise; end if; end;
+ begin
+   perform public.update_match_reserved_spots(current_setting('uneem.test.match1_id')::uuid,3);
+   raise exception 'FAIL: reserved spots exceeded capacity';
+ exception when others then
+   if sqlerrm<>'reserved_spots_exceed_capacity' then raise; end if;
+ end;
 end $$;
 reset role;
 
--- One remaining public spot can be taken, then the match is full.
-select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000003',true); set local role authenticated;
-select public.join_open_match((select id from public.matches where booking_id='83000000-0000-4000-8000-000000000001'));
-reset role;
-
+-- One remaining public spot can be taken, then discovery reports the match full.
+select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000003',true);
+set local role authenticated;
+select public.join_open_match(current_setting('uneem.test.match1_id')::uuid);
 do $$ begin
- if (select spots_left from public.list_open_matches() where booking_id='83000000-0000-4000-8000-000000000001')<>0 then raise exception 'FAIL: spots_left is not zero at capacity'; end if;
+ if (select spots_left from public.list_open_matches() where match_id=current_setting('uneem.test.match1_id')::uuid)<>0 then
+   raise exception 'FAIL: spots_left is not zero at capacity';
+ end if;
 end $$;
+reset role;
 
 -- Restricted account cannot join even though its Auth email is confirmed.
-select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000004',true); set local role authenticated;
+select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000004',true);
+set local role authenticated;
 do $$ begin
- begin perform public.join_open_match((select id from public.matches where booking_id='83000000-0000-4000-8000-000000000001')); raise exception 'FAIL: restricted user joined';
- exception when others then if sqlerrm<>'account_not_approved' then raise; end if; end;
+ begin
+   perform public.join_open_match(current_setting('uneem.test.match1_id')::uuid);
+   raise exception 'FAIL: restricted user joined';
+ exception when others then
+   if sqlerrm<>'account_not_approved' then raise; end if;
+ end;
 end $$;
 reset role;
 
--- Direct table writes remain closed to students.
-select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000002',true); set local role authenticated;
+-- Direct participant writes remain closed; this specifically tests INSERT privilege
+-- without first touching the RPC-only matches table.
+select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000002',true);
+set local role authenticated;
 do $$ begin
- begin insert into public.match_participants(match_id,user_id) values((select id from public.matches limit 1),'81000000-0000-4000-8000-000000000004'); raise exception 'FAIL: direct participant write succeeded';
- exception when insufficient_privilege then null; end;
+ begin
+   insert into public.match_participants(match_id,user_id)
+   values(current_setting('uneem.test.match1_id')::uuid,'81000000-0000-4000-8000-000000000004');
+   raise exception 'FAIL: direct participant write succeeded';
+ exception when insufficient_privilege then null;
+ end;
 end $$;
 reset role;
 
 -- Cancelling the authoritative booking closes its match for everyone and keeps history.
-select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000001',true); set local role authenticated;
+select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000001',true);
+set local role authenticated;
 select public.cancel_booking('83000000-0000-4000-8000-000000000001');
+do $$ begin
+ if exists(select 1 from public.list_open_matches() where match_id=current_setting('uneem.test.match1_id')::uuid) then
+   raise exception 'FAIL: cancelled booking remained in open match discovery';
+ end if;
+end $$;
 reset role;
 
 do $$ begin
- if (select status from public.matches where booking_id='83000000-0000-4000-8000-000000000001')<>'cancelled' then raise exception 'FAIL: cancelled booking left active match'; end if;
- if exists(select 1 from public.list_open_matches() where booking_id='83000000-0000-4000-8000-000000000001') then raise exception 'FAIL: cancelled booking remained in open match discovery'; end if;
- if (select count(*) from public.match_participants where match_id=(select id from public.matches where booking_id='83000000-0000-4000-8000-000000000001'))<>2 then raise exception 'FAIL: cancellation destroyed match participant history'; end if;
+ if (select status from public.matches where id=current_setting('uneem.test.match1_id')::uuid)<>'cancelled' then
+   raise exception 'FAIL: cancelled booking left active match';
+ end if;
+ if (select count(*) from public.match_participants where match_id=current_setting('uneem.test.match1_id')::uuid)<>2 then
+   raise exception 'FAIL: cancellation destroyed match participant history';
+ end if;
 end $$;
 
 rollback;
