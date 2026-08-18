@@ -7,6 +7,7 @@ export const mockProfile = {
   email: 'test@usmba.ac.ma',
   student_id: 'S123456789',
   full_name: 'Test Student',
+  username: 'test_student',
   role: 'admin',
   status: 'approved',
   rejection_reason: null,
