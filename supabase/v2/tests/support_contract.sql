@@ -1,10 +1,49 @@
 -- UNEEM V2 support/report security contract tests.
--- Run after schema layers 001-012. All fixtures roll back.
+-- Run against the final hosted V2 schema through layer 024. All fixtures roll back.
+-- Synthetic confirmed Auth rows are created for authenticated support/report actors,
+-- and guest thread creation is exercised only through the trusted service-role gate
+-- introduced by layer 023.
 
 \set ON_ERROR_STOP on
 
 begin;
 set local session_replication_role = replica;
+
+insert into auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  confirmation_token,
+  recovery_token,
+  email_change_token_new,
+  email_change,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  created_at,
+  updated_at
+) values
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '61000000-0000-4000-8000-000000000001',
+    'authenticated', 'authenticated', 'reporter@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '61000000-0000-4000-8000-000000000002',
+    'authenticated', 'authenticated', 'reported@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '61000000-0000-4000-8000-000000000003',
+    'authenticated', 'authenticated', 'support-other@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  );
 
 insert into public.profiles (
   id, student_id, full_name, role, status, email_kind, identity_status
@@ -126,32 +165,64 @@ reset role;
 
 delete from public.support_threads where user_id = '61000000-0000-4000-8000-000000000003';
 
--- 5. Guest support remains available without a contact email. Capability-token access
--- is still returned and every anonymous creation is covered by the global burst ceiling.
+-- 5. Layer 023 closes legacy anonymous thread creation completely. Guest creation
+-- must cross the trusted server boundary instead of calling the old RPC directly.
 set local role anon;
+
+do $$
+begin
+  begin
+    perform * from public.create_guest_support_thread('', 'Legacy path', 'Must be denied');
+    raise exception 'FAIL: anon unexpectedly retained legacy guest thread creation';
+  exception
+    when insufficient_privilege then null;
+  end;
+end;
+$$;
+reset role;
+
+-- 6. Guest support remains available without a contact email through the trusted
+-- service-role RPC and returns capability access. The network identity is already
+-- HMAC-hashed by the application server; PostgreSQL never receives a raw IP.
+set local role service_role;
 
 do $$
 declare
   v_row record;
 begin
-  select * into v_row from public.create_guest_support_thread('', 'Need help', 'Guest message');
+  select * into v_row
+  from public.create_guest_support_thread_server(
+    '',
+    'Need help',
+    'Guest message',
+    repeat('a', 64)
+  );
+
   if v_row.thread_id is null or v_row.access_token is null then
-    raise exception 'FAIL: no-email guest support did not return capability access';
+    raise exception 'FAIL: trusted no-email guest support did not return capability access';
   end if;
 end;
 $$;
 reset role;
 
--- 6. When a contact email is provided, two recent threads for the same normalized
--- address are allowed; a third inside 30 minutes is throttled.
-set local role anon;
-select * from public.create_guest_support_thread('Guest@Test.Example', 'First', 'First guest request');
-select * from public.create_guest_support_thread('guest@test.example', 'Second', 'Second guest request');
+-- 7. When a contact email is provided, two recent threads for the same normalized
+-- address are allowed; a third inside 30 minutes is throttled. Reusing one valid
+-- network hash also confirms the contact throttle remains defense-in-depth beside
+-- the layer-023 per-network gate.
+set local role service_role;
+select * from public.create_guest_support_thread_server(
+  'Guest@Test.Example', 'First', 'First guest request', repeat('b', 64)
+);
+select * from public.create_guest_support_thread_server(
+  'guest@test.example', 'Second', 'Second guest request', repeat('b', 64)
+);
 
 do $$
 begin
   begin
-    perform * from public.create_guest_support_thread('guest@test.example', 'Third', 'Third guest request');
+    perform * from public.create_guest_support_thread_server(
+      'guest@test.example', 'Third', 'Third guest request', repeat('b', 64)
+    );
     raise exception 'FAIL: guest contact throttle did not fire';
   exception
     when others then
@@ -161,5 +232,22 @@ end;
 $$;
 reset role;
 
+-- 8. Browser roles cannot invoke the trusted server-only creation RPC.
+set local role authenticated;
+
+do $$
+begin
+  begin
+    perform * from public.create_guest_support_thread_server(
+      '', 'Wrong role', 'Must be denied', repeat('c', 64)
+    );
+    raise exception 'FAIL: authenticated user unexpectedly executed server-only guest creation';
+  exception
+    when insufficient_privilege then null;
+  end;
+end;
+$$;
+reset role;
+
 rollback;
-\echo 'UNEEM V2 support/report contract tests passed.'
+\echo 'UNEEM V2 final-schema support/report contract tests passed.'
