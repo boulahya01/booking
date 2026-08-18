@@ -1,10 +1,54 @@
 -- UNEEM V2 identity verification contract tests.
--- Run after schema layers 001-013. All fixtures roll back.
+-- Run against the final V2 schema through layer 024. All fixtures roll back.
+-- Synthetic confirmed Supabase Auth rows are paired with profile fixtures so
+-- confirmation-aware student/admin authorization is exercised explicitly.
 
 \set ON_ERROR_STOP on
 
 begin;
 set local session_replication_role = replica;
+
+insert into auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  confirmation_token,
+  recovery_token,
+  email_change_token_new,
+  email_change,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  created_at,
+  updated_at
+) values
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '51000000-0000-4000-8000-000000000001',
+    'authenticated', 'authenticated', 'identity-academic@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '51000000-0000-4000-8000-000000000002',
+    'authenticated', 'authenticated', 'identity-personal@example.com', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '51000000-0000-4000-8000-000000000003',
+    'authenticated', 'authenticated', 'identity-verified@example.com', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '51000000-0000-4000-8000-000000000004',
+    'authenticated', 'authenticated', 'identity-admin@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  );
 
 insert into public.profiles (
   id, student_id, full_name, username, role, status, email_kind, identity_status
@@ -58,7 +102,6 @@ where id in (
 );
 
 -- 4. A verified ID remains globally unique.
-
 do $$
 begin
   begin
