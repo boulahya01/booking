@@ -13,14 +13,16 @@ declare
   v_match public.matches%rowtype;
 begin
   perform private.require_sports_access(v_uid);
-
-  select b,p.capacity into v_booking,v_capacity
+  select b.* into v_booking
   from public.bookings b
-  join public.pitches p on p.id=b.pitch_id
   where b.id=p_booking_id
-  for update of b;
+  for update;
 
   if not found then raise exception 'booking_not_found'; end if;
+
+  select p.capacity into v_capacity
+  from public.pitches p
+  where p.id=v_booking.pitch_id;
   if v_booking.user_id<>v_uid then raise exception 'booking_not_owned'; end if;
   if v_booking.status<>'scheduled' or v_booking.starts_at<=now() then raise exception 'booking_not_matchable'; end if;
   if v_capacity<2 then raise exception 'match_capacity_too_small'; end if;
