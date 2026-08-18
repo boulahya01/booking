@@ -14,6 +14,12 @@
   import { authState } from '$lib/stores/auth'
   import { getMyAccountState, getUserProfile } from '$lib/auth'
   import { getMySessionContext } from '$lib/sessionApi'
+  import {
+    clearPasswordRecovery,
+    markPasswordRecovery,
+    passwordRecoveryActive,
+    restorePasswordRecovery
+  } from '$lib/authFlow'
   import { locale } from 'svelte-i18n'
   import { USE_MOCK } from '$lib/mock'
 
@@ -34,13 +40,13 @@
   $: isPublicSupportPage = publicSupportPaths.includes($page.url.pathname)
   $: chromeFreePage = isAuthPage || isPublicSupportPage
 
-  // Routing is driven by the authoritative account-state payload. Help stays
-  // outside the access gate so restricted users and signed-out users can recover.
+  // Routing is driven by the authoritative account-state payload. Recovery is a
+  // temporary authenticated capability and is intentionally trapped on the
+  // reset flow until the password is changed or the user signs out.
   $: if (
     browser &&
     !$authState.loading &&
-    !routeGuardProcessing &&
-    !$page.url.pathname.startsWith('/verify-email')
+    !routeGuardProcessing
   ) {
     const pathname = $page.url.pathname
     const hasSession = $authState.user !== null
@@ -50,6 +56,8 @@
     const isPendingPath = pathname === '/pending-approval'
     const isProfilePath = pathname === '/profile'
     const isVerificationPath = pathname === '/verification'
+    const isVerifyEmailPath = pathname === '/verify-email'
+    const isRecoveryPath = pathname === '/reset-password'
     const isAdminPath = pathname === '/admin' || pathname.startsWith('/admin/')
     const isSportsPath = pathname.startsWith('/home') ||
                          pathname.startsWith('/bookings') ||
@@ -58,14 +66,17 @@
                          pathname.startsWith('/notifications')
     const canUseSports = account?.can_use_sports === true
     const isAdminAccount = account?.role === 'admin'
+    const recoveryActive = $passwordRecoveryActive
 
     let targetPath: string | null = null
 
-    if (!hasSession && !isAuthPath && !isSupportPath) {
+    if (recoveryActive && hasSession && !isRecoveryPath && !isSupportPath && pathname !== '/logout') {
+      targetPath = '/reset-password'
+    } else if (!hasSession && !isAuthPath && !isSupportPath) {
       targetPath = '/login'
-    } else if (hasSession && isAuthPath) {
+    } else if (hasSession && isAuthPath && !isVerifyEmailPath && !(isRecoveryPath && recoveryActive)) {
       targetPath = canUseSports ? '/home' : '/pending-approval'
-    } else if (hasSession && !account && !isSupportPath) {
+    } else if (hasSession && !account && !isSupportPath && !isVerifyEmailPath && !isRecoveryPath) {
       targetPath = '/pending-approval'
     } else if (hasSession && isAdminPath && !isAdminAccount) {
       targetPath = canUseSports ? '/home' : '/pending-approval'
@@ -108,15 +119,19 @@
       locale.set(storedLang)
     }
 
+    restorePasswordRecovery()
     let processingAuth = false
 
     async function applySession(session: any) {
       if (!session?.user) {
+        clearPasswordRecovery()
         authState.clear()
         return
       }
 
       try {
+        restorePasswordRecovery(session.user.id)
+
         // One authoritative DB read resolves profile + access/identity routing.
         const context = await getMySessionContext()
         if (!context) {
@@ -146,8 +161,10 @@
       try {
         const { data, error } = await supabase.auth.getSession()
         if (error) throw error
+        if (!data?.session) clearPasswordRecovery()
         await applySession(data?.session)
       } catch {
+        clearPasswordRecovery()
         authState.clear()
       } finally {
         processingAuth = false
@@ -156,6 +173,7 @@
     }
 
     if (USE_MOCK) {
+      clearPasswordRecovery()
       const stored = localStorage.getItem('mock_auth_user')
       if (stored) {
         try {
@@ -186,11 +204,26 @@
     } else {
       const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
         if (event === 'SIGNED_OUT') {
+          clearPasswordRecovery()
           authState.clear()
           return
         }
 
+        if (event === 'PASSWORD_RECOVERY' && session?.user) {
+          markPasswordRecovery(session)
+          if (!processingAuth) {
+            processingAuth = true
+            authState.setLoading(true)
+            void applySession(session).finally(() => {
+              processingAuth = false
+              authState.setLoading(false)
+            })
+          }
+          return
+        }
+
         if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+          restorePasswordRecovery(session.user.id)
           if (!processingAuth) {
             processingAuth = true
             authState.setLoading(true)
