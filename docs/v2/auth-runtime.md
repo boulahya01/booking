@@ -1,16 +1,31 @@
 # UNEEM V2 Supabase Auth Runtime Contract
 
-This document is operational configuration for the fresh V2 Supabase project. The application code assumes these settings; launch validation must verify them directly in the target project.
+This document is the operational Auth contract for the fresh V2 Supabase project. Non-secret settings and the two launch email templates are versioned in this repository. Hosted launch validation must still verify the applied project state and real email delivery directly.
 
 ## Required Auth behavior
 
 - Email/password provider enabled.
 - Confirm Email enabled.
 - Anonymous sign-ins disabled.
-- New-user signup enabled only when launch registration is intentionally open.
+- SMS signup disabled for launch.
+- New-user signup enabled only while launch registration is intentionally open.
 - Application auth flow uses Supabase PKCE.
 - Academic-email confirmation proves affiliation only; it does not verify Student ID ownership.
 - Personal-email accounts remain restricted by the PostgreSQL identity/access contract until student-card verification is approved.
+
+## Configuration as code
+
+`supabase/config.toml` is the reviewable source for non-secret Auth configuration. It defines the production Site URL, redirect allow-list, confirmation requirement, email request frequency, email template files, and email-only signup surface.
+
+From a linked checkout of the exact release branch, apply the reviewed configuration with:
+
+```bash
+supabase config push --project-ref bjofwkuazyvguqankcnl
+```
+
+A successful command is evidence that the CLI accepted and pushed the local configuration; it is not by itself evidence that confirmation/recovery delivery works. Verify the hosted Auth settings and execute the email flows after every material Auth configuration change.
+
+SMTP host/user/password are secrets and must not be committed to `config.toml`. Configure the production sender through Supabase Auth using the provider credentials kept outside Git.
 
 ## Site URL and redirect allow-list
 
@@ -18,34 +33,43 @@ Production Site URL:
 
 `https://uneem.site`
 
-Allowed redirect origins/paths must include the exact deployed origins used for:
+Allowed redirects are intentionally narrow:
 
 - `https://uneem.site/verify-email`
 - `https://uneem.site/reset-password`
-- the canonical Vercel preview origin used for pre-production smoke testing
-- `http://localhost:5173/verify-email` and `http://localhost:5173/reset-password` for local development only
+- `https://*-marwaneboulahya-5125s-projects.vercel.app/**` for canonical Vercel preview validation
+- `http://localhost:5173/verify-email` for local development
+- `http://localhost:5173/reset-password` for local development
 
-Do not use wildcard production redirects broader than necessary.
+Do not replace the production entries with a broad domain wildcard.
+
+The application sends an exact `/verify-email` provider redirect. The signup page separately preserves the non-sensitive email hint in its own navigation, so the provider allow-list does not need a dynamic `?email=...` redirect.
 
 ## Confirmation email template
 
-The confirmation flow must return to UNEEM with a token hash or PKCE code that the application can exchange for a real session.
+Canonical source:
 
-Preferred Confirm signup link:
+`supabase/templates/confirmation.html`
 
-`{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email`
+The confirmation email sends the token hash directly to the exact UNEEM callback:
 
-The application also accepts Supabase PKCE `code` callbacks and legacy URL-session fragments during migration, but token-hash/PKCE is the target contract.
+```text
+{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email
+```
 
-The signup request supplies `emailRedirectTo=/verify-email?email=...`, preserving a non-sensitive email hint for resend/sign-in UX.
+`/verify-email` calls Supabase `verifyOtp()` and then restores the authoritative `get_my_session_context()` payload before presenting success. A malformed, expired, or wrong-flow token must not create a usable application session.
+
+The client also accepts a Supabase PKCE `code` callback and legacy URL-session fragments for compatibility, but token-hash/PKCE is the target contract.
 
 ## Password recovery template
 
-`resetPasswordForEmail()` sends the user to `/reset-password` through the configured application origin.
+Canonical source:
 
-The reset page does not trust route access alone. It must complete a Supabase recovery flow and obtain a real recovery session before enabling password update. Direct visits or expired/invalid links are rejected and routed back to request a fresh link.
+`supabase/templates/recovery.html`
 
-After a successful password update, the temporary local recovery session is signed out and the user signs in again with the new password.
+The recovery email deliberately uses Supabase's generated `{{ .ConfirmationURL }}`. `resetPasswordForEmail()` supplies the exact `/reset-password` redirect, and only a genuine `PASSWORD_RECOVERY` Auth event may create local recovery continuity.
+
+The reset page does not trust route access, query markers, hash markers, or sessionStorage alone. Before password mutation it requires a real Supabase session and verifies signed JWT claims for the matching user with a `recovery` authentication-method reference. After a successful password update the recovery state is cleared and the session is closed so the user signs in again.
 
 ## Runtime environment
 
@@ -55,7 +79,17 @@ Required Vercel variables:
 - `VITE_SUPABASE_PUBLISHABLE_KEY` preferred; legacy `VITE_SUPABASE_ANON_KEY` is accepted only as a compatibility fallback
 - `VITE_APP_URL=https://uneem.site` for production
 
-Never expose service-role or database-owner credentials to Vite/browser environment variables.
+Never expose service-role, secret-key, database-owner, SMTP, or Management API credentials to Vite/browser environment variables.
+
+## Production email transport
+
+The built-in Supabase sender is development-only and is not the UNEEM launch transport. Before launch configure a UNEEM-controlled custom SMTP sender, verify its domain authentication, disable provider link tracking/rewriting, and test delivery to real non-team addresses.
+
+Target sender identity remains:
+
+`UNEEM <no-reply@auth.uneem.site>`
+
+If the final provider requires a different verified sender during setup, do not silently change the product contract; record and review the exact sender used for launch testing.
 
 ## Launch smoke tests
 
@@ -76,26 +110,27 @@ Personal path:
 Recovery:
 1. Request reset for an existing account.
 2. Verify response remains non-enumerating.
-3. Open the recovery email link and confirm `/reset-password` accepts it only after session exchange.
+3. Open the recovery email link and confirm `/reset-password` accepts it only after a genuine recovery session is established.
 4. Change password and verify the recovery session is closed.
 5. Verify old password fails and new password succeeds.
 6. Verify an expired/reused recovery link is rejected.
 
 Negative tests:
-- direct `/reset-password` visit without recovery session cannot change password
+- direct `/reset-password` visit without recovery authority cannot change password
 - malformed/expired confirmation link cannot create a usable session
 - wrong email/password and nonexistent account converge on safe login messaging
 - recovery request does not reveal whether an email exists
-- rate-limited resend/recovery requests return a retry message without account enumeration
+- rate-limited resend/recovery requests return retry-safe messaging without account enumeration
 
 ## Hosted verification gate
 
 Before merge/production, verify in the actual fresh Supabase project:
 
-- Auth provider/configuration matches this document
-- redirect allow-list is exact
-- email templates generate the expected callback shape
+- Auth provider/configuration matches `supabase/config.toml`
+- production Site URL and redirect allow-list are exact
+- hosted confirmation/recovery templates match the committed files
+- real confirmation and recovery messages arrive through the configured production sender
 - Auth logs show successful signup confirmation and password recovery
 - PostgreSQL trigger/profile state matches the Auth confirmation event
-- no duplicate profile is created for retries
-- security/performance advisors are reviewed after the full V2 schema is applied
+- retries do not create duplicate profiles
+- the full public and authenticated E2E launch suite passes on the exact release head

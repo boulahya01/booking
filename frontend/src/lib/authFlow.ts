@@ -119,11 +119,11 @@ function absoluteAuthUrl(pathname: string): URL {
   return new URL(pathname, `${getAuthOrigin()}/`)
 }
 
-export function emailConfirmationRedirectUrl(email?: string): string {
-  const url = absoluteAuthUrl('/verify-email')
-  const normalized = email?.trim().toLowerCase()
-  if (normalized) url.searchParams.set('email', normalized)
-  return url.toString()
+// Keep the provider redirect itself exact. The current signup tab preserves its
+// non-sensitive email hint in local navigation; provider redirects should not
+// need an unbounded query-string allow-list entry.
+export function emailConfirmationRedirectUrl(_email?: string): string {
+  return absoluteAuthUrl('/verify-email').toString()
 }
 
 export function passwordRecoveryRedirectUrl(): string {

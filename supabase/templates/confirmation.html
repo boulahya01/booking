@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+  <body style="margin:0;padding:24px;background:#f7f5f2;color:#201f1d;font-family:Arial,sans-serif;line-height:1.5">
+    <div style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #e7e2dc;border-radius:16px;padding:28px">
+      <div style="font-size:20px;font-weight:700;letter-spacing:.04em">UNEEM</div>
+      <h1 style="margin:24px 0 8px;font-size:24px;line-height:1.2">Confirm your email</h1>
+      <p style="margin:0 0 24px;color:#5f5a54">Confirm this email address to finish setting up your UNEEM account.</p>
+      <p style="margin:0 0 24px">
+        <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&amp;type=email" style="display:inline-block;background:#f26419;color:#ffffff;text-decoration:none;font-weight:700;border-radius:10px;padding:12px 18px">Confirm email</a>
+      </p>
+      <p style="margin:0;color:#817a73;font-size:13px">If you did not create a UNEEM account, you can ignore this email.</p>
+    </div>
+  </body>
+</html>
