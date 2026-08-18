@@ -42,5 +42,5 @@
 </button>
 
 <style>
-  :global(.touch-target-min) { @apply min-w-[44px]; }
+  :global(.touch-target-min) { min-width: 44px; }
 </style>
