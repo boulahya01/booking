@@ -47,24 +47,19 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Backup/SQL dumps (sensitive data)
-*.sql
+# Local database dumps. Do not ignore all *.sql: migrations and contract tests
+# are first-class source files in this repository.
 *.dump
-*backup*
+*.sql.gz
+*.backup.sql
+*.local.sql
 
 # Agent/AI config (not needed in production)
 .agents/
 .qoder/
 skills-lock.json
 
-# Documentation (optional, but keeps repo clean)
-# DESIGN-*.md
-# PROGRESS.md
-# SYSTEM-ARCHITECTURE.md
-
 # Local and experimental artifacts
-.idea/
-.vercel
 supabase/.temp/
 old-bad-frontend/
 frontend/project struct/

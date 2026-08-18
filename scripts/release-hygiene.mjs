@@ -55,6 +55,27 @@ if (!existsSync(mockPath)) {
   }
 }
 
+const gitignorePath = '.gitignore'
+if (!existsSync(gitignorePath)) {
+  failures.push('.gitignore is missing')
+} else {
+  const gitignore = readFileSync(gitignorePath, 'utf8')
+  if (/^\s*\*\.sql\s*$/m.test(gitignore)) {
+    failures.push('blanket *.sql ignore would hide future migrations/contracts')
+  }
+}
+
+const svelteConfigPath = 'frontend/svelte.config.js'
+if (!existsSync(svelteConfigPath)) {
+  failures.push(`${svelteConfigPath} is missing`)
+} else {
+  const config = readFileSync(svelteConfigPath, 'utf8')
+  if (config.includes('unsafe-eval')) failures.push('release CSP still allows unsafe-eval')
+  if (config.includes('test-bookings-two.vercel.app')) {
+    failures.push('stale preview origin remains in the CSRF trusted-origin list')
+  }
+}
+
 const migrationsDir = 'supabase/migrations'
 if (!existsSync(migrationsDir)) {
   failures.push('supabase/migrations is missing')
