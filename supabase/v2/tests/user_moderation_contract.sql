@@ -245,18 +245,18 @@ begin
     '81000000-0000-4000-8000-000000000007', 'suspended', 'safety'
   );
 
-  select set_config('request.jwt.claim.sub', '81000000-0000-4000-8000-000000000007', true);
+  perform set_config('request.jwt.claim.sub', '81000000-0000-4000-8000-000000000007', true);
   select * into v_state from public.get_my_account_state();
   if v_state.restriction_reason <> 'safety' or v_state.access_status <> 'suspended' then
     raise exception 'FAIL: suspended account did not expose access restriction reason';
   end if;
 
-  select set_config('request.jwt.claim.sub', '81000000-0000-4000-8000-000000000001', true);
+  perform set_config('request.jwt.claim.sub', '81000000-0000-4000-8000-000000000001', true);
   perform * from public.admin_set_user_access(
     '81000000-0000-4000-8000-000000000007', 'approved', 'review_complete'
   );
 
-  select set_config('request.jwt.claim.sub', '81000000-0000-4000-8000-000000000007', true);
+  perform set_config('request.jwt.claim.sub', '81000000-0000-4000-8000-000000000007', true);
   select * into v_state from public.get_my_account_state();
   if v_state.restriction_reason <> 'student_card_unreadable'
      or v_state.identity_status <> 'rejected'
