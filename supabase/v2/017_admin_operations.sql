@@ -72,7 +72,7 @@ begin
       b.created_at,
       p.full_name,
       p.student_id,
-      u.email,
+      u.email::text,
       f.name as facility_name,
       f.location as facility_location
     from public.bookings b

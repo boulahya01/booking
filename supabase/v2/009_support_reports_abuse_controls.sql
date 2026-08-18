@@ -300,7 +300,7 @@ set search_path = public, private
 as $$
 declare
   v_thread_id uuid;
-  v_token text := encode(gen_random_bytes(32), 'hex');
+  v_token text := encode(extensions.gen_random_bytes(32), 'hex');
   v_email text := lower(trim(coalesce(p_contact_email, '')));
 begin
   if char_length(trim(coalesce(p_body, ''))) not between 1 and 4000 then
@@ -320,7 +320,7 @@ begin
     v_email,
     'support',
     nullif(left(trim(coalesce(p_subject, '')), 120), ''),
-    digest(v_token, 'sha256')
+    extensions.digest(v_token, 'sha256')
   )
   returning id into v_thread_id;
 
@@ -350,7 +350,7 @@ begin
 
   select id into v_thread_id
   from public.support_threads
-  where guest_token_hash = digest(coalesce(p_access_token, ''), 'sha256');
+  where guest_token_hash = extensions.digest(coalesce(p_access_token, ''), 'sha256');
 
   if v_thread_id is null then
     raise exception 'support_thread_not_found';

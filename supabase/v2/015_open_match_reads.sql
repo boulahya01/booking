@@ -37,15 +37,36 @@ begin
   perform private.require_sports_access(v_uid);
   select * into v_match from public.matches where id=p_match_id;
   if not found then raise exception 'match_not_found'; end if;
-  if v_match.visibility<>'open' and v_match.organizer_id<>v_uid and not private.is_admin() then raise exception 'match_not_visible'; end if;
-  return query
-    select v_match.organizer_id,p.full_name,p.username,'organizer'::text,v_match.created_at
-    from public.profiles p where p.id=v_match.organizer_id
+  if v_match.visibility<>'open' and v_match.organizer_id<>v_uid and not private.is_admin() then raise exception 'match_not_visible'; end if;  return query
+  select
+    r.user_id,
+    r.full_name,
+    r.username,
+    r.member_role,
+    r.joined_at
+  from (
+    select
+      v_match.organizer_id as user_id,
+      p.full_name as full_name,
+      p.username as username,
+      'organizer'::text as member_role,
+      v_match.created_at as joined_at
+    from public.profiles p
+    where p.id=v_match.organizer_id
+
     union all
-    select mp.user_id,p.full_name,p.username,'player'::text,mp.joined_at
-    from public.match_participants mp join public.profiles p on p.id=mp.user_id
+
+    select
+      mp.user_id,
+      p.full_name,
+      p.username,
+      'player'::text,
+      mp.joined_at
+    from public.match_participants mp
+    join public.profiles p on p.id=mp.user_id
     where mp.match_id=p_match_id
-    order by joined_at;
+  ) r
+  order by r.joined_at;
 end;$$;
 revoke all on function public.get_match_roster(uuid) from public,anon;
 grant execute on function public.get_match_roster(uuid) to authenticated;

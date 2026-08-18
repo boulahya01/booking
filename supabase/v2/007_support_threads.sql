@@ -3,7 +3,7 @@
 -- Guest access is capability-based: possession of a high-entropy thread token grants
 -- access only to that thread. Raw tokens are never stored.
 
-create extension if not exists pgcrypto;
+create extension if not exists pgcrypto with schema extensions;
 
 create table if not exists public.support_threads (
   id uuid primary key default gen_random_uuid(),
