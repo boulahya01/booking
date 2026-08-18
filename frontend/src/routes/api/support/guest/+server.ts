@@ -5,6 +5,7 @@ import type { RequestHandler } from './$types'
 
 const GENERIC_ERROR = 'Support is temporarily unavailable. Please try again.'
 const RATE_LIMIT_ERROR = 'You have sent several requests recently. Try again a little later.'
+const MAX_REQUEST_BYTES = 32 * 1024
 
 function clientIp(request: Request): string | null {
   const value = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
@@ -22,6 +23,49 @@ function safeString(value: unknown, max: number): string {
   return typeof value === 'string' ? value.trim().slice(0, max) : ''
 }
 
+async function readJsonBody(request: Request): Promise<{ ok: true; value: unknown } | { ok: false; status: 400 | 413 | 415 }> {
+  const contentType = request.headers.get('content-type')?.toLowerCase() ?? ''
+  if (!contentType.startsWith('application/json')) return { ok: false, status: 415 }
+
+  const declaredLength = Number(request.headers.get('content-length'))
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BYTES) return { ok: false, status: 413 }
+  if (!request.body) return { ok: false, status: 400 }
+
+  const reader = request.body.getReader()
+  const chunks: Uint8Array[] = []
+  let size = 0
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (!value) continue
+
+      size += value.byteLength
+      if (size > MAX_REQUEST_BYTES) {
+        await reader.cancel()
+        return { ok: false, status: 413 }
+      }
+      chunks.push(value)
+    }
+  } finally {
+    reader.releaseLock()
+  }
+
+  const bytes = new Uint8Array(size)
+  let offset = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+
+  try {
+    return { ok: true, value: JSON.parse(new TextDecoder().decode(bytes)) }
+  } catch {
+    return { ok: false, status: 400 }
+  }
+}
+
 function serverConfig() {
   const supabaseUrl = env.SUPABASE_URL?.trim()
   const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY?.trim()
@@ -31,13 +75,18 @@ function serverConfig() {
 }
 
 export const POST: RequestHandler = async ({ request }) => {
+  const parsed = await readJsonBody(request)
+  if (!parsed.ok) {
+    if (parsed.status === 413) return json({ error: 'Request is too large.' }, { status: 413 })
+    if (parsed.status === 415) return json({ error: 'Send this request as JSON.' }, { status: 415 })
+    return json({ error: GENERIC_ERROR }, { status: 400 })
+  }
+
   const config = serverConfig()
   const ip = clientIp(request)
   if (!config || !ip) return json({ error: GENERIC_ERROR }, { status: 503 })
 
-  let payload: any
-  try { payload = await request.json() } catch { return json({ error: GENERIC_ERROR }, { status: 400 }) }
-
+  const payload: any = parsed.value
   const contactEmail = safeString(payload?.contactEmail, 254).toLowerCase()
   const subject = safeString(payload?.subject, 120)
   const body = safeString(payload?.body, 4000)
