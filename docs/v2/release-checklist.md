@@ -10,7 +10,7 @@ This checklist is the public-launch gate for the current V2 release candidate. A
 - [x] Legacy V1 booking cron/job and Edge Function runtime is removed from the release tree.
 - [x] Legacy `/admin/manage-users` implementation is removed; the compatibility route only redirects to `/admin/users`.
 - [x] Release-hygiene guard runs in CI.
-- [ ] Remove or permanently disable the remaining legacy UI mock-mode branches before production promotion.
+- [x] Legacy UI mock mode is hard-disabled and cannot be enabled from runtime environment variables.
 - [ ] Review remaining old naming/dead helpers and remove only when usage is proven absent.
 
 ## 2. Database and authorization

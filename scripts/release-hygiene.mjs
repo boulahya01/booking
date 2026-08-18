@@ -1,5 +1,5 @@
-import { existsSync, readdirSync } from 'node:fs'
-import { basename, join } from 'node:path'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { basename } from 'node:path'
 
 const forbiddenPaths = [
   'api/cron',
@@ -40,6 +40,19 @@ const failures = []
 
 for (const path of forbiddenPaths) {
   if (existsSync(path)) failures.push(`legacy release surface still exists: ${path}`)
+}
+
+const mockPath = 'frontend/src/lib/mock.ts'
+if (!existsSync(mockPath)) {
+  failures.push(`${mockPath} is missing`)
+} else {
+  const mockSource = readFileSync(mockPath, 'utf8')
+  if (!mockSource.includes('export const USE_MOCK = false as const')) {
+    failures.push('UI mock mode is not hard-disabled')
+  }
+  if (mockSource.includes('process.env.USE_MOCK')) {
+    failures.push('UI mock mode can still be enabled from the runtime environment')
+  }
 }
 
 const migrationsDir = 'supabase/migrations'
