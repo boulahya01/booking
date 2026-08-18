@@ -1,11 +1,73 @@
 -- UNEEM V2 user-access moderation contract tests.
--- Run after schema layers through 019_user_access_moderation.sql.
--- All fixtures roll back.
+-- Run against the final V2 schema through layer 024. All fixtures roll back.
+-- Synthetic confirmed Supabase Auth rows are paired with profile fixtures so
+-- layer-021 confirmation-aware admin/account-state authorization is exercised.
+-- Audit-table assertions run only from the privileged transactional harness.
 
 \set ON_ERROR_STOP on
 
 begin;
 set local session_replication_role = replica;
+
+insert into auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  confirmation_token,
+  recovery_token,
+  email_change_token_new,
+  email_change,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  created_at,
+  updated_at
+) values
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '81000000-0000-4000-8000-000000000001',
+    'authenticated', 'authenticated', 'moderation-admin@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '81000000-0000-4000-8000-000000000002',
+    'authenticated', 'authenticated', 'moderation-approved@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '81000000-0000-4000-8000-000000000003',
+    'authenticated', 'authenticated', 'moderation-verified@example.com', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '81000000-0000-4000-8000-000000000004',
+    'authenticated', 'authenticated', 'moderation-pending@example.com', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '81000000-0000-4000-8000-000000000005',
+    'authenticated', 'authenticated', 'moderation-other-admin@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '81000000-0000-4000-8000-000000000006',
+    'authenticated', 'authenticated', 'moderation-unverified@example.com', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '81000000-0000-4000-8000-000000000007',
+    'authenticated', 'authenticated', 'moderation-remediation@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  );
 
 insert into public.profiles (
   id, student_id, full_name, username, role, status, email_kind, identity_status,
@@ -56,7 +118,8 @@ end;
 $$;
 reset role;
 
--- 3. Admin suspension uses a structured reason and is audited.
+-- 3. Admin suspension uses a structured reason. Browser code sees only the RPC
+-- result; the privileged harness verifies the internal audit row afterwards.
 select set_config('request.jwt.claim.sub', '81000000-0000-4000-8000-000000000001', true);
 set local role authenticated;
 do $$
@@ -71,7 +134,12 @@ begin
   if v_result.access_status <> 'suspended' or v_result.restriction_reason <> 'booking_abuse' then
     raise exception 'FAIL: suspension result is incorrect';
   end if;
+end;
+$$;
+reset role;
 
+do $$
+begin
   if not exists (
     select 1
     from public.admin_audit_log
@@ -84,6 +152,9 @@ begin
   end if;
 end;
 $$;
+
+select set_config('request.jwt.claim.sub', '81000000-0000-4000-8000-000000000001', true);
+set local role authenticated;
 
 -- 4. Routine moderation cannot turn a pending identity into an approved account.
 do $$
@@ -115,7 +186,7 @@ begin
 end;
 $$;
 
--- 6. A verified personal-email account can be restored, with an audit row.
+-- 6. A verified personal-email account can be restored.
 do $$
 declare
   v_result record;
@@ -128,7 +199,13 @@ begin
   if v_result.access_status <> 'approved' or v_result.restriction_reason is not null then
     raise exception 'FAIL: verified personal account was not restored cleanly';
   end if;
+end;
+$$;
+reset role;
 
+-- Internal audit persistence is verified only by the privileged harness.
+do $$
+begin
   if not exists (
     select 1
     from public.admin_audit_log
@@ -140,6 +217,9 @@ begin
   end if;
 end;
 $$;
+
+select set_config('request.jwt.claim.sub', '81000000-0000-4000-8000-000000000001', true);
+set local role authenticated;
 
 -- 7. A personal-email account cannot regain sports access before identity proof.
 do $$
@@ -165,18 +245,18 @@ begin
     '81000000-0000-4000-8000-000000000007', 'suspended', 'safety'
   );
 
-  select set_config('request.jwt.claim.sub', '81000000-0000-4000-8000-000000000007', true);
+  perform set_config('request.jwt.claim.sub', '81000000-0000-4000-8000-000000000007', true);
   select * into v_state from public.get_my_account_state();
   if v_state.restriction_reason <> 'safety' or v_state.access_status <> 'suspended' then
     raise exception 'FAIL: suspended account did not expose access restriction reason';
   end if;
 
-  select set_config('request.jwt.claim.sub', '81000000-0000-4000-8000-000000000001', true);
+  perform set_config('request.jwt.claim.sub', '81000000-0000-4000-8000-000000000001', true);
   perform * from public.admin_set_user_access(
     '81000000-0000-4000-8000-000000000007', 'approved', 'review_complete'
   );
 
-  select set_config('request.jwt.claim.sub', '81000000-0000-4000-8000-000000000007', true);
+  perform set_config('request.jwt.claim.sub', '81000000-0000-4000-8000-000000000007', true);
   select * into v_state from public.get_my_account_state();
   if v_state.restriction_reason <> 'student_card_unreadable'
      or v_state.identity_status <> 'rejected'
@@ -188,4 +268,4 @@ $$;
 
 reset role;
 rollback;
-\echo 'UNEEM V2 user moderation contract tests passed.'
+\echo 'UNEEM V2 final-schema user moderation contract tests passed.'

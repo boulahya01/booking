@@ -1,10 +1,9 @@
--- Booking V2 security contract tests.
+-- UNEEM V2 security contract tests.
 --
--- Run against a disposable/local database after:
---   1. supabase/v2/schema.sql
---   2. supabase/v2/002_security_contract.sql
---
+-- Run against the final V2 schema through layer 024.
 -- The suite rolls back all fixtures.
+-- Synthetic Supabase Auth rows are created alongside profiles so confirmation-
+-- aware authorization is exercised instead of relying on pre-021 profile-only fixtures.
 
 \set ON_ERROR_STOP on
 
@@ -12,6 +11,42 @@ begin;
 
 set local timezone = 'UTC';
 set local session_replication_role = replica;
+
+insert into auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  confirmation_token,
+  recovery_token,
+  email_change_token_new,
+  email_change,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  created_at,
+  updated_at
+) values
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '41000000-0000-4000-8000-000000000001',
+    'authenticated', 'authenticated', 'security-approved@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '41000000-0000-4000-8000-000000000002',
+    'authenticated', 'authenticated', 'security-pending@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '41000000-0000-4000-8000-000000000003',
+    'authenticated', 'authenticated', 'security-admin@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  );
 
 insert into public.profiles (id, student_id, full_name, role, status)
 values
@@ -132,13 +167,27 @@ begin
 end;
 $$;
 
--- 5. A student cannot directly promote their own role/status through table UPDATE.
+-- 5. Direct authenticated profile UPDATE is revoked entirely by layer 019.
+-- The final schema is stricter than the historical RLS-only expectation: an
+-- authenticated browser must receive insufficient_privilege before any role or
+-- status mutation can be attempted.
 select set_config('request.jwt.claim.sub', '41000000-0000-4000-8000-000000000001', true);
 set local role authenticated;
 
-update public.profiles
-set role = 'admin', status = 'approved'
-where id = '41000000-0000-4000-8000-000000000001';
+do $$
+begin
+  begin
+    update public.profiles
+    set role = 'admin', status = 'approved'
+    where id = '41000000-0000-4000-8000-000000000001';
+
+    raise exception 'FAIL: authenticated user unexpectedly retained direct profile UPDATE privilege';
+  exception
+    when insufficient_privilege then
+      null;
+  end;
+end;
+$$;
 
 reset role;
 
@@ -191,4 +240,4 @@ reset role;
 
 rollback;
 
-\echo 'Booking V2 security contract tests passed.'
+\echo 'UNEEM V2 security contract tests passed.'

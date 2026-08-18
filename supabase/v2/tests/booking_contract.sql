@@ -1,13 +1,10 @@
--- Booking V2 database contract tests.
+-- UNEEM V2 booking contract tests.
 --
--- Run against a disposable/local database after:
---   1. supabase/v2/schema.sql
---   2. supabase/v2/002_security_contract.sql
---   3. supabase/v2/003_onboarding_booking_rules.sql
---
+-- Run against the final V2 schema through layer 024.
 -- The entire suite is transactional and rolls back its fixtures.
--- It assumes a privileged local Postgres connection so fixtures can be seeded
--- without creating real Auth identities.
+-- Synthetic Supabase Auth rows are created alongside profiles so the suite
+-- exercises the final confirmation-aware authorization contract instead of
+-- relying on pre-021 profile-only fixtures.
 
 \set ON_ERROR_STOP on
 
@@ -16,6 +13,54 @@ begin;
 set local timezone = 'UTC';
 
 set local session_replication_role = replica;
+
+insert into auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  confirmation_token,
+  recovery_token,
+  email_change_token_new,
+  email_change,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  created_at,
+  updated_at
+) values
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '10000000-0000-4000-8000-000000000001',
+    'authenticated', 'authenticated', 'booking1@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '10000000-0000-4000-8000-000000000002',
+    'authenticated', 'authenticated', 'booking2@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '10000000-0000-4000-8000-000000000003',
+    'authenticated', 'authenticated', 'bookingadmin@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '10000000-0000-4000-8000-000000000004',
+    'authenticated', 'authenticated', 'booking4@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '10000000-0000-4000-8000-000000000005',
+    'authenticated', 'authenticated', 'booking5@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  );
 
 insert into public.profiles (id, student_id, full_name, role, status)
 values
@@ -341,4 +386,4 @@ $$;
 
 rollback;
 
-\echo 'Booking V2 database contract tests passed.'
+\echo 'UNEEM V2 booking contract tests passed.'

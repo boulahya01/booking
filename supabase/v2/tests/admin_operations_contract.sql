@@ -1,10 +1,42 @@
 -- UNEEM V2 audited admin operations contract tests.
--- Run after the complete V2 schema stack through 019. All fixtures roll back.
+-- Run against the final V2 schema through layer 024. All fixtures roll back.
+-- Synthetic confirmed Supabase Auth rows are paired with profile fixtures so
+-- confirmation-aware admin authorization is exercised explicitly.
 
 \set ON_ERROR_STOP on
 
 begin;
 set local session_replication_role = replica;
+
+insert into auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  confirmation_token,
+  recovery_token,
+  email_change_token_new,
+  email_change,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  created_at,
+  updated_at
+) values
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '71000000-0000-4000-8000-000000000001',
+    'authenticated', 'authenticated', 'operations-admin@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '71000000-0000-4000-8000-000000000002',
+    'authenticated', 'authenticated', 'operations-student@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  );
 
 insert into public.profiles (id, student_id, full_name, role, status, email_kind, identity_status)
 values
@@ -61,7 +93,8 @@ end;
 $$;
 reset role;
 
--- 3. Admin booking cancellation is authoritative and audited.
+-- 3. Admin booking cancellation is authoritative. The authenticated client sees
+-- only the RPC result; the privileged harness verifies the audit record directly.
 select set_config('request.jwt.claim.sub', '71000000-0000-4000-8000-000000000001', true);
 set local role authenticated;
 do $$
@@ -72,7 +105,12 @@ begin
   if v_booking.status <> 'cancelled' or v_booking.cancelled_by <> '71000000-0000-4000-8000-000000000001' then
     raise exception 'FAIL: admin cancellation state was not persisted';
   end if;
+end;
+$$;
+reset role;
 
+do $$
+begin
   if not exists (
     select 1 from public.admin_audit_log
     where action = 'booking_cancelled'
@@ -85,7 +123,9 @@ begin
 end;
 $$;
 
--- 4. Facility updates go through one audited contract and preserve the row identity.
+-- 4. Facility updates go through one audited RPC and preserve row identity.
+select set_config('request.jwt.claim.sub', '71000000-0000-4000-8000-000000000001', true);
+set local role authenticated;
 do $$
 declare
   v_pitch public.pitches;
@@ -99,7 +139,12 @@ begin
   if v_pitch.name <> 'Updated Court' or v_pitch.capacity <> 12 or v_pitch.slot_duration_minutes <> 90 then
     raise exception 'FAIL: audited facility update did not persist';
   end if;
+end;
+$$;
+reset role;
 
+do $$
+begin
   if not exists (
     select 1 from public.admin_audit_log
     where action = 'facility_updated'
@@ -112,24 +157,31 @@ end;
 $$;
 
 -- 5. Archive replaces destructive deletion and records a structured reason.
+select set_config('request.jwt.claim.sub', '71000000-0000-4000-8000-000000000001', true);
+set local role authenticated;
 do $$
 declare
   v_pitch public.pitches;
 begin
   v_pitch := public.admin_archive_pitch('72000000-0000-4000-8000-000000000001', 'retired');
   if v_pitch.is_active then raise exception 'FAIL: facility remained active after archive'; end if;
+end;
+$$;
+reset role;
 
+do $$
+begin
   if not exists (
     select 1 from public.admin_audit_log
     where action = 'facility_archived'
       and target_id = '72000000-0000-4000-8000-000000000001'
+      and actor_id = '71000000-0000-4000-8000-000000000001'
       and reason_code = 'retired'
   ) then
     raise exception 'FAIL: facility archive audit entry missing';
   end if;
 end;
 $$;
-reset role;
 
 rollback;
-\echo 'UNEEM V2 admin operations contract tests passed.'
+\echo 'UNEEM V2 final-schema admin operations contract tests passed.'
