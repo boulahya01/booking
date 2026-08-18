@@ -39,11 +39,18 @@ function Invoke-LinkedQuery {
     param([Parameter(Mandatory = $true)][string]$File)
 
     Push-Location $linkedWorkspace
+    $previousErrorActionPreference = $ErrorActionPreference
     try {
+        # Windows PowerShell 5.1 promotes native stderr (including benign
+        # Supabase CLI progress such as "Initialising login role...") into a
+        # NativeCommandError. Temporarily allow native stderr through and rely on
+        # the process exit code for authoritative failure detection.
+        $ErrorActionPreference = 'Continue'
         $output = (& npx --yes supabase@latest db query --linked --agent yes -f $File 2>&1 | Out-String)
         $code = $LASTEXITCODE
     }
     finally {
+        $ErrorActionPreference = $previousErrorActionPreference
         Pop-Location
     }
 
