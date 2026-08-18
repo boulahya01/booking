@@ -41,9 +41,31 @@ Database correctness is not enough: configure Supabase Auth before enabling regi
 - Production Site URL: `https://uneem.site`.
 - Add `https://uneem.site/**` and `https://www.uneem.site/**` to the allowed redirect URLs.
 - For preview validation, add the exact Vercel branch/preview origin being tested. Prefer an exact preview origin rather than a broad wildcard.
-- Keep the signup confirmation and password-recovery templates on Supabase's normal `{{ .ConfirmationURL }}` flow. The application supplies the final `emailRedirectTo` / `redirectTo` destination.
+- Keep signup confirmation and password-recovery templates on Supabase's normal `{{ .ConfirmationURL }}` flow. The application supplies the final `emailRedirectTo` / `redirectTo` destination.
 
 The application sends signup/resend confirmation back to `/verify-email` and password recovery back to `/reset-password`. `/reset-password` accepts a password update only after Supabase establishes a real `PASSWORD_RECOVERY` session; a normal signed-in session is not a recovery grant.
+
+### Transactional auth email delivery
+
+Supabase's built-in sender is a development-only fallback, not a UNEEM launch transport. Production confirmation and password-recovery emails require a custom SMTP provider with a UNEEM-controlled sending identity.
+
+Current zero-cost operational state:
+
+- the connected Resend account already uses its Free-plan domain allowance for another verified domain;
+- attempting to add `auth.uneem.site` was rejected by Resend with `domain limit of your plan`;
+- do **not** upgrade, remove the existing domain, or send UNEEM Auth mail from that unrelated domain merely to bypass the limit;
+- Brevo is the current $0 fallback candidate because its Free plan supports transactional SMTP, but account creation/domain authentication/SMTP credentials still require external setup before Supabase can be configured.
+
+Target sender architecture:
+
+- dedicated Auth sending subdomain such as `auth.uneem.site`;
+- From address such as `UNEEM <no-reply@auth.uneem.site>`;
+- SPF/DKIM configured at the DNS provider and DMARC reviewed for the parent domain;
+- click/open tracking **disabled** for authentication mail so confirmation/recovery URLs are not rewritten;
+- SMTP credentials stored only in Supabase Auth configuration, never in Git, Vercel browser variables, or `VITE_*` values;
+- successful real delivery of confirmation + recovery messages to non-team student addresses is a hard launch gate.
+
+Do not mark authentication production-ready while custom SMTP is missing.
 
 ### Browser environment
 
@@ -64,13 +86,16 @@ Never expose a secret/service-role key in `VITE_*` variables or browser code.
 Supabase Auth owns credentials and email-link sessions. PostgreSQL owns application capabilities.
 
 - Signup writes user metadata only for profile bootstrap fields; protected authorization never trusts editable user metadata after signup.
+- Every application profile starts `pending`, even if Supabase Auth is accidentally configured to auto-confirm. Academic access is granted only through the explicit email-confirmation transition; this makes Auth misconfiguration fail closed instead of silently opening sports access.
 - Academic signup may omit Student ID. Confirmed `@usmba.ac.ma` email proves affiliation and can unlock sports access.
 - Personal-email signup requires a Student ID claim, but sports access stays blocked until student-card verification is approved.
 - `auth.users.email_confirmed_at` is part of authorization. An `approved` profile with an unconfirmed credential still cannot browse protected sports state, create bookings/matches, submit student-card verification, perform admin actions, or become the first admin.
 - `get_my_session_context()` is the preferred session bootstrap read; `get_my_account_state()` is the narrow remediation/account-status read.
 - Normal login restores the authoritative session payload and routes by role/access state instead of assuming `/home`.
-- Password recovery is a temporary capability. The browser records only the recovery user's ID + expiry in tab-local `sessionStorage`; it never stores recovery/access tokens itself.
+- Password recovery is a temporary capability. Only Supabase's `PASSWORD_RECOVERY` event may create the local recovery grant; URL query/hash values are never proof of recovery authority.
+- The browser records only the recovery user's ID + expiry in tab-local `sessionStorage`; it never stores recovery/access tokens itself.
 - After a successful recovery password update, the recovery capability is cleared and Supabase sessions are signed out so the user signs in again with the new password.
+- Normal signed-in password changes require `current_password` in the Supabase credential update and attempt to revoke other sessions after success.
 - Logout clears the local recovery capability before ending the current Supabase session.
 
 Layer 021 makes confirmation fail-closed in PostgreSQL through confirmation-aware app/admin/match predicates plus booking/identity-submission guards.
@@ -125,7 +150,7 @@ Admin authorization is enforced in PostgreSQL, not by UI visibility.
 
 Layer 019 closes direct authenticated profile updates and separates access moderation from identity review.
 
-Layer 020 provides `private.bootstrap_first_admin(uuid)` for exactly one database-owner-controlled zero-admin → one-admin transition. Layer 021 additionally requires that bootstrap target's Supabase email be confirmed. Never expose this function through browser/server API keys or reuse it as a routine promotion path.
+Layer 020 provides `private.bootstrap_first_admin(uuid)` for exactly one database-owner-controlled zero-admin → one-admin transition. Layer 021 requires the target's Supabase email to be confirmed; personal-email bootstrap candidates must also have verified Student ID ownership. Never expose this function through browser/server API keys or reuse it as a routine promotion path.
 
 ## Layer map
 
@@ -177,14 +202,15 @@ A hosted V2 project is not launch-ready until all of the following are directly 
 1. the complete schema through layer 021 is installed on the intended fresh Free project;
 2. all SQL suites above pass in their documented validation phase;
 3. Supabase email/password confirmation, Site URL and redirect allow-list are configured;
-4. academic signup → confirmation → login → sports access passes end-to-end;
-5. personal signup → confirmation → card submission → admin review → access passes end-to-end;
-6. unconfirmed users cannot sign in normally or exercise sports/admin capabilities through edge/recovery sessions;
-7. forgot-password → recovery email → `/reset-password` → password update → forced re-login passes;
-8. expired/reused/non-recovery reset links fail safely;
-9. booking/match concurrency and RLS negative tests pass on the final hosted schema;
-10. Supabase security/performance advisors have no unresolved launch blockers;
-11. generated hosted TypeScript database types match the application contract;
-12. Vercel preview uses only the fresh V2 project URL + browser-safe publishable key.
+4. custom SMTP with a UNEEM-controlled authenticated sending domain is configured and real confirmation/recovery delivery to non-team addresses succeeds;
+5. academic signup → confirmation → login → sports access passes end-to-end;
+6. personal signup → confirmation → card submission → admin review → access passes end-to-end;
+7. unconfirmed users cannot sign in normally or exercise sports/admin capabilities through edge/recovery sessions;
+8. forgot-password → recovery email → `/reset-password` → password update → forced re-login passes;
+9. expired/reused/non-recovery reset links fail safely;
+10. booking/match concurrency and RLS negative tests pass on the final hosted schema;
+11. Supabase security/performance advisors have no unresolved launch blockers;
+12. generated hosted TypeScript database types match the application contract;
+13. Vercel preview uses only the fresh V2 project URL + browser-safe publishable key.
 
-Keep infrastructure at $0. Do not create a paid Supabase branch/add-on for validation.
+Keep infrastructure at $0. Do not create a paid Supabase branch/add-on or upgrade an email provider merely to unblock validation.
