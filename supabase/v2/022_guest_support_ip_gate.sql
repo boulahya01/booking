@@ -17,6 +17,9 @@ create table if not exists private.guest_support_ip_rate_limits (
   updated_at timestamptz not null default now()
 );
 
+create index if not exists guest_support_ip_rate_limits_cleanup_idx
+  on private.guest_support_ip_rate_limits(updated_at);
+
 revoke all on private.guest_support_ip_rate_limits from public, anon, authenticated, service_role;
 
 create or replace function private.enforce_guest_ip_rate_limit(p_ip_hash text)
