@@ -1,8 +1,54 @@
--- UNEEM V2 open-match contract tests. Transactional; rolls back fixtures.
+-- UNEEM V2 open-match contract tests.
+-- Run against the final V2 schema through layer 024. Transactional; rolls back fixtures.
+-- Synthetic confirmed Supabase Auth rows are paired with profile fixtures so the
+-- confirmation-aware match authorization contract is exercised explicitly.
 \set ON_ERROR_STOP on
 begin;
 set local timezone='UTC';
 set local session_replication_role=replica;
+
+insert into auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  confirmation_token,
+  recovery_token,
+  email_change_token_new,
+  email_change,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  created_at,
+  updated_at
+) values
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '81000000-0000-4000-8000-000000000001',
+    'authenticated', 'authenticated', 'match-organizer@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '81000000-0000-4000-8000-000000000002',
+    'authenticated', 'authenticated', 'match-player1@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '81000000-0000-4000-8000-000000000003',
+    'authenticated', 'authenticated', 'match-player2@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '81000000-0000-4000-8000-000000000004',
+    'authenticated', 'authenticated', 'match-restricted@example.com', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  );
+
 insert into public.profiles(id,student_id,full_name,username,role,status,email_kind,identity_status)
 values
 ('81000000-0000-4000-8000-000000000001','M000000001','Organizer','organizer','student','approved','academic','verified'),
@@ -79,7 +125,7 @@ do $$ begin
  if (select spots_left from public.list_open_matches() where booking_id='83000000-0000-4000-8000-000000000001')<>0 then raise exception 'FAIL: spots_left is not zero at capacity'; end if;
 end $$;
 
--- Restricted account cannot join.
+-- Restricted account cannot join even though its Auth email is confirmed.
 select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000004',true); set local role authenticated;
 do $$ begin
  begin perform public.join_open_match((select id from public.matches where booking_id='83000000-0000-4000-8000-000000000001')); raise exception 'FAIL: restricted user joined';
@@ -107,4 +153,4 @@ do $$ begin
 end $$;
 
 rollback;
-\echo 'UNEEM V2 match contract tests passed.'
+\echo 'UNEEM V2 final-schema match contract tests passed.'
