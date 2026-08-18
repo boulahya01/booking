@@ -363,7 +363,14 @@ export async function updatePasswordFromRecovery(newPassword: string): Promise<A
     if (error) return { error: { message: error.message } }
 
     clearPasswordRecovery()
-    await supabase.auth.signOut()
+    const { error: globalSignOutError } = await supabase.auth.signOut()
+    if (globalSignOutError) {
+      logger.warn('[updatePasswordFromRecovery] Password changed but global session revocation failed:', globalSignOutError.message)
+      const { error: localSignOutError } = await supabase.auth.signOut({ scope: 'local' })
+      if (localSignOutError) {
+        logger.warn('[updatePasswordFromRecovery] Local recovery session cleanup also failed:', localSignOutError.message)
+      }
+    }
 
     return { data }
   } catch (err: any) {
