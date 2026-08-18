@@ -60,16 +60,14 @@
     return passed ? 'text-success' : 'text-danger'
   }
 
-  function recoveryMarkerPresent(): boolean {
-    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
-    const query = new URLSearchParams(window.location.search)
-    return hash.get('type') === 'recovery' || query.get('type') === 'recovery'
-  }
-
   function redirectError(): string {
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
     const query = new URLSearchParams(window.location.search)
     return hash.get('error_description') || query.get('error_description') || hash.get('error') || query.get('error') || ''
+  }
+
+  function stripRecoveryUrl() {
+    if (typeof history !== 'undefined') history.replaceState({}, '', '/reset-password')
   }
 
   async function resolveRecoverySession() {
@@ -83,17 +81,20 @@
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       if (sessionError || !session?.user) throw sessionError || new Error('missing_recovery_session')
 
-      // The global auth listener records PASSWORD_RECOVERY. The URL marker is a
-      // safe fallback for the initial redirect in case the event fired before
-      // this route subscribed; the session itself still has to be valid.
-      if (recoveryMarkerPresent()) markPasswordRecovery(session)
-
+      // Only PASSWORD_RECOVERY listeners are allowed to create the local grant.
+      // URL query/hash markers are intentionally not trusted because the user can
+      // edit them. Give the early/root listener a short chance to persist the
+      // grant if Supabase is still completing URL-session initialization.
+      if (!restorePasswordRecovery(session.user.id)) {
+        await new Promise((resolve) => setTimeout(resolve, 250))
+      }
       if (!restorePasswordRecovery(session.user.id)) {
         throw new Error('recovery_session_required')
       }
 
       recoveryState = 'ready'
       error = ''
+      stripRecoveryUrl()
     } catch {
       clearPasswordRecovery()
       recoveryState = 'invalid'
@@ -106,6 +107,7 @@
         markPasswordRecovery(session)
         recoveryState = 'ready'
         error = ''
+        stripRecoveryUrl()
       } else if (event === 'SIGNED_OUT' && recoveryState !== 'complete') {
         clearPasswordRecovery()
         recoveryState = 'invalid'
