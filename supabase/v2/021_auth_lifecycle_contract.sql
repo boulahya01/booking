@@ -2,7 +2,7 @@
 -- Apply after 020_first_admin_bootstrap.sql.
 --
 -- Supabase Auth owns credentials, email confirmation and recovery sessions.
--- PostgreSQL must still enforce that an application session belongs to a
+-- PostgreSQL independently enforces that an application session belongs to a
 -- confirmed email before sports/admin capabilities can be exercised. Profile
 -- status alone is never enough authority.
 
@@ -86,8 +86,10 @@ $$;
 
 revoke all on function private.require_sports_access(uuid) from public, anon, authenticated, service_role;
 
--- Keep the final username-aware signup trigger, but make the initial access
--- state robust even if Auth confirmation settings are changed accidentally.
+-- Every signup starts application access at pending. Academic access is opened
+-- only by the explicit null -> timestamp confirmation transition handled below.
+-- If Supabase Auth is accidentally configured to auto-confirm new emails, users
+-- fail closed in pending instead of receiving sports access silently.
 create or replace function private.handle_new_user()
 returns trigger
 language plpgsql
@@ -100,7 +102,6 @@ declare
   v_username text;
   v_email text := lower(btrim(coalesce(new.email, '')));
   v_email_kind text;
-  v_status text;
 begin
   if v_email = '' or position('@' in v_email) = 0 then
     raise exception 'invalid_email';
@@ -132,11 +133,6 @@ begin
     raise exception 'student_id_required_for_personal_email';
   end if;
 
-  v_status := case
-    when v_email_kind = 'academic' and new.email_confirmed_at is not null then 'approved'
-    else 'pending'
-  end;
-
   insert into public.profiles (
     id,
     student_id,
@@ -152,7 +148,7 @@ begin
     v_full_name,
     v_username,
     'student',
-    v_status,
+    'pending',
     v_email_kind,
     'required'
   );
@@ -166,6 +162,8 @@ $$;
 
 revoke all on function private.handle_new_user() from public, anon, authenticated, service_role;
 
+-- Academic sports access is granted only when Supabase records a real email
+-- confirmation transition. Personal-email users remain pending for card review.
 create or replace function private.handle_email_confirmation()
 returns trigger
 language plpgsql
@@ -276,8 +274,8 @@ revoke all on function public.get_my_session_context() from public, anon;
 grant execute on function public.get_my_session_context() to authenticated;
 
 -- Booking creation already validates approved profile state. This trigger adds
--- the credential-side invariant so a recovery session or misconfigured Auth
--- project cannot insert a sports booking for an unconfirmed account.
+-- the credential-side invariant so a recovery session cannot insert a sports
+-- booking for an unconfirmed account.
 create or replace function private.enforce_booking_actor_access()
 returns trigger
 language plpgsql
@@ -323,8 +321,10 @@ create trigger identity_attempts_require_confirmed_actor
 before insert on public.identity_verification_attempts
 for each row execute function private.enforce_identity_submission_actor();
 
--- First-admin bootstrap stays database-owner-only and now additionally refuses
--- to promote an account whose Supabase email credential has not been confirmed.
+-- First-admin bootstrap stays database-owner-only. The selected account must
+-- have a confirmed credential, and a personal-email candidate must already have
+-- verified Student ID ownership. Confirmed academic affiliation is sufficient
+-- for the academic owner path.
 create or replace function private.bootstrap_first_admin(p_user_id uuid)
 returns public.profiles
 language plpgsql
@@ -354,6 +354,9 @@ begin
   if not found then raise exception 'profile_not_found'; end if;
   if v_previous.role <> 'student' then raise exception 'bootstrap_target_not_student'; end if;
   if not private.is_email_confirmed(p_user_id) then raise exception 'email_confirmation_required'; end if;
+  if v_previous.email_kind = 'personal' and v_previous.identity_status <> 'verified' then
+    raise exception 'bootstrap_identity_not_verified';
+  end if;
 
   update public.profiles
   set role = 'admin',
