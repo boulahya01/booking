@@ -3,6 +3,12 @@ import { USE_MOCK, mockProfile, mockDelay } from './mock'
 import type { AccountState, Profile } from './types'
 import { logger } from './logger'
 import { getMySessionContext } from './sessionApi'
+import {
+  clearPasswordRecovery,
+  emailConfirmationRedirectUrl,
+  passwordRecoveryRedirectUrl,
+  restorePasswordRecovery
+} from './authFlow'
 import { get } from 'svelte/store'
 import { locale } from 'svelte-i18n'
 import en from '../locales/en.json'
@@ -55,12 +61,14 @@ export async function register(
   }
 
   try {
+    const normalizedEmail = email.trim().toLowerCase()
     const normalizedStudentId = studentId?.replace(/\s+/g, '').toUpperCase() || undefined
     const normalizedUsername = username.trim().toLowerCase()
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: normalizedEmail,
       password,
       options: {
+        emailRedirectTo: emailConfirmationRedirectUrl(normalizedEmail),
         data: {
           full_name: fullName,
           username: normalizedUsername,
@@ -232,18 +240,18 @@ export async function loginWithEmail(email: string, password: string): Promise<A
   }
 
   try {
+    clearPasswordRecovery()
     const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email,
+      email: email.trim().toLowerCase(),
       password
     })
 
     if (signInError) return { error: { message: signInError.message } }
     if (!data.user) return { error: { message: 'Login failed' } }
 
-    // Restore profile + access/identity routing from one authoritative RPC.
     const context = await getMySessionContext()
     if (!context) {
-      await supabase.auth.signOut()
+      await supabase.auth.signOut({ scope: 'local' })
       return { error: { message: 'Unable to restore account' } }
     }
 
@@ -260,6 +268,8 @@ export async function loginWithEmail(email: string, password: string): Promise<A
 }
 
 export async function signOut(): Promise<{ error?: any }> {
+  clearPasswordRecovery()
+
   if (USE_MOCK) {
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('mock_auth_user')
@@ -271,7 +281,7 @@ export async function signOut(): Promise<{ error?: any }> {
   if (typeof localStorage !== 'undefined') {
     localStorage.removeItem('selectedPitchId')
   }
-  const { error } = await supabase.auth.signOut()
+  const { error } = await supabase.auth.signOut({ scope: 'local' })
   return { error }
 }
 
@@ -282,13 +292,9 @@ export async function resetPasswordForEmail(email: string): Promise<AuthResponse
   }
 
   try {
-    const appUrl =
-      import.meta.env.VITE_APP_URL ||
-      (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173')
-    const redirectUrl = `${appUrl}/reset-password`
-
-    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: redirectUrl
+    clearPasswordRecovery()
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+      redirectTo: passwordRecoveryRedirectUrl()
     })
 
     if (error) return { error: { message: error.message } }
@@ -298,6 +304,8 @@ export async function resetPasswordForEmail(email: string): Promise<AuthResponse
   }
 }
 
+// Authenticated in-app password changes remain available to an already signed-in
+// user. The password-recovery page uses the stricter recovery-only function below.
 export async function updatePassword(newPassword: string): Promise<AuthResponse> {
   if (USE_MOCK) {
     await mockDelay()
@@ -307,6 +315,34 @@ export async function updatePassword(newPassword: string): Promise<AuthResponse>
   try {
     const { data, error } = await supabase.auth.updateUser({ password: newPassword })
     if (error) return { error: { message: error.message } }
+    return { data }
+  } catch (err: any) {
+    return { error: { message: err.message || 'Failed to update password' } }
+  }
+}
+
+export async function updatePasswordFromRecovery(newPassword: string): Promise<AuthResponse> {
+  if (USE_MOCK) {
+    await mockDelay()
+    clearPasswordRecovery()
+    return { data: {} }
+  }
+
+  try {
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError || !user || !restorePasswordRecovery(user.id)) {
+      clearPasswordRecovery()
+      return { error: { message: 'recovery_session_required' } }
+    }
+
+    const { data, error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) return { error: { message: error.message } }
+
+    // A recovery link is a security-sensitive session. Remove the temporary
+    // recovery capability and revoke refresh sessions after the password change.
+    clearPasswordRecovery()
+    await supabase.auth.signOut()
+
     return { data }
   } catch (err: any) {
     return { error: { message: err.message || 'Failed to update password' } }
