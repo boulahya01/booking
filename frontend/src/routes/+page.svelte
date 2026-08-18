@@ -8,7 +8,7 @@
 </script>
 
 <svelte:head>
-  <title>UnemBook</title>
+  <title>UNEEM</title>
 </svelte:head>
 
 <div class="min-h-screen flex items-center justify-center">
