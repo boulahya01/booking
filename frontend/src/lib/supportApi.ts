@@ -165,16 +165,41 @@ export async function createGuestSupportThread(input: {
   subject?: string
   body: string
 }): Promise<{ threadId: string; accessToken: string }> {
-  const { data, error } = await supabase.rpc('create_guest_support_thread', {
-    p_contact_email: input.contactEmail ?? '',
-    p_subject: input.subject ?? '',
-    p_body: input.body
-  })
-  if (error) throw normalizeError(error)
+  let response: Response
+  try {
+    response = await fetch('/api/support/guest', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        contactEmail: input.contactEmail ?? '',
+        subject: input.subject ?? '',
+        body: input.body
+      })
+    })
+  } catch {
+    throw new Error('Support is temporarily unavailable. Please try again.')
+  }
 
-  const row = Array.isArray(data) ? data[0] : data
-  if (!row?.thread_id || !row?.access_token) throw new Error('Support is temporarily unavailable. Please try again.')
-  return { threadId: row.thread_id, accessToken: row.access_token }
+  let payload: any = null
+  try {
+    payload = await response.json()
+  } catch {
+    // Keep proxy/runtime failures generic.
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      typeof payload?.error === 'string'
+        ? payload.error
+        : 'Support is temporarily unavailable. Please try again.'
+    )
+  }
+
+  if (!payload?.threadId || !payload?.accessToken) {
+    throw new Error('Support is temporarily unavailable. Please try again.')
+  }
+
+  return { threadId: payload.threadId, accessToken: payload.accessToken }
 }
 
 export async function getGuestSupportThread(accessToken: string): Promise<SupportThread | null> {
