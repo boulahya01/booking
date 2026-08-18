@@ -1,4 +1,3 @@
-import { createHmac } from 'node:crypto'
 import { env } from '$env/dynamic/private'
 import { json } from '@sveltejs/kit'
 import { createClient } from '@supabase/supabase-js'
@@ -15,8 +14,17 @@ function clientIp(request: Request): string | null {
   return value || null
 }
 
-function ipHash(ip: string, secret: string): string {
-  return createHmac('sha256', secret).update(ip).digest('hex')
+async function ipHash(ip: string, secret: string): Promise<string> {
+  const encoder = new TextEncoder()
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  )
+  const digest = await crypto.subtle.sign('HMAC', key, encoder.encode(ip))
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
 function safeString(value: unknown, max: number): string {
@@ -61,7 +69,7 @@ export const POST: RequestHandler = async ({ request }) => {
     p_contact_email: contactEmail,
     p_subject: subject,
     p_body: body,
-    p_ip_hash: ipHash(ip, config.ipHashSecret)
+    p_ip_hash: await ipHash(ip, config.ipHashSecret)
   })
 
   if (error) {
