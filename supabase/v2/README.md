@@ -26,167 +26,165 @@ Apply the complete stack before enabling real registration or application traffi
 18. `018_backend_read_contract.sql`
 19. `019_user_access_moderation.sql`
 20. `020_first_admin_bootstrap.sql`
-21. `tests/booking_contract.sql`
-22. `tests/security_contract.sql`
-23. `tests/identity_contract.sql`
-24. `tests/support_contract.sql`
-25. `tests/match_contract.sql`
-26. `tests/admin_operations_contract.sql`
-27. `tests/backend_read_contract.sql`
-28. `tests/user_moderation_contract.sql`
-29. `tests/first_admin_bootstrap_contract.sql`
+21. `021_auth_lifecycle_contract.sql`
 
-Every contract suite is transactional and rolls back its fixtures. A hosted V2 project is not launch-ready until the full ordered stack is applied, all suites pass, Supabase security/performance advisors are reviewed, and generated database types match the resulting schema.
+No partial stack is a supported application target.
+
+## Supabase Auth configuration
+
+Database correctness is not enough: configure Supabase Auth before enabling registration.
+
+### Provider and confirmation
+
+- Enable Email + Password authentication.
+- **Require email confirmation.** Do not enable automatic email confirmation for launch.
+- Production Site URL: `https://uneem.site`.
+- Add `https://uneem.site/**` and `https://www.uneem.site/**` to the allowed redirect URLs.
+- For preview validation, add the exact Vercel branch/preview origin being tested. Prefer an exact preview origin rather than a broad wildcard.
+- Keep the signup confirmation and password-recovery templates on Supabase's normal `{{ .ConfirmationURL }}` flow. The application supplies the final `emailRedirectTo` / `redirectTo` destination.
+
+The application sends signup/resend confirmation back to `/verify-email` and password recovery back to `/reset-password`. `/reset-password` accepts a password update only after Supabase establishes a real `PASSWORD_RECOVERY` session; a normal signed-in session is not a recovery grant.
+
+### Browser environment
+
+Required in Vercel production/preview environments:
+
+```env
+VITE_SUPABASE_URL=https://<fresh-v2-project-ref>.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+VITE_APP_URL=https://uneem.site
+```
+
+`VITE_SUPABASE_ANON_KEY` remains a legacy compatibility fallback. The production build intentionally fails when the URL/key are missing; UNEEM must never silently run against a dummy Supabase client.
+
+Never expose a secret/service-role key in `VITE_*` variables or browser code.
+
+## Authentication lifecycle contract
+
+Supabase Auth owns credentials and email-link sessions. PostgreSQL owns application capabilities.
+
+- Signup writes user metadata only for profile bootstrap fields; protected authorization never trusts editable user metadata after signup.
+- Academic signup may omit Student ID. Confirmed `@usmba.ac.ma` email proves affiliation and can unlock sports access.
+- Personal-email signup requires a Student ID claim, but sports access stays blocked until student-card verification is approved.
+- `auth.users.email_confirmed_at` is part of authorization. An `approved` profile with an unconfirmed credential still cannot browse protected sports state, create bookings/matches, submit student-card verification, perform admin actions, or become the first admin.
+- `get_my_session_context()` is the preferred session bootstrap read; `get_my_account_state()` is the narrow remediation/account-status read.
+- Normal login restores the authoritative session payload and routes by role/access state instead of assuming `/home`.
+- Password recovery is a temporary capability. The browser records only the recovery user's ID + expiry in tab-local `sessionStorage`; it never stores recovery/access tokens itself.
+- After a successful recovery password update, the recovery capability is cleared and Supabase sessions are signed out so the user signs in again with the new password.
+- Logout clears the local recovery capability before ending the current Supabase session.
+
+Layer 021 makes confirmation fail-closed in PostgreSQL through confirmation-aware app/admin/match predicates plus booking/identity-submission guards.
 
 ## Identity and access
 
 Affiliation proof and Student ID ownership are separate security properties.
 
 - A confirmed `@usmba.ac.ma` mailbox is the fast university-affiliation path.
-- Academic-email students may use sports after email confirmation even when Student ID ownership is not yet verified.
+- Academic-email students may use sports after email confirmation even when Student ID ownership is not verified.
 - Personal-email students provide a Student ID claim plus private student-card evidence and remain restricted until approval.
-- Student ID is nullable for academic signup and is authoritative only when `identity_status='verified'`.
+- Student ID is nullable for academic signup and authoritative only when `identity_status='verified'`.
 - Only verified Student IDs are globally unique. Unverified claims may collide until review resolves ownership.
 - Username is the case-insensitive unique **public** handle; Student ID and email remain private identity data.
-- Verification retries stay on the same Auth account. Duplicate-identity conflicts route to safe recovery/Help rather than exposing who owns the identity.
-- `get_my_session_context()` is the preferred application bootstrap payload; `get_my_account_state()` remains the narrow account-state contract used by verification/remediation flows.
-- Student-card evidence is private, image-only, size-limited and user-scoped. Admin access is only through the verification workflow.
-- Access suspension is a separate moderation state from identity remediation. A suspension reason must not overwrite a verification rejection/conflict reason.
+- Verification retries stay on the same Auth account. Duplicate-identity conflicts route to safe recovery/Help rather than exposing another account.
+- Student-card evidence is private, image-only, size-limited and user-scoped.
+- Access suspension is separate from identity remediation. Suspension must not erase verification rejection/conflict state.
 
-The baseline schema and layer 005 already implement the academic/personal split. Layer 013 adds the final username requirement to signup. **Do not expose signup while only a partial stack is installed.**
+## Booking and matches
 
-## Booking and facilities
-
-- No persistent slot rows and no completion cron. Lifecycle is derived from timestamps.
-- Facility timezone is explicit; default is `Africa/Casablanca`.
-- A student may hold only one scheduled booking whose `ends_at` is still in the future.
-- Booking attempts are serialized per user, and facility overlap is protected by a PostgreSQL exclusion constraint.
-- Facility booking frequency, slot duration, booking window and cancellation cutoff are database-authoritative.
-- Availability intentionally exposes the peer display name but never peer Student ID/email or another user's booking UUID.
-- Student booking/cancellation writes use narrow RPCs; direct booking writes remain closed.
-- Admin booking cancellation and facility changes use audited RPCs. Facilities are archived rather than destructively deleted.
-
-### Authoritative booking reads
-
-Layer 018 moves application lifecycle/read assembly into PostgreSQL:
-
-- `list_my_bookings()` — caller-scoped history with server-derived lifecycle and narrow facility fields.
-- `get_next_booking()` — one authoritative upcoming/in-progress reservation.
-- `get_pitch_availability()` — current shared schedule; only own `booking_id` is returned.
-
-The browser must not reconstruct lifecycle as a competing source of truth.
-
-## Matches
-
-Matches extend one existing booking and never create another facility reservation.
-
-- Organizer is the booking owner and counts as one player.
-- Reserved/offline friends consume capacity without UNEEM participant rows.
-- Public spots = facility capacity - organizer - reserved spots - joined students.
-- Join is first-come-first-served and serialized by locking the match row.
-- Direct match table reads/writes are closed; RPCs own discovery, roster and mutations.
-- A match with public participants cannot be silently made private or have reserved spots increased so joined users are displaced.
-- Cancelling the authoritative booking closes the linked match.
-- Discovery/roster expose public sports identity only (`full_name`, `username`).
+- No persistent slot rows and no completion cron; lifecycle is derived from timestamps.
+- Facility timezone is explicit; default `Africa/Casablanca`.
+- One scheduled booking whose `ends_at` is still in the future globally per student.
+- Booking attempts are serialized per user; facility overlap is protected by PostgreSQL exclusion constraints.
+- Booking frequency, slot duration, window and cancellation cutoff are database-authoritative.
+- Shared availability may expose peer display name, never peer Student ID/email or another student's booking UUID.
+- Student booking/cancellation writes use RPCs; direct writes stay closed.
+- A match extends one booking and never creates another reservation.
+- Match capacity/join is first-come-first-served and serialized in PostgreSQL.
+- Roster/discovery expose public name/username only.
+- Cancelling the authoritative booking closes its linked match.
 
 ## Help and reports
 
 - Authenticated support/appeals are account-owned conversations.
-- Reports use the structured report RPC with target + reason; generic support cannot create an unstructured report.
-- Guest support uses a high-entropy capability token; only its SHA-256 digest is stored.
-- Guest contact email is optional.
-- Direct support writes are closed; narrow RPCs own mutations.
-- Thread creation and reply throttles are separate.
+- Reports require structured target + reason; generic support cannot create an unstructured report.
+- Guest support uses a high-entropy capability token; only its digest is stored.
+- Direct support writes stay closed; narrow RPCs own mutations.
 - Admin support actions are authorized and audited.
-- Public guest creation still needs an IP-aware zero-cost server/edge gate before launch; database burst throttling is defense-in-depth, not a complete anti-abuse boundary.
+- Public guest creation still needs an IP-aware zero-cost server/edge abuse gate before launch.
 
-### Authoritative support reads
-
-Layer 018 adds:
-
-- `list_my_support_threads()` — one row per own conversation plus latest message, avoiding browser-side multi-query aggregation.
-- `get_my_support_thread()` — caller-owned conversation detail only.
-
-## Admin backend boundary
+## Admin boundary
 
 Admin authorization is enforced in PostgreSQL, not by UI visibility.
 
 - `admin_list_bookings()` + `admin_cancel_booking()`
 - `admin_save_pitch()` + `admin_archive_pitch()`
-- `admin_list_users()` — server-side search/status/pagination over narrow profile fields.
-- `admin_set_user_access()` — audited student Suspend / Restore access with structured reasons.
+- `admin_list_users()` + audited `admin_set_user_access()`
 - verification queue/review RPCs
-- support inbox/context/reply/status RPCs
+- support inbox/reply/status RPCs
 - admin match read model
 
-Layer 019 revokes direct authenticated `profiles UPDATE`. Self-profile edits remain narrow through `update_my_profile()`, verification decisions stay in the verification workflow, and routine access moderation cannot mutate admin identities or approve a pending personal-email identity. Suspension and restoration are audited separately from identity verification.
+Layer 019 closes direct authenticated profile updates and separates access moderation from identity review.
 
-### First administrator
-
-Layer 020 adds `private.bootstrap_first_admin(uuid)` for the one zero-admin → one-admin transition.
-
-- It is **not** an application/PostgREST RPC.
-- `PUBLIC`, `anon`, `authenticated` and `service_role` receive no execute grant.
-- Run it only from the trusted database-owner/Supabase SQL context after manually confirming the selected Auth account.
-- It is transactionally serialized and refuses a second bootstrap once an admin or bootstrap log exists.
-- The operation records the selected profile and previous/new role/access state in `private.admin_bootstrap_log`.
-- Normal future admin management must use explicit audited admin-management contracts; never reuse first-admin bootstrap as a routine promotion path.
-
-Sensitive or destructive operations are audited where defined by their domain contract.
+Layer 020 provides `private.bootstrap_first_admin(uuid)` for exactly one database-owner-controlled zero-admin → one-admin transition. Layer 021 additionally requires that bootstrap target's Supabase email be confirmed. Never expose this function through browser/server API keys or reuse it as a routine promotion path.
 
 ## Layer map
 
-- `schema.sql` — clean baseline, base RLS, academic/personal identity-compatible profile creation, booking/facility/announcement primitives.
-- `002_security_contract.sql` — approved-app boundary and safe self-profile mutation.
-- `003_onboarding_booking_rules.sql` — **booking-only** serialization and one-active reservation invariant; it does not define identity onboarding.
-- `004_availability_window.sql` — application one-call availability window.
-- `005_identity_verification_state.sql` — verification state machine and academic/personal access split.
-- `006_identity_verification_storage.sql` — private evidence storage and admin review queue.
-- `007`–`012` — Help/report conversations, admin operations and abuse throttles.
-- `013_public_username_identity.sql` — final public username/signup contract.
+- `schema.sql` — clean baseline and booking/facility/announcement primitives.
+- `002` — app-access boundary and safe self-profile mutation.
+- `003` — booking serialization / one-active invariant.
+- `004` — one-call availability.
+- `005`–`006` — identity verification state + private evidence storage.
+- `007`–`012` — Help/reports/admin support/abuse controls.
+- `013` — public username + final signup metadata contract.
 - `014`–`016` — open-match mutation/read/lifecycle integrity.
-- `017_admin_operations.sql` — audited booking/facility administration and direct facility-write closure.
-- `018_backend_read_contract.sql` — authoritative session, bookings, support, verification-attempt and admin-user read models.
-- `019_user_access_moderation.sql` — close direct profile writes; separate audited student access suspension/restoration from identity review.
-- `020_first_admin_bootstrap.sql` — private database-owner-only one-time first-admin bootstrap.
-- `tests/*.sql` — transactional domain/security contracts.
+- `017` — audited booking/facility admin operations.
+- `018` — authoritative session/bookings/support/verification/admin-user reads.
+- `019` — audited student access moderation + direct profile-write closure.
+- `020` — private one-time first-admin bootstrap.
+- `021` — Supabase email-confirmation authority across app/admin/sports/verification/bootstrap.
 
-## Zero-cost validation
+## Contract tests
 
-```bash
-for file in \
-  supabase/v2/schema.sql \
-  supabase/v2/002_security_contract.sql \
-  supabase/v2/003_onboarding_booking_rules.sql \
-  supabase/v2/004_availability_window.sql \
-  supabase/v2/005_identity_verification_state.sql \
-  supabase/v2/006_identity_verification_storage.sql \
-  supabase/v2/007_support_threads.sql \
-  supabase/v2/008_support_admin_ops.sql \
-  supabase/v2/009_support_reports_abuse_controls.sql \
-  supabase/v2/010_support_report_admin_context.sql \
-  supabase/v2/011_guest_support_optional_contact.sql \
-  supabase/v2/012_support_rate_limit_scope.sql \
-  supabase/v2/013_public_username_identity.sql \
-  supabase/v2/014_open_match_core.sql \
-  supabase/v2/015_open_match_reads.sql \
-  supabase/v2/016_match_lifecycle_integrity.sql \
-  supabase/v2/017_admin_operations.sql \
-  supabase/v2/018_backend_read_contract.sql \
-  supabase/v2/019_user_access_moderation.sql \
-  supabase/v2/020_first_admin_bootstrap.sql \
-  supabase/v2/tests/booking_contract.sql \
-  supabase/v2/tests/security_contract.sql \
-  supabase/v2/tests/identity_contract.sql \
-  supabase/v2/tests/support_contract.sql \
-  supabase/v2/tests/match_contract.sql \
-  supabase/v2/tests/admin_operations_contract.sql \
-  supabase/v2/tests/backend_read_contract.sql \
-  supabase/v2/tests/user_moderation_contract.sql \
-  supabase/v2/tests/first_admin_bootstrap_contract.sql
-do
-  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$file" || exit 1
-done
-```
+Committed suites:
 
-Use the confirmed fresh Free Supabase project or a free local Postgres runtime. Do not create paid Supabase branches/resources for validation.
+- `tests/booking_contract.sql`
+- `tests/security_contract.sql`
+- `tests/identity_contract.sql`
+- `tests/support_contract.sql`
+- `tests/match_contract.sql`
+- `tests/admin_operations_contract.sql`
+- `tests/backend_read_contract.sql`
+- `tests/user_moderation_contract.sql`
+- `tests/first_admin_bootstrap_contract.sql`
+- `tests/auth_lifecycle_contract.sql`
+
+All test files are transactional and roll back fixtures.
+
+The older domain suites use profile-only fixtures and were authored against layers through 020. Until those fixtures are converted to create matching `auth.users` rows, validate in two phases on a disposable/fresh target:
+
+1. apply `schema.sql` + layers `002` → `020`;
+2. run the pre-021 domain suites;
+3. apply `021_auth_lifecycle_contract.sql`;
+4. run `tests/auth_lifecycle_contract.sql`;
+5. with real Supabase Auth accounts, re-smoke confirmation-aware booking, match, identity and admin flows on the final 021 schema.
+
+Do **not** weaken layer 021 merely to make profile-only fixtures pass. Converting all older fixtures to explicit Auth users is follow-up test-harness cleanup, not a production authorization change.
+
+## Hosted launch validation
+
+A hosted V2 project is not launch-ready until all of the following are directly verified:
+
+1. the complete schema through layer 021 is installed on the intended fresh Free project;
+2. all SQL suites above pass in their documented validation phase;
+3. Supabase email/password confirmation, Site URL and redirect allow-list are configured;
+4. academic signup → confirmation → login → sports access passes end-to-end;
+5. personal signup → confirmation → card submission → admin review → access passes end-to-end;
+6. unconfirmed users cannot sign in normally or exercise sports/admin capabilities through edge/recovery sessions;
+7. forgot-password → recovery email → `/reset-password` → password update → forced re-login passes;
+8. expired/reused/non-recovery reset links fail safely;
+9. booking/match concurrency and RLS negative tests pass on the final hosted schema;
+10. Supabase security/performance advisors have no unresolved launch blockers;
+11. generated hosted TypeScript database types match the application contract;
+12. Vercel preview uses only the fresh V2 project URL + browser-safe publishable key.
+
+Keep infrastructure at $0. Do not create a paid Supabase branch/add-on for validation.
