@@ -247,7 +247,15 @@ export async function loginWithEmail(email: string, password: string): Promise<A
     if (signInError) return { error: { message: signInError.message } }
     if (!data.user) return { error: { message: 'Login failed' } }
 
-    const context = await getMySessionContext()
+    let context
+    try {
+      context = await getMySessionContext()
+    } catch (contextError: any) {
+      await supabase.auth.signOut({ scope: 'local' })
+      logger.error('[loginWithEmail] Signed in but account context could not be restored:', contextError?.message || contextError)
+      return { error: { message: 'Unable to restore account' } }
+    }
+
     if (!context) {
       await supabase.auth.signOut({ scope: 'local' })
       return { error: { message: 'Unable to restore account' } }
