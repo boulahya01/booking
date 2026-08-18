@@ -1,5 +1,9 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
-import { basename } from 'node:path'
+import { basename, dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const atRepo = (path) => resolve(repoRoot, path)
 
 const forbiddenPaths = [
   'api/cron',
@@ -39,14 +43,14 @@ const expectedMigrationVersions = [
 const failures = []
 
 for (const path of forbiddenPaths) {
-  if (existsSync(path)) failures.push(`legacy release surface still exists: ${path}`)
+  if (existsSync(atRepo(path))) failures.push(`legacy release surface still exists: ${path}`)
 }
 
 const mockPath = 'frontend/src/lib/mock.ts'
-if (!existsSync(mockPath)) {
+if (!existsSync(atRepo(mockPath))) {
   failures.push(`${mockPath} is missing`)
 } else {
-  const mockSource = readFileSync(mockPath, 'utf8')
+  const mockSource = readFileSync(atRepo(mockPath), 'utf8')
   if (!mockSource.includes('export const USE_MOCK = false as const')) {
     failures.push('UI mock mode is not hard-disabled')
   }
@@ -56,20 +60,20 @@ if (!existsSync(mockPath)) {
 }
 
 const gitignorePath = '.gitignore'
-if (!existsSync(gitignorePath)) {
+if (!existsSync(atRepo(gitignorePath))) {
   failures.push('.gitignore is missing')
 } else {
-  const gitignore = readFileSync(gitignorePath, 'utf8')
+  const gitignore = readFileSync(atRepo(gitignorePath), 'utf8')
   if (/^\s*\*\.sql\s*$/m.test(gitignore)) {
     failures.push('blanket *.sql ignore would hide future migrations/contracts')
   }
 }
 
 const svelteConfigPath = 'frontend/svelte.config.js'
-if (!existsSync(svelteConfigPath)) {
+if (!existsSync(atRepo(svelteConfigPath))) {
   failures.push(`${svelteConfigPath} is missing`)
 } else {
-  const config = readFileSync(svelteConfigPath, 'utf8')
+  const config = readFileSync(atRepo(svelteConfigPath), 'utf8')
   if (config.includes('unsafe-eval')) failures.push('release CSP still allows unsafe-eval')
   if (config.includes('test-bookings-two.vercel.app')) {
     failures.push('stale preview origin remains in the CSRF trusted-origin list')
@@ -77,10 +81,10 @@ if (!existsSync(svelteConfigPath)) {
 }
 
 const migrationsDir = 'supabase/migrations'
-if (!existsSync(migrationsDir)) {
+if (!existsSync(atRepo(migrationsDir))) {
   failures.push('supabase/migrations is missing')
 } else {
-  const migrationFiles = readdirSync(migrationsDir)
+  const migrationFiles = readdirSync(atRepo(migrationsDir))
     .filter((name) => name.endsWith('.sql'))
     .sort()
   const versions = migrationFiles.map((name) => basename(name).split('_', 1)[0])
@@ -107,7 +111,7 @@ const requiredPaths = [
 ]
 
 for (const path of requiredPaths) {
-  if (!existsSync(path)) failures.push(`required release artifact is missing: ${path}`)
+  if (!existsSync(atRepo(path))) failures.push(`required release artifact is missing: ${path}`)
 }
 
 if (failures.length) {
