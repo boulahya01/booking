@@ -6,6 +6,7 @@ import { getMySessionContext } from './sessionApi'
 import {
   clearPasswordRecovery,
   emailConfirmationRedirectUrl,
+  hasVerifiedRecoveryAuthentication,
   passwordRecoveryRedirectUrl,
   restorePasswordRecovery
 } from './authFlow'
@@ -361,6 +362,13 @@ export async function updatePasswordFromRecovery(newPassword: string): Promise<A
   try {
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     if (userError || !user || !restorePasswordRecovery(user.id)) {
+      clearPasswordRecovery()
+      return { error: { message: 'recovery_session_required' } }
+    }
+
+    // sessionStorage is only continuity metadata. The actual mutation authority
+    // must still come from a Supabase-verified JWT that carries the recovery AMR.
+    if (!(await hasVerifiedRecoveryAuthentication(user.id))) {
       clearPasswordRecovery()
       return { error: { message: 'recovery_session_required' } }
     }
