@@ -12,6 +12,7 @@
     type="button"
     role="switch"
     aria-checked={checked}
+    aria-label={label || 'Toggle'}
     class={cn(
       'relative inline-flex items-center h-6 w-11 rounded-full transition-colors duration-200',
       'focus:outline-none focus:ring-2 focus:ring-info-light focus:ring-offset-2 focus:ring-offset-surface',
@@ -26,7 +27,7 @@
         'inline-block w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200',
         checked ? 'translate-x-6' : 'translate-x-1'
       )}
-    />
+    ></span>
   </button>
   {#if label}
     <span class="text-sm text-text-secondary">{label}</span>
