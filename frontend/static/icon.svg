@@ -1,9 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
-  <title id="title">UnemBook</title>
-  <rect width="512" height="512" rx="120" fill="#ff6b35"/>
-  <rect x="112" y="136" width="288" height="248" rx="44" fill="#fff"/>
-  <rect x="112" y="184" width="288" height="48" fill="#ff6b35"/>
-  <rect x="176" y="100" width="32" height="92" rx="16" fill="#fff"/>
-  <rect x="304" y="100" width="32" height="92" rx="16" fill="#fff"/>
-  <path d="M190 303l42 42 92-101" fill="none" stroke="#ff6b35" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+  <title id="title">UNEEM</title>
+  <rect width="512" height="512" rx="112" fill="#f26419"/>
+  <circle cx="256" cy="143" r="26" fill="#fff"/>
+  <path d="M154 140v137c0 67 43 110 102 110s102-43 102-110V140" fill="none" stroke="#fff" stroke-width="56" stroke-linecap="round"/>
 </svg>
