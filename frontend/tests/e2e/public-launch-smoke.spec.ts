@@ -70,6 +70,34 @@ for (const language of languages) {
   });
 }
 
+test.describe('public auth authority negatives', () => {
+  test('direct reset-password visit cannot create recovery authority', async ({ page }) => {
+    await seedUi(page, 'en');
+    const response = await page.goto('/reset-password', { waitUntil: 'domcontentloaded' });
+
+    expect(response).not.toBeNull();
+    expect(response!.status()).toBeLessThan(400);
+    await expect(page.getByRole('heading', { name: 'Recovery link not valid' })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('button', { name: 'Update password' })).toHaveCount(0);
+    await expect
+      .poll(() => page.evaluate(() => sessionStorage.getItem('uneem:password-recovery')))
+      .toBeNull();
+  });
+
+  test('malformed email-confirmation token fails closed', async ({ page }) => {
+    await seedUi(page, 'en');
+    const response = await page.goto('/verify-email?token_hash=uneem-invalid-token&type=email', {
+      waitUntil: 'domcontentloaded',
+    });
+
+    expect(response).not.toBeNull();
+    expect(response!.status()).toBeLessThan(400);
+    await expect(page.getByRole('heading', { name: 'Link not confirmed' })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('button', { name: 'Continue' })).toHaveCount(0);
+    expect(new URL(page.url()).pathname).toBe('/verify-email');
+  });
+});
+
 test('PWA install metadata is reachable', async ({ request }) => {
   const manifestResponse = await request.get('/app.webmanifest');
   expect(manifestResponse.ok()).toBe(true);
