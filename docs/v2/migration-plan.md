@@ -8,7 +8,7 @@ UNEEM V2 targets a **new, clean Supabase project**. Previous V1 Auth users, prof
 
 - Never replay historical `supabase/migrations/` into V2.
 - Never reconstruct legacy Auth users, password hashes, profiles or booking history.
-- Stay on $0 infrastructure; no paid Supabase branch/add-on is required for validation.
+- Stay on $0 infrastructure; no paid Supabase branch/add-on or email-provider upgrade is required for validation.
 - Apply the complete reviewed `supabase/v2` stack before accepting real registration or application traffic.
 - Once real V2 users exist, schema changes become forward-only; normal deployment never resets user data.
 
@@ -16,6 +16,7 @@ UNEEM V2 targets a **new, clean Supabase project**. Previous V1 Auth users, prof
 
 - Academic email confirmation proves university affiliation, **not ownership of a typed Student ID**.
 - Academic signup may omit Student ID and receives sports access only after the academic email is actually confirmed.
+- Every new application profile starts `pending`; accidental Supabase auto-confirm must fail closed rather than silently grant sports access.
 - Personal-email signup requires a Student ID claim, confirmed email and private student-card review before sports access.
 - Student ID is private and authoritative only after verification; only verified IDs are globally unique.
 - Public username is separate from Student ID and is case-insensitively unique.
@@ -23,7 +24,8 @@ UNEEM V2 targets a **new, clean Supabase project**. Previous V1 Auth users, prof
 - Access suspension is separate from identity verification and must not overwrite identity-remediation state.
 - Supabase Auth owns credentials, email confirmation and recovery sessions. PostgreSQL independently requires a confirmed Auth email for sports/admin capabilities.
 - A profile accidentally marked `approved` while `auth.users.email_confirmed_at` is null must still fail closed.
-- Password recovery may update a credential only from a real Supabase recovery session; a normal signed-in session is not a reset grant.
+- Password recovery may update a credential only from a real Supabase `PASSWORD_RECOVERY` event/session; a normal signed-in session or user-editable URL marker is not a reset grant.
+- Signed-in password changes require `current_password` in the Supabase credential update.
 
 ## Source of truth
 
@@ -44,11 +46,15 @@ Before enabling registration:
 3. set production Site URL to `https://uneem.site`;
 4. allow production redirects for `https://uneem.site/**` and `https://www.uneem.site/**`;
 5. add the exact Vercel preview/branch origin used during validation;
-6. keep confirmation and recovery email templates on the normal Supabase `{{ .ConfirmationURL }}` flow;
-7. verify signup confirmation returns to `/verify-email`;
-8. verify password recovery returns to `/reset-password` and emits the recovery session used by the app.
+6. keep confirmation and recovery templates on the normal Supabase `{{ .ConfirmationURL }}` flow;
+7. configure **custom SMTP** with a UNEEM-controlled authenticated sending domain;
+8. disable click/open tracking for Auth mail so confirmation/recovery URLs are not rewritten;
+9. verify signup confirmation returns to `/verify-email`;
+10. verify password recovery returns to `/reset-password` and produces the Supabase recovery event/session used by the app.
 
-Never place a secret/service-role key in browser/Vite environment variables.
+Supabase's built-in sender is development-only and is not a UNEEM launch transport. The connected Resend Free account currently cannot add `auth.uneem.site` because its domain allowance is already consumed by another verified domain; do not pay, delete that domain, or send UNEEM mail from the unrelated domain to bypass the limit. Brevo Free is the current zero-cost fallback candidate for transactional SMTP, but its account/domain/DNS/SMTP setup is still an external operational gate.
+
+Never place SMTP secrets, Supabase service-role keys, or other credentials in browser/Vite environment variables.
 
 ## Deployment sequence
 
@@ -60,27 +66,29 @@ Never place a secret/service-role key in browser/Vite environment variables.
 6. Run Supabase security/performance advisors and resolve launch-blocking findings.
 7. Generate TypeScript DB types from the final hosted schema and compare them with frontend API contracts.
 8. Configure Supabase Auth provider, confirmation, Site URL, redirect allow-list and email templates.
-9. Configure Vercel with the **fresh V2** project URL plus browser-safe publishable key.
-10. Create the selected owner Auth account, confirm its email, then run `private.bootstrap_first_admin(<profile_uuid>)` once from trusted database-owner/Supabase SQL context.
-11. Verify exactly one approved admin and one private bootstrap-log row exist.
-12. Seed only reviewed facility configuration; never copy stale V1 operational rows.
-13. Smoke-test signup/login/confirmation/recovery plus both identity paths and all core RPC workflows on preview.
-14. Perform responsive/rendered review and runtime-log review.
-15. Promote only after every launch gate passes.
+9. Configure and verify custom SMTP + sending-domain DNS; send real confirmation and recovery messages to non-team addresses.
+10. Configure Vercel with the **fresh V2** project URL plus browser-safe publishable key.
+11. Create the selected owner Auth account, confirm its email, then run `private.bootstrap_first_admin(<profile_uuid>)` once from trusted database-owner/Supabase SQL context. A personal-email candidate must already have verified identity; a confirmed academic candidate does not require Student ID verification.
+12. Verify exactly one approved admin and one private bootstrap-log row exist.
+13. Seed only reviewed facility configuration; never copy stale V1 operational rows.
+14. Smoke-test signup/login/confirmation/recovery plus both identity paths and all core RPC workflows on preview.
+15. Perform responsive/rendered review and runtime-log review.
+16. Promote only after every launch gate passes.
 
 ## Required Auth smoke flows
 
 ### Academic signup and confirmation
 - register with `@usmba.ac.ma` and no Student ID
-- signup creates exactly one profile
+- signup creates exactly one **pending** profile
 - before confirmation: normal sign-in fails and sports/admin DB capabilities remain unavailable
-- confirmation link returns to `/verify-email`
+- confirmation link is actually delivered to a non-team mailbox and returns to `/verify-email`
 - confirmation restores one authoritative session/profile/account payload
 - profile transitions to approved academic access
 - login routes directly to the correct destination without `/home` flicker
 
 ### Personal signup and verification
 - register with personal email + Student ID claim
+- confirmation email is actually delivered
 - confirm email
 - sports remains blocked after confirmation
 - upload private student-card evidence
@@ -95,21 +103,26 @@ Never place a secret/service-role key in browser/Vite environment variables.
 - pending/suspended student routes to `/pending-approval`
 - admin routes to `/admin`
 - page refresh restores session + account state from the authoritative session RPC
-- logout clears the local recovery capability and current Supabase session
+- if Supabase sign-in succeeds but account-context restoration fails, the local Auth session is closed instead of leaving a hidden partial login
+- logout clears local recovery capability and current Supabase session
 
 ### Forgot password / recovery
-- forgot-password response does not enumerate whether an email exists
-- valid recovery email returns to `/reset-password`
-- reset form opens only for a Supabase `PASSWORD_RECOVERY` session
+- forgot-password success response does not enumerate whether an email exists
+- real SMTP/rate/config errors are shown as retry-safe errors rather than falsely claiming delivery
+- valid recovery email is actually delivered and returns to `/reset-password`
+- reset form opens only for a Supabase `PASSWORD_RECOVERY` grant
+- user-editable `?type=recovery` or hash markers never create recovery authority
 - normal authenticated session cannot use `/reset-password` as a password-change shortcut
 - expired/invalid/reused recovery links fail safely and offer a fresh request
 - password update succeeds with normal password policy
+- recovery URL material is removed from the address bar after session resolution
 - recovery capability is cleared and session is signed out after success
 - old password no longer signs in; new password does
 
 ### Signed-in password change
 - user must enter current password
 - wrong current password fails without changing credential
+- current-password verification occurs in the same Supabase credential mutation, avoiding an extra sign-in/session event
 - new-password rules remain enforced
 - successful change keeps current session usable and attempts to revoke other sessions
 
@@ -153,7 +166,8 @@ Never place a secret/service-role key in browser/Vite environment variables.
 ### First admin
 - browser/authenticated/service-role API contexts cannot execute `private.bootstrap_first_admin()`
 - unconfirmed bootstrap target is rejected
-- confirmed selected profile can be bootstrapped exactly once by trusted DB owner
+- confirmed personal-email target with unverified identity is rejected
+- confirmed academic target, or confirmed+verified personal target, can be bootstrapped exactly once by trusted DB owner
 - second bootstrap fails
 - private log records the transition
 
@@ -163,19 +177,20 @@ UNEEM does not go live until all are true:
 
 1. Fresh V2 stack through layer 021 applies without error.
 2. Every documented SQL suite passes in its validation phase.
-3. Auth lifecycle contract passes, including unconfirmed-profile drift denial.
+3. Auth lifecycle contract passes, including unconfirmed-profile drift and fail-closed auto-confirm behavior.
 4. Supabase Auth confirmation, Site URL and redirect configuration are verified.
-5. Security/RLS negative tests pass.
-6. Booking/match concurrency invariants are validated on the final hosted schema.
-7. Supabase advisors have no unresolved launch blockers.
-8. Generated hosted DB types match the application contract.
-9. Canonical `Vercel – uneem` exact-head preview builds successfully with only fresh V2 credentials.
-10. Academic signup/confirmation/login passes end-to-end.
-11. Personal signup/confirmation/card-review/access passes end-to-end.
-12. Forgot-password/recovery/reset/forced-relogin passes end-to-end.
-13. Signed-in current-password change passes.
-14. Core booking/match/help/admin/moderation/bootstrap smoke tests pass.
-15. Real UNEEM logo/PWA icon assets and responsive EN/AR/RTL review are complete.
+5. Custom SMTP with a UNEEM-controlled authenticated sender is configured and real confirmation/reset delivery succeeds.
+6. Security/RLS negative tests pass.
+7. Booking/match concurrency invariants are validated on the final hosted schema.
+8. Supabase advisors have no unresolved launch blockers.
+9. Generated hosted DB types match the application contract.
+10. Canonical `Vercel – uneem` exact-head preview builds successfully with only fresh V2 credentials.
+11. Academic signup/confirmation/login passes end-to-end.
+12. Personal signup/confirmation/card-review/access passes end-to-end.
+13. Forgot-password/recovery/reset/forced-relogin passes end-to-end.
+14. Signed-in current-password change passes.
+15. Core booking/match/help/admin/moderation/bootstrap smoke tests pass.
+16. Real UNEEM logo/PWA icon assets and responsive EN/AR/RTL review are complete.
 
 ## Rollback
 
