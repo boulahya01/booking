@@ -2,6 +2,7 @@ import { supabase } from './supabaseClient'
 import { USE_MOCK, mockProfile, mockDelay } from './mock'
 import type { AccountState, Profile } from './types'
 import { logger } from './logger'
+import { getMySessionContext } from './sessionApi'
 import { get } from 'svelte/store'
 import { locale } from 'svelte-i18n'
 import en from '../locales/en.json'
@@ -18,6 +19,13 @@ function t(key: string): string {
     if (obj && typeof obj === 'object') obj = obj[part]
   }
   return typeof obj === 'string' ? obj : key
+}
+
+function getAppUrl(): string {
+  const configured = (import.meta.env.VITE_APP_URL || '').trim().replace(/\/$/, '')
+  if (configured) return configured
+  if (typeof window !== 'undefined') return window.location.origin
+  return 'http://localhost:5173'
 }
 
 export interface AuthResponse {
@@ -54,12 +62,14 @@ export async function register(
   }
 
   try {
+    const normalizedEmail = email.trim().toLowerCase()
     const normalizedStudentId = studentId?.replace(/\s+/g, '').toUpperCase() || undefined
     const normalizedUsername = username.trim().toLowerCase()
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: normalizedEmail,
       password,
       options: {
+        emailRedirectTo: `${getAppUrl()}/verify-email?email=${encodeURIComponent(normalizedEmail)}`,
         data: {
           full_name: fullName,
           username: normalizedUsername,
@@ -83,8 +93,6 @@ export function mapAuthError(message: string, status?: number): string {
 
   const lower = message.toLowerCase()
 
-  // Keep registration failures non-enumerating. Existing email addresses,
-  // usernames, Student IDs and identity conflicts intentionally converge on a generic path.
   if (
     lower.includes('user already registered') ||
     lower.includes('already been registered') ||
@@ -100,25 +108,15 @@ export function mapAuthError(message: string, status?: number): string {
     return t('register.error_registration_failed')
   }
 
-  if (lower.includes('invalid_student_id')) {
+  if (lower.includes('invalid_student_id') || lower.includes('student_id_required_for_personal_email')) {
     return t('register.error_invalid_student')
   }
 
-  if (lower.includes('student_id_required_for_personal_email')) {
-    return t('register.error_invalid_student')
-  }
-
-  if (lower.includes('invalid_username')) {
-    return t('register.error_registration_failed')
-  }
+  if (lower.includes('invalid_username')) return t('register.error_registration_failed')
 
   if (
-    lower.includes('password') && (
-      lower.includes('should be') ||
-      lower.includes('too short') ||
-      lower.includes('weak') ||
-      lower.includes('length')
-    )
+    lower.includes('password') &&
+    (lower.includes('should be') || lower.includes('too short') || lower.includes('weak') || lower.includes('length'))
   ) {
     return t('register.error_password_short')
   }
@@ -147,6 +145,26 @@ export function mapAuthError(message: string, status?: number): string {
   }
 
   return t('register.error_registration_failed')
+}
+
+export function mapLoginAuthError(message: string, status?: number): string {
+  const lower = (message || '').toLowerCase()
+  if (
+    lower.includes('rate limit') ||
+    lower.includes('too many requests') ||
+    lower.includes('security purposes') ||
+    status === 429
+  ) return 'rate_limited'
+
+  if (
+    lower.includes('invalid login credentials') ||
+    lower.includes('invalid credentials') ||
+    lower.includes('email not confirmed') ||
+    lower.includes('user not found') ||
+    status === 400
+  ) return 'invalid_credentials'
+
+  return 'auth_unavailable'
 }
 
 export async function getUserProfile(userId: string): Promise<Profile | null> {
@@ -232,26 +250,30 @@ export async function loginWithEmail(email: string, password: string): Promise<A
 
   try {
     const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email,
+      email: email.trim().toLowerCase(),
       password
     })
 
-    if (signInError) return { error: { message: signInError.message } }
-    if (!data.user) return { error: { message: 'Login failed' } }
+    if (signInError) {
+      return { error: { message: mapLoginAuthError(signInError.message, signInError.status) } }
+    }
+    if (!data.user) return { error: { message: 'auth_unavailable' } }
 
-    const [profile, accountState] = await Promise.all([
-      getUserProfile(data.user.id),
-      getMyAccountState()
-    ])
-
-    if (!profile || !accountState) {
-      await supabase.auth.signOut()
-      return { error: { message: 'Unable to restore account' } }
+    const context = await getMySessionContext()
+    if (!context) {
+      await supabase.auth.signOut({ scope: 'local' })
+      return { error: { message: 'auth_unavailable' } }
     }
 
-    return { data: { user: data.user, profile, accountState } }
-  } catch (err: any) {
-    return { error: { message: err.message || 'Login failed' } }
+    return {
+      data: {
+        user: data.user,
+        profile: context.profile,
+        accountState: context.account
+      }
+    }
+  } catch {
+    return { error: { message: 'auth_unavailable' } }
   }
 }
 
@@ -266,8 +288,9 @@ export async function signOut(): Promise<{ error?: any }> {
 
   if (typeof localStorage !== 'undefined') {
     localStorage.removeItem('selectedPitchId')
+    sessionStorage.removeItem('uneem_password_recovery')
   }
-  const { error } = await supabase.auth.signOut()
+  const { error } = await supabase.auth.signOut({ scope: 'local' })
   return { error }
 }
 
@@ -278,19 +301,24 @@ export async function resetPasswordForEmail(email: string): Promise<AuthResponse
   }
 
   try {
-    const appUrl =
-      import.meta.env.VITE_APP_URL ||
-      (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173')
-    const redirectUrl = `${appUrl}/reset-password`
-
-    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: redirectUrl
+    const normalizedEmail = email.trim().toLowerCase()
+    const { data, error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+      redirectTo: `${getAppUrl()}/reset-password`
     })
 
-    if (error) return { error: { message: error.message } }
+    if (error) {
+      const lower = error.message.toLowerCase()
+      if (lower.includes('rate') || lower.includes('too many') || error.status === 429) {
+        return { error: { message: 'rate_limited' } }
+      }
+      if (lower.includes('network') || lower.includes('fetch') || lower.includes('connection')) {
+        return { error: { message: 'network_error' } }
+      }
+      return { data: {} }
+    }
     return { data }
-  } catch (err: any) {
-    return { error: { message: err.message || 'Failed to send reset email' } }
+  } catch {
+    return { error: { message: 'network_error' } }
   }
 }
 
@@ -301,10 +329,15 @@ export async function updatePassword(newPassword: string): Promise<AuthResponse>
   }
 
   try {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+    if (sessionError || !sessionData.session) {
+      return { error: { message: 'recovery_session_required' } }
+    }
+
     const { data, error } = await supabase.auth.updateUser({ password: newPassword })
-    if (error) return { error: { message: error.message } }
+    if (error) return { error: { message: 'password_update_failed' } }
     return { data }
-  } catch (err: any) {
-    return { error: { message: err.message || 'Failed to update password' } }
+  } catch {
+    return { error: { message: 'password_update_failed' } }
   }
 }

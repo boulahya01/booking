@@ -47,15 +47,22 @@ export function validateStudentCard(file: File): string | null {
 }
 
 export async function getLatestVerificationAttempt(): Promise<VerificationAttempt | null> {
-  const { data, error } = await supabase
-    .from('identity_verification_attempts')
-    .select('id,user_id,claimed_student_id,card_storage_path,status,reason_code,submitted_at,reviewed_at')
-    .order('submitted_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
+  const { data, error } = await supabase.rpc('get_my_latest_identity_verification')
   if (error) throw new Error(error.message)
-  return (data as VerificationAttempt | null) || null
+
+  const row: any = Array.isArray(data) ? data[0] : data
+  if (!row) return null
+
+  return {
+    id: row.attempt_id,
+    user_id: row.user_id,
+    claimed_student_id: row.claimed_student_id,
+    card_storage_path: row.card_storage_path,
+    status: row.status,
+    reason_code: row.reason_code,
+    submitted_at: row.submitted_at,
+    reviewed_at: row.reviewed_at
+  }
 }
 
 export async function uploadAndSubmitStudentCard(studentId: string, file: File): Promise<AccountState> {

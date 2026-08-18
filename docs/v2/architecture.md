@@ -1,201 +1,209 @@
-# Booking V2 Architecture
+# UNEEM V2 Architecture
 
-Status: accepted foundation for V2 implementation
+Status: accepted V2 foundation
 
-## Goals
+UNEEM V2 is a clean rebuild on a fresh Supabase project. Historical V1 users, booking rows and migration history are design evidence only, not deployment input.
 
-V2 is a clean rebuild of the booking system on a fresh Supabase project. Legacy users and booking history are no longer migration requirements; students register again.
+## Core architecture
 
-The application should feel immediate on a normal mobile connection, remain understandable to first-time users, and keep booking rules authoritative in PostgreSQL rather than duplicated across UI code and background jobs.
+- **Frontend/PWA:** SvelteKit web app, mobile-first Android-style product UI.
+- **Auth:** Supabase Auth. The final target is verified cookie-backed SSR; current browser-session restoration remains explicit technical debt until the SSR package/runtime path is validated.
+- **Authorization and invariants:** PostgreSQL + RLS + narrow security-definer RPCs. UI visibility is never the authority boundary.
+- **Hosting:** Vercel for the web application, Supabase Free for Auth/Postgres/Storage/Realtime-compatible needs.
+- **Cost rule:** launch/validation remains $0; no paid validation branch or add-on is assumed.
 
-The old V1 production audit remains design evidence only: it tells us which architecture mistakes not to recreate.
+## Identity model
 
-## Product contract
+Affiliation proof and Student ID ownership are deliberately separate.
 
-### Student experience
+### Academic path
 
-- Students authenticate with the least confusing flow possible. V2 should avoid forcing users to understand unnecessary backend/account terminology.
-- Authentication errors preserve entered context and offer the next useful action without exposing whether an account exists.
-- New users register into the V2 Auth system and receive exactly one profile.
-- Approved students can browse facilities and upcoming bookable times.
-- Students can see occupied slots and the name of the student who booked them. This is intentional product behavior.
-- Students can create one valid active/upcoming booking at a time, subject to facility booking-frequency rules.
-- Students can view their upcoming booking and V2 booking history.
-- Students can cancel only while the configured cancellation rule allows it; the default cutoff is one hour before start.
-- Booking conflicts must be rejected atomically by the database even if two users submit at the same time.
-- The UI never exposes database, Supabase, SQL, RPC, UUID, or HTTP implementation errors to end users.
+A confirmed `@usmba.ac.ma` mailbox proves university affiliation. It does **not** prove that any Student ID typed by that user belongs to them.
 
-### Admin experience
+- academic signup may omit Student ID
+- confirmed academic email may grant normal sports access
+- Student ID verification is a separate identity action
 
-V2 uses a separate admin workspace rather than mixing admin actions into primary student navigation.
+### Personal-email fallback
 
-Initial sections:
+Students without the academic mailbox may use:
+
+- personal/contact email
+- Student ID claim
+- private student-card evidence
+- manual administrator review
+
+Sports access remains restricted until verification succeeds.
+
+### Public vs private identity
+
+Public sports identity:
+- full name
+- unique case-insensitive `@username`
+- avatar later when the asset/storage contract is added
+
+Private identity:
+- account email
+- Student ID
+- verification state/reason
+- student-card evidence
+
+Only a **verified** Student ID is authoritative and globally unique. Unverified claims do not reserve the ID. Duplicate ownership conflicts route to recovery/Help rather than exposing who owns the identity.
+
+### Access moderation is not identity verification
+
+Account access and identity proof are distinct state machines.
+
+- verification owns Student ID/card approval and remediation reasons
+- routine moderation may suspend or restore an already eligible student account
+- suspension has its own `access_restriction_reason`
+- suspension must not destroy an existing identity rejection/conflict reason
+- a pending personal-email identity cannot become approved through routine moderation
+- admin identities are outside routine student moderation
+
+This separation lets a suspended account show the operational restriction while suspended, then resume its original identity-remediation state after access is restored.
+
+## Session/access boundary
+
+`get_my_session_context()` is the preferred application bootstrap read. It returns the current user's profile fields plus the authoritative access/identity routing state in one DB operation.
+
+`get_my_account_state()` remains a narrow identity/remediation contract where only account-state fields are needed.
+
+Protected route decisions use the authoritative account payload. Database RLS/RPC authorization remains the security boundary even if client route guards fail.
+
+## Booking model
+
+A booking reserves the **full facility** for the configured slot duration.
+
+`bookings` stores:
+- owner
+- facility
+- `starts_at` / `ends_at`
+- scheduled/cancelled state
+- cancellation actor/time
+
+Lifecycle (`upcoming`, `in_progress`, `completed`, `cancelled`) is derived from timestamps/status. No completion cron exists.
+
+### Booking invariants
+
+- one active/upcoming scheduled booking globally per student
+- per-user booking attempts are transactionally serialized
+- same-facility overlap is rejected atomically by an exclusion constraint
+- facility timezone controls local opening/slot alignment
+- booking window, frequency and cancellation cutoff are DB-authoritative
+- direct student booking writes are closed; RPCs own creation/cancellation
+
+Availability intentionally exposes who booked an occupied slot, but only the minimum peer display field. Another user's booking UUID, Student ID and email are not exposed.
+
+### Booking read boundary
+
+- `get_pitch_availability()` — one-call schedule/read model
+- `list_my_bookings()` — owner-scoped history with server-derived lifecycle
+- `get_next_booking()` — next active reservation
+
+The browser does not maintain a competing lifecycle implementation.
+
+## Open matches
+
+A match is a social layer on top of one existing booking. It never creates another facility booking.
+
+- booking owner is organizer and counts as one player
+- private booking: organizer brings players independently; UNEEM accounts are not required
+- open match: eligible UNEEM students join first-come-first-served
+- reserved/offline friends are declared by the organizer and consume capacity
+- spots = facility capacity - organizer - reserved - joined
+- join capacity is serialized in PostgreSQL
+- organizer cannot remove arbitrary joined players or switch a populated match back to private
+- booking cancellation closes the linked match
+- roster/discovery expose only public name/username
+
+## Support and reports
+
+One Help/Reports domain serves signed-out users, students and admins.
+
+- authenticated support/appeal is account-owned
+- guest support uses an unguessable capability token; only its digest is stored
+- structured reports require target + reason context
+- generic support cannot create an unstructured report
+- direct table mutations are closed; RPCs own writes
+- creation and reply throttles are separate
+- admin replies/status transitions are authorized and audited where defined
+
+Layer 018 provides caller-scoped support summary/detail reads to avoid browser-side multi-query aggregation.
+
+## Admin boundary
+
+Admin is a separate operational workspace:
 
 - Bookings
 - Facilities
 - Users
+- Verification
+- Help & Reports
 - Announcements
-- Settings
+- Settings as the next configuration surface
 
-Admins can manage facility hours, booking frequency, activation/order, bookings, user access, announcements and platform settings. The first administrator is bootstrapped explicitly through a privileged operation; there is no public self-promotion path.
+High-risk operations are narrow and audited:
+
+- booking cancellation with structured reason
+- facility create/update/archive
+- student access suspend/restore with structured reason
+- identity review decisions
+- support moderation/status actions
+
+`admin_list_users()` keeps directory search/filter/pagination in PostgreSQL instead of transferring the entire profile table to the browser.
+
+Layer 019 revokes direct authenticated `profiles UPDATE`, including from an admin browser session. Safe self-profile edits remain through `update_my_profile()`, verification stays in its dedicated workflow, and access moderation uses `admin_set_user_access()` with audit rows.
+
+### First administrator bootstrap
+
+The zero-admin → one-admin transition is a database-owner operation, not a public product feature.
+
+Layer 020 provides `private.bootstrap_first_admin(uuid)`:
+
+- it is callable only from trusted database-owner/Supabase SQL context
+- `PUBLIC`, `anon`, `authenticated` and `service_role` have no execute grant
+- it transactionally refuses a second bootstrap
+- it promotes only an existing selected profile
+- it records the transition in a private one-time bootstrap log
+
+Normal future admin management must use explicit audited contracts. First-admin bootstrap must never become a general promotion endpoint.
 
 ## Performance contract
 
-V2 performance is an architecture requirement, not a later optimization pass.
+- avoid client request waterfalls
+- combine closely related authorization/bootstrap reads
+- push lifecycle and narrow aggregation into Postgres read models
+- keep existing content visible during refresh
+- mutations update affected local UI rather than forcing full reloads
+- do not cache live availability or mutation responses as stale PWA data
+- measure production performance rather than inferring it from small row counts
 
-- Critical route data is loaded on the server where practical.
-- Initial pages do not depend on chains of client-side `onMount` requests.
-- Independent database reads are parallelized.
-- Availability requires one database operation rather than an Edge Function plus multiple database calls.
-- Booking creation requires one authoritative transaction/RPC from the application.
-- Existing content remains visible during background refreshes; a full-page skeleton is reserved for genuinely unknown initial content.
-- Mutations update the affected UI locally instead of reloading complete lists.
-- Repeated navigation reuses/prefetches safe assets and route data where appropriate.
-- Production performance is measured rather than inferred from database size alone.
+## Security contract
 
-## UX state contract
+- RLS remains enabled on user-facing tables
+- students cannot self-promote role/status or mutate another student's booking
+- protected identity/access fields are not directly writable by authenticated clients
+- safe profile, verification and moderation changes go through narrow RPCs
+- security-definer functions have explicit search paths and minimal execute grants
+- internal helpers are not public RPCs
+- verification evidence stays private
+- admin authorization is checked in PostgreSQL
+- routine student moderation cannot modify admin identities
+- first-admin bootstrap is not executable by application/API roles
+- fresh V2 starts only from `supabase/v2`, never the historical migration directory
 
-Every async operation has four explicit states:
+## Deployment contract
 
-1. loading
-2. success
-3. empty
-4. recoverable error
+1. confirm the intended fresh Free Supabase target
+2. apply `schema.sql` + layers `002` → `020`
+3. run every transactional V2 contract suite
+4. run Supabase security/performance advisors
+5. generate hosted TypeScript DB types
+6. seed reviewed facilities/configuration only
+7. create/verify the selected owner account and bootstrap the first admin once from trusted DB-owner context
+8. configure Auth URLs + Vercel V2 credentials
+9. smoke-test academic/personal auth, booking, matches, Help/Reports, admin and moderation
+10. promote only after the hard gates pass
 
-Errors shown to users contain a human explanation, the action they can take next, and preserved form/navigation context where possible.
-
-Examples:
-
-- A booking conflict says the time was just taken and keeps the user on the same facility/date.
-- A frequency-limit error states when the user can book again.
-- A cancellation-limit error explains that the booking is too close to its start time.
-- An offline error distinguishes cached/read-only content from actions that require a connection.
-
-## Authentication boundary
-
-The final V2 target is verified cookie-backed Supabase SSR so server layouts can resolve the user/profile before protected route data is loaded.
-
-The current foundation branch deliberately does **not** treat cookie-name presence as authentication. Until the SSR dependency upgrade is regenerated and runtime-tested, the browser session is restored first, `(app)` routes are not mounted while auth is unresolved, client navigation handles account-state routing, and database RLS remains the authorization boundary.
-
-This interim state is explicit technical debt, not the final V2 auth architecture.
-
-## PWA direction
-
-V2 is installable as a Progressive Web App.
-
-The service worker may cache the application shell and safe static assets. Booking availability and booking creation must always use current server/database state and must not trust stale cached availability.
-
-Install UI is contextual and non-blocking rather than shown as an aggressive first-visit prompt.
-
-## V2 data model
-
-### profiles
-
-- `id` uuid -> `auth.users.id`
-- `student_id` text unique
-- `full_name` text
-- `role` (`student`, `admin` initially)
-- `status`
-- timestamps
-
-Self-service profile editing uses narrow operations. Students may update safe display fields such as `full_name`; protected identity/access fields (`student_id`, `role`, `status`) are never writable through a permissive own-row policy.
-
-### pitches
-
-- `id`
-- `name`
-- `location`
-- `sport_type`
-- `capacity`
-- `timezone`
-- `open_time`
-- `close_time`
-- `slot_duration_minutes`
-- `booking_window_hours`
-- `booking_frequency_enabled`
-- `booking_frequency_days`
-- `cancellation_cutoff_minutes`
-- `is_active`
-- `sort_order`
-- timestamps
-
-The institution timezone is explicit. Facility opening hours are local business times, not implicitly UTC.
-
-### bookings
-
-- `id`
-- `user_id`
-- `pitch_id`
-- `starts_at`
-- `ends_at`
-- `status`
-- `cancelled_at`
-- `cancelled_by`
-- `created_at`
-
-V2 does not use the V1 `slots` / `slot_id` hybrid or `booking_jobs` lifecycle model.
-
-Completed/history rows are retained and lifecycle is derived from timestamps rather than synchronized by cleanup jobs.
-
-### announcements
-
-- `id`
-- localized title/body
-- `published_at`
-- `expires_at`
-- `created_by`
-- timestamps
-
-### announcement_dismissals
-
-- `user_id`
-- `announcement_id`
-- `dismissed_at`
-
-## Booking API boundary
-
-Public application operations are intentionally small:
-
-- `get_pitch_availability(...)`
-- `create_booking(...)`
-- `cancel_booking(...)`
-- `update_my_profile(...)`
-
-Internal trigger/helper functions must not be accidentally exposed as public RPC endpoints.
-
-Availability can return booked-user display information because peer booking visibility is an explicit product requirement. It returns only the minimum profile fields needed for that UI, and shared facility availability is restricted to approved accounts.
-
-## Security model
-
-- RLS remains the database security boundary.
-- Approved students may read booking information required for the shared facility schedule, including the booked student's display name.
-- Pending/suspended accounts cannot query the shared facility schedule.
-- Students may not arbitrarily modify another user's booking or protected profile fields.
-- Self-profile updates cannot permit role/status escalation.
-- Admin authorization is enforced server/database-side, not by hiding UI controls.
-- `SECURITY DEFINER` functions use minimal grants and a fixed `search_path`.
-- Trigger-only/internal functions are not executable as public API functions.
-- The fresh V2 project starts from the V2 schema only; historical V1 migration files are never replayed.
-
-## Historical V1 findings used as design evidence
-
-The 2026-08-17 V1 audit found profile/Auth drift, duplicate RLS generations, migration-history drift, stale active bookings, Edge Function availability orchestration and unnecessary request waterfalls.
-
-These findings explain the V2 architecture but are **not migration inputs**. V2 starts with zero users and zero booking history, then accumulates only clean V2 data.
-
-## Deployment rule
-
-V2 uses a fresh Supabase project.
-
-The deployment process is:
-
-1. create an empty $0-compatible Supabase project
-2. apply only the reviewed V2 schema/security layers
-3. run database contract tests and Supabase advisors
-4. configure intentional facility/platform data
-5. bootstrap the first administrator explicitly
-6. connect Vercel to the new V2 project credentials
-7. run student/admin smoke tests
-8. promote the validated deployment to production
-
-Once real V2 users exist, schema changes become forward-only migrations and user data is never reset as part of normal deployment.
+See `supabase/v2/README.md` for the exact ordered stack and `docs/v2/migration-plan.md` for launch gates.

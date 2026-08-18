@@ -3,6 +3,10 @@ import { supabase } from './supabaseClient'
 export type AdminBookingLifecycle = 'upcoming' | 'in_progress' | 'completed' | 'cancelled'
 export type AdminBookingCancelReason = 'maintenance' | 'safety' | 'scheduling_error' | 'university_event' | 'policy' | 'other'
 export type FacilityArchiveReason = 'maintenance' | 'retired' | 'duplicate' | 'other'
+export type AdminUserStatus = 'pending' | 'approved' | 'suspended'
+export type AdminUserSuspendReason = 'conduct' | 'safety' | 'spam' | 'fake_identity' | 'booking_abuse' | 'match_abuse' | 'other'
+export type AdminUserRestoreReason = 'review_complete' | 'appeal_approved' | 'other'
+export type AdminUserModerationReason = AdminUserSuspendReason | AdminUserRestoreReason
 
 export type AdminBooking = {
   booking_id: string
@@ -27,6 +31,27 @@ export type AdminBookingFilters = {
   lifecycle?: AdminBookingLifecycle
   from?: string
   to?: string
+  limit?: number
+  offset?: number
+}
+
+export type AdminUser = {
+  user_id: string
+  student_id: string | null
+  full_name: string
+  username: string | null
+  role: 'student' | 'admin'
+  access_status: AdminUserStatus
+  email_kind: 'academic' | 'personal'
+  identity_status: 'required' | 'pending' | 'verified' | 'rejected' | 'conflict'
+  restriction_reason: string | null
+  created_at: string
+  total_count: number
+}
+
+export type AdminUserFilters = {
+  query?: string
+  status?: AdminUserStatus
   limit?: number
   offset?: number
 }
@@ -79,6 +104,34 @@ export async function adminCancelBooking(bookingId: string, reason: AdminBooking
   })
   if (error) throw new Error(message(error, 'Unable to cancel booking'))
   return Array.isArray(data) ? data[0] : data
+}
+
+export async function listAdminUsers(filters: AdminUserFilters = {}): Promise<{ rows: AdminUser[]; total: number }> {
+  const { data, error } = await supabase.rpc('admin_list_users', {
+    p_query: filters.query?.trim() || null,
+    p_status: filters.status || null,
+    p_limit: filters.limit ?? 50,
+    p_offset: filters.offset ?? 0
+  })
+  if (error) throw new Error(message(error, 'Unable to load users'))
+  const rows = (Array.isArray(data) ? data : []) as AdminUser[]
+  return { rows, total: Number(rows[0]?.total_count || 0) }
+}
+
+export async function adminSetUserAccess(
+  userId: string,
+  nextStatus: Extract<AdminUserStatus, 'approved' | 'suspended'>,
+  reason: AdminUserModerationReason
+): Promise<{ user_id: string; access_status: AdminUserStatus; restriction_reason: string | null }> {
+  const { data, error } = await supabase.rpc('admin_set_user_access', {
+    p_user_id: userId,
+    p_next_status: nextStatus,
+    p_reason_code: reason
+  })
+  if (error) throw new Error(message(error, 'Unable to update user access'))
+  const row = Array.isArray(data) ? data[0] : data
+  if (!row) throw new Error('User access update returned no data')
+  return row
 }
 
 export async function listAdminFacilities(): Promise<AdminFacility[]> {

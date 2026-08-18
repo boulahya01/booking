@@ -5,7 +5,8 @@
   import { supabase } from '$lib/supabaseClient'
   import { authState } from '$lib/stores/auth'
   import { language } from '$lib/stores/ui'
-  import { getMyAccountState, getUserProfile } from '$lib/auth'
+  import { getMySessionContext } from '$lib/sessionApi'
+  import { clearAuthFlowUrl, completeAuthFlow, getAuthFlowError } from '$lib/authFlow'
   import { isValidEmail } from '$lib/utils/cn'
   import Button from '$lib/components/Button.svelte'
   import AuthShell from '$lib/components/AuthShell.svelte'
@@ -23,13 +24,13 @@
   $: copy = $language === 'ar'
     ? {
         title: 'تحقق من بريدك', subtitle: 'أرسلنا رابط التأكيد إلى بريدك.', resend: 'إرسال رابط جديد', sent: 'إذا كان البريد صالحاً، سيصلك رابط جديد بعد قليل.',
-        verifying: 'جاري تأكيد البريد', verifyingHelp: 'لحظة واحدة فقط.', success: 'تم تأكيد البريد', successHelp: 'حسابك جاهز.', continue: 'متابعة',
+        verifying: 'جاري تأكيد البريد', verifyingHelp: 'لحظة واحدة فقط.', success: 'تم تأكيد البريد', successHelp: 'تم تأكيد البريد وربط الجلسة بحسابك.', continue: 'متابعة',
         error: 'تعذر تأكيد الرابط', expired: 'الرابط منتهي أو غير صالح. اطلب رابطاً جديداً.', generic: 'تعذر تأكيد البريد الآن.', help: 'تحتاج مساعدة؟', signIn: 'العودة لتسجيل الدخول',
         rateLimit: 'طلبات كثيرة. انتظر قليلاً ثم حاول مجدداً.'
       }
     : {
         title: 'Check your email', subtitle: 'We sent a confirmation link to your email.', resend: 'Resend link', sent: 'If the email is eligible, a fresh link will arrive shortly.',
-        verifying: 'Confirming email', verifyingHelp: 'Just a moment.', success: 'Email confirmed', successHelp: 'Your account is ready.', continue: 'Continue',
+        verifying: 'Confirming email', verifyingHelp: 'Just a moment.', success: 'Email confirmed', successHelp: 'Your email is confirmed and the account session is ready.', continue: 'Continue',
         error: 'Link not confirmed', expired: 'This link is expired or invalid. Request a fresh one.', generic: 'Couldn’t confirm your email.', help: 'Need help?', signIn: 'Back to sign in',
         rateLimit: 'Too many requests. Wait a moment and try again.'
       }
@@ -38,7 +39,7 @@
 
   function safeVerificationError(raw = '') {
     const value = raw.toLowerCase()
-    if (value.includes('expired') || value.includes('token') || value.includes('invalid')) return copy.expired
+    if (value.includes('expired') || value.includes('token') || value.includes('invalid') || value.includes('unexpected_auth_flow')) return copy.expired
     return copy.generic
   }
 
@@ -46,32 +47,40 @@
     const { data: { user }, error } = await supabase.auth.getUser()
     if (error || !user) throw error || new Error('missing_session')
 
-    const [profile, account] = await Promise.all([getUserProfile(user.id), getMyAccountState()])
-    if (!profile || !account) throw new Error('missing_account_state')
+    const context = await getMySessionContext()
+    if (!context) throw new Error('missing_account_state')
 
     authState.setSessionContext({
-      id: profile.id,
+      id: context.profile.id,
       email: user.email ?? undefined,
-      student_id: profile.student_id,
-      full_name: profile.full_name,
-      role: profile.role === 'admin' ? 'admin' : 'user',
-      status: profile.status
-    }, account)
+      student_id: context.profile.student_id,
+      full_name: context.profile.full_name,
+      role: context.profile.role === 'admin' ? 'admin' : 'user',
+      status: context.profile.status
+    }, context.account)
 
-    nextPath = account.can_use_sports ? '/home' : '/pending-approval'
+    nextPath = context.account.can_use_sports ? '/home' : '/pending-approval'
   }
 
   onMount(async () => {
     const queryEmail = $page.url.searchParams.get('email')?.trim().toLowerCase() || ''
     hintedEmail = isValidEmail(queryEmail) ? queryEmail : ''
 
-    const token = $page.url.searchParams.get('token')
-    if (!token) return
+    const url = new URL(window.location.href)
+    const hasCallback =
+      !!getAuthFlowError(url) ||
+      url.searchParams.has('token_hash') ||
+      url.searchParams.has('token') ||
+      url.searchParams.has('code') ||
+      url.hash.includes('access_token=')
+
+    if (!hasCallback) return
 
     status = 'verifying'
     try {
-      const { error } = await supabase.auth.verifyOtp({ token_hash: token, type: 'email' })
-      if (error) throw error
+      const result = await completeAuthFlow(url, 'email')
+      if (result.error || !result.session) throw result.error || new Error('missing_session')
+      clearAuthFlowUrl(url)
       await restoreAuthoritativeContext()
       status = 'success'
     } catch (err: any) {
@@ -90,7 +99,11 @@
       const email = user?.email?.trim().toLowerCase() || hintedEmail
 
       if (email && isValidEmail(email)) {
-        const { error } = await supabase.auth.resend({ type: 'signup', email })
+        const { error } = await supabase.auth.resend({
+          type: 'signup',
+          email,
+          options: { emailRedirectTo: `${window.location.origin}/verify-email?email=${encodeURIComponent(email)}` }
+        })
         if (error) {
           const lower = error.message.toLowerCase()
           if (lower.includes('rate') || lower.includes('too many')) {

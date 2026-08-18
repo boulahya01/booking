@@ -91,26 +91,23 @@ function throwApiError(error: any): never {
   throw new BookingApiError(classifyError(error), error?.message)
 }
 
-function deriveLifecycle(status: string, startsAt: string, endsAt: string): BookingLifecycle {
-  if (status === 'cancelled') return 'cancelled'
-
-  const now = Date.now()
-  const start = new Date(startsAt).getTime()
-  const end = new Date(endsAt).getTime()
-
-  if (end <= now) return 'completed'
-  if (start <= now) return 'in_progress'
-  return 'upcoming'
-}
-
-function normalizePitchRelation(value: any): { name: string; location: string; capacity: number } | null {
-  if (!value) return null
-  const pitch = Array.isArray(value) ? value[0] : value
-  if (!pitch) return null
+function normalizeAuthoritativeBooking(row: any): MyBooking {
   return {
-    name: pitch.name,
-    location: pitch.location,
-    capacity: Number(pitch.capacity || 0)
+    id: row.booking_id,
+    pitch_id: row.pitch_id,
+    starts_at: row.starts_at,
+    ends_at: row.ends_at,
+    status: row.booking_status,
+    lifecycle_status: row.lifecycle_status,
+    cancelled_at: row.cancelled_at || null,
+    created_at: row.created_at,
+    pitches: row.pitch_name
+      ? {
+          name: row.pitch_name,
+          location: row.pitch_location,
+          capacity: Number(row.pitch_capacity || 0)
+        }
+      : null
   }
 }
 
@@ -153,52 +150,21 @@ export async function cancelBooking(bookingId: string) {
   return Array.isArray(data) ? data[0] : data
 }
 
-export async function getMyBookings(userId: string): Promise<MyBooking[]> {
-  const { data, error } = await supabase
-    .from('bookings')
-    .select('id,pitch_id,starts_at,ends_at,status,cancelled_at,created_at,pitches(name,location,capacity)')
-    .eq('user_id', userId)
-    .order('starts_at', { ascending: false })
+// userId remains optional for source compatibility with existing components,
+// but the database scopes the read exclusively through auth.uid().
+export async function getMyBookings(_userId?: string): Promise<MyBooking[]> {
+  const { data, error } = await supabase.rpc('list_my_bookings', {
+    p_limit: 100
+  })
 
   if (error) throwApiError(error)
-
-  return (data || []).map((row: any) => ({
-    id: row.id,
-    pitch_id: row.pitch_id,
-    starts_at: row.starts_at,
-    ends_at: row.ends_at,
-    status: row.status,
-    lifecycle_status: deriveLifecycle(row.status, row.starts_at, row.ends_at),
-    cancelled_at: row.cancelled_at || null,
-    created_at: row.created_at,
-    pitches: normalizePitchRelation(row.pitches)
-  }))
+  return (Array.isArray(data) ? data : []).map(normalizeAuthoritativeBooking)
 }
 
-export async function getNextBooking(userId: string): Promise<MyBooking | null> {
-  const now = new Date().toISOString()
-  const { data, error } = await supabase
-    .from('bookings')
-    .select('id,pitch_id,starts_at,ends_at,status,cancelled_at,created_at,pitches(name,location,capacity)')
-    .eq('user_id', userId)
-    .eq('status', 'scheduled')
-    .gt('ends_at', now)
-    .order('starts_at', { ascending: true })
-    .limit(1)
+export async function getNextBooking(_userId?: string): Promise<MyBooking | null> {
+  const { data, error } = await supabase.rpc('get_next_booking')
 
   if (error) throwApiError(error)
-  if (!data?.length) return null
-
-  const row: any = data[0]
-  return {
-    id: row.id,
-    pitch_id: row.pitch_id,
-    starts_at: row.starts_at,
-    ends_at: row.ends_at,
-    status: row.status,
-    lifecycle_status: deriveLifecycle(row.status, row.starts_at, row.ends_at),
-    cancelled_at: row.cancelled_at || null,
-    created_at: row.created_at,
-    pitches: normalizePitchRelation(row.pitches)
-  }
+  const row = Array.isArray(data) ? data[0] : data
+  return row ? normalizeAuthoritativeBooking(row) : null
 }

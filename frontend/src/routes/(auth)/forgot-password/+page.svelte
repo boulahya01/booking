@@ -20,12 +20,12 @@
     ? {
         title: 'نسيت كلمة المرور؟', subtitle: 'أدخل بريدك وسنرسل رابطاً جديداً.', email: 'البريد الإلكتروني', placeholder: 'mehdi@usmba.ac.ma',
         send: 'إرسال رابط الاسترجاع', sentTitle: 'تحقق من بريدك', sentBody: 'إذا كان البريد مرتبطاً بحساب، ستصلك التعليمات بعد قليل.',
-        another: 'استخدام بريد آخر', invalid: 'أدخل بريداً صحيحاً.', generic: 'تعذر إرسال الطلب. حاول بعد قليل.', signIn: 'العودة لتسجيل الدخول', help: 'تحتاج مساعدة؟'
+        another: 'استخدام بريد آخر', invalid: 'أدخل بريداً صحيحاً.', generic: 'تعذر إرسال الطلب. حاول بعد قليل.', rateLimit: 'طلبات كثيرة. انتظر قليلاً ثم حاول مجدداً.', signIn: 'العودة لتسجيل الدخول', help: 'تحتاج مساعدة؟'
       }
     : {
         title: 'Forgot password?', subtitle: 'Enter your email to reset your password.', email: 'Email address', placeholder: 'mehdi@usmba.ac.ma',
         send: 'Send reset link', sentTitle: 'Check your email', sentBody: 'If the email is linked to an account, recovery instructions will arrive shortly.',
-        another: 'Use another email', invalid: 'Enter a valid email.', generic: 'Couldn’t send the request. Try again shortly.', signIn: 'Back to sign in', help: 'Need help?'
+        another: 'Use another email', invalid: 'Enter a valid email.', generic: 'Couldn’t send the request. Try again shortly.', rateLimit: 'Too many requests. Wait a moment and try again.', signIn: 'Back to sign in', help: 'Need help?'
       }
 
   $: normalizedEmail = email.trim().toLowerCase()
@@ -52,13 +52,15 @@
     loading = true
     try {
       const result = await resetPasswordForEmail(normalizedEmail)
-      if (result.error) {
-        const lower = result.error.message.toLowerCase()
-        if (lower.includes('network') || lower.includes('fetch') || lower.includes('connection')) {
-          error = copy.generic
-          return
-        }
+      if (result.error?.message === 'rate_limited') {
+        error = copy.rateLimit
+        return
       }
+      if (result.error?.message === 'network_error') {
+        error = copy.generic
+        return
+      }
+
       emailSent = true
     } catch {
       error = copy.generic
