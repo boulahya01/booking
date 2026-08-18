@@ -1,10 +1,10 @@
--- Booking V2 security contract tests.
+-- UNEEM V2 security contract tests.
 --
--- Run against a disposable/local database after:
---   1. supabase/v2/schema.sql
---   2. supabase/v2/002_security_contract.sql
---
+-- Run against the final V2 schema through layer 024.
 -- The suite rolls back all fixtures.
+-- Synthetic Supabase Auth rows are created alongside profiles so approved,
+-- pending, and admin authorization is tested against the final
+-- confirmation-aware access contract.
 
 \set ON_ERROR_STOP on
 
@@ -12,6 +12,42 @@ begin;
 
 set local timezone = 'UTC';
 set local session_replication_role = replica;
+
+insert into auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  confirmation_token,
+  recovery_token,
+  email_change_token_new,
+  email_change,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  created_at,
+  updated_at
+) values
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '41000000-0000-4000-8000-000000000001',
+    'authenticated', 'authenticated', 'security-approved@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '41000000-0000-4000-8000-000000000002',
+    'authenticated', 'authenticated', 'security-pending@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '41000000-0000-4000-8000-000000000003',
+    'authenticated', 'authenticated', 'security-admin@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  );
 
 insert into public.profiles (id, student_id, full_name, role, status)
 values
@@ -191,4 +227,4 @@ reset role;
 
 rollback;
 
-\echo 'Booking V2 security contract tests passed.'
+\echo 'UNEEM V2 security contract tests passed.'
