@@ -14,6 +14,23 @@ const languages = [
   { value: 'ar', dir: 'rtl' },
 ] as const;
 
+const vercelShareUrl = process.env.PLAYWRIGHT_VERCEL_SHARE_URL;
+
+async function primeProtectedPreview(page: Page) {
+  if (!vercelShareUrl) return;
+
+  const expectedOrigin = new URL(vercelShareUrl).origin;
+  const response = await page.goto(vercelShareUrl, { waitUntil: 'domcontentloaded' });
+
+  expect(response, 'Vercel share URL did not return a document response').not.toBeNull();
+  await expect
+    .poll(() => new URL(page.url()).origin, {
+      message: 'Vercel share URL did not establish preview access',
+      timeout: 15_000,
+    })
+    .toBe(expectedOrigin);
+}
+
 async function seedUi(page: Page, language: 'en' | 'ar') {
   await page.addInitScript(
     ({ language }) => {
@@ -38,6 +55,10 @@ async function expectNoHorizontalOverflow(page: Page) {
       }),
     );
 }
+
+test.beforeEach(async ({ page }) => {
+  await primeProtectedPreview(page);
+});
 
 for (const language of languages) {
   test.describe(`${language.value.toUpperCase()} public launch shell`, () => {
@@ -98,8 +119,8 @@ test.describe('public auth authority negatives', () => {
   });
 });
 
-test('PWA install metadata is reachable', async ({ request }) => {
-  const manifestResponse = await request.get('/app.webmanifest');
+test('PWA install metadata is reachable', async ({ page }) => {
+  const manifestResponse = await page.request.get('/app.webmanifest');
   expect(manifestResponse.ok()).toBe(true);
 
   const manifest = await manifestResponse.json();
@@ -112,6 +133,6 @@ test('PWA install metadata is reachable', async ({ request }) => {
     ]),
   );
 
-  const faviconResponse = await request.get('/favicon.ico', { maxRedirects: 0 });
+  const faviconResponse = await page.request.get('/favicon.ico', { maxRedirects: 0 });
   expect([200, 301, 302, 307, 308]).toContain(faviconResponse.status());
 });
