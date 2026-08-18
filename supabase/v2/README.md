@@ -27,6 +27,7 @@ Apply the complete stack before enabling real registration or application traffi
 19. `019_user_access_moderation.sql`
 20. `020_first_admin_bootstrap.sql`
 21. `021_auth_lifecycle_contract.sql`
+22. `022_guest_support_ip_gate.sql`
 
 No partial stack is a supported application target.
 
@@ -58,6 +59,20 @@ VITE_APP_URL=https://uneem.site
 `VITE_SUPABASE_ANON_KEY` remains a legacy compatibility fallback. The production build intentionally fails when the URL/key are missing; UNEEM must never silently run against a dummy Supabase client.
 
 Never expose a secret/service-role key in `VITE_*` variables or browser code.
+
+### Guest Help server environment
+
+Anonymous Help thread creation is intentionally **not** a browser-to-Supabase RPC after layer 022. The SvelteKit/Vercel server endpoint `/api/support/guest` requires these server-only variables:
+
+```env
+SUPABASE_URL=https://<fresh-v2-project-ref>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<fresh-v2-service-role-key>
+SUPPORT_IP_HASH_SECRET=<at-least-32-random-bytes>
+```
+
+`SUPABASE_SERVICE_ROLE_KEY` and `SUPPORT_IP_HASH_SECRET` must never use `VITE_*` names. The endpoint reads Vercel's overwritten `x-forwarded-for`, HMAC-SHA256 hashes it with `SUPPORT_IP_HASH_SECRET`, and sends only the digest to PostgreSQL. Raw IP addresses are never persisted by UNEEM.
+
+If those private variables or a trusted forwarded IP are unavailable, guest thread creation fails closed with a generic temporary-unavailable response. Existing guest capability-token reads/replies remain separate and continue to use their narrow RPCs.
 
 ## Authentication lifecycle contract
 
@@ -110,7 +125,9 @@ Affiliation proof and Student ID ownership are separate security properties.
 - Guest support uses a high-entropy capability token; only its digest is stored.
 - Direct support writes stay closed; narrow RPCs own mutations.
 - Admin support actions are authorized and audited.
-- Public guest creation still needs an IP-aware zero-cost server/edge abuse gate before launch.
+- Layer 022 closes direct anonymous guest-thread creation. New guest threads must enter through the Vercel/SvelteKit endpoint, which supplies a trusted HMAC-hashed network identity to a service-role-only RPC.
+- IP throttling is serialized in PostgreSQL: max 3 new guest threads per hashed network identity per 10 minutes and 8 per hour. Existing per-contact and global burst limits remain defense-in-depth.
+- Help itself remains reachable from signed-out and restricted states; the gate throttles creation only and never creates a moderation path that can permanently remove appeal access.
 
 ## Admin boundary
 
@@ -142,6 +159,7 @@ Layer 020 provides `private.bootstrap_first_admin(uuid)` for exactly one databas
 - `019` — audited student access moderation + direct profile-write closure.
 - `020` — private one-time first-admin bootstrap.
 - `021` — Supabase email-confirmation authority across app/admin/sports/verification/bootstrap.
+- `022` — trusted server-only guest Help creation + HMAC IP rate limiting.
 
 ## Contract tests
 
@@ -157,16 +175,19 @@ Committed suites:
 - `tests/user_moderation_contract.sql`
 - `tests/first_admin_bootstrap_contract.sql`
 - `tests/auth_lifecycle_contract.sql`
+- `tests/guest_support_ip_gate_contract.sql`
 
 All test files are transactional and roll back fixtures.
 
-The older domain suites use profile-only fixtures and were authored against layers through 020. Until those fixtures are converted to create matching `auth.users` rows, validate in two phases on a disposable/fresh target:
+The older domain suites use profile-only fixtures and were authored against layers through 020. Until those fixtures are converted to create matching `auth.users` rows, validate in phases on a disposable/fresh target:
 
 1. apply `schema.sql` + layers `002` → `020`;
 2. run the pre-021 domain suites;
 3. apply `021_auth_lifecycle_contract.sql`;
 4. run `tests/auth_lifecycle_contract.sql`;
-5. with real Supabase Auth accounts, re-smoke confirmation-aware booking, match, identity and admin flows on the final 021 schema.
+5. apply `022_guest_support_ip_gate.sql`;
+6. run `tests/guest_support_ip_gate_contract.sql`;
+7. with real Supabase Auth accounts, re-smoke confirmation-aware booking, match, identity, admin and guest-Help flows on the final schema.
 
 Do **not** weaken layer 021 merely to make profile-only fixtures pass. Converting all older fixtures to explicit Auth users is follow-up test-harness cleanup, not a production authorization change.
 
@@ -174,7 +195,7 @@ Do **not** weaken layer 021 merely to make profile-only fixtures pass. Convertin
 
 A hosted V2 project is not launch-ready until all of the following are directly verified:
 
-1. the complete schema through layer 021 is installed on the intended fresh Free project;
+1. the complete schema through layer 022 is installed on the intended fresh Free project;
 2. all SQL suites above pass in their documented validation phase;
 3. Supabase email/password confirmation, Site URL and redirect allow-list are configured;
 4. academic signup → confirmation → login → sports access passes end-to-end;
@@ -182,9 +203,10 @@ A hosted V2 project is not launch-ready until all of the following are directly 
 6. unconfirmed users cannot sign in normally or exercise sports/admin capabilities through edge/recovery sessions;
 7. forgot-password → recovery email → `/reset-password` → password update → forced re-login passes;
 8. expired/reused/non-recovery reset links fail safely;
-9. booking/match concurrency and RLS negative tests pass on the final hosted schema;
-10. Supabase security/performance advisors have no unresolved launch blockers;
-11. generated hosted TypeScript database types match the application contract;
-12. Vercel preview uses only the fresh V2 project URL + browser-safe publishable key.
+9. direct anon calls to legacy guest-thread creation fail; trusted server creation succeeds; IP short/long windows block correctly; capability-token resume/reply still works;
+10. booking/match concurrency and RLS negative tests pass on the final hosted schema;
+11. Supabase security/performance advisors have no unresolved launch blockers;
+12. generated hosted TypeScript database types match the application contract;
+13. Vercel preview uses only the fresh V2 project URL + browser-safe publishable key, while the guest Help endpoint has the three required server-only variables.
 
 Keep infrastructure at $0. Do not create a paid Supabase branch/add-on for validation.
