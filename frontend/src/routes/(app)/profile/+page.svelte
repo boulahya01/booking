@@ -20,6 +20,8 @@
   let editingPassword = false
   let fullName = ''
   let email = ''
+  let currentPassword = ''
+  let currentPasswordError = ''
   let newPassword = ''
   let confirmPassword = ''
   let error = ''
@@ -46,7 +48,8 @@
     email:'البريد', username:'اسم المستخدم', studentId:'رقم الطالب', role:'الدور', student:'طالب', admin:'مشرف',
     status:'الحالة', approved:'مسموح', pending:'قيد المراجعة', suspended:'موقوف',
     identity:'توثيق الطالب', verified:'موثّق', required:'مطلوب', reviewing:'قيد المراجعة', rejected:'يحتاج تصحيح', conflict:'يحتاج مراجعة', verify:'أكمل التوثيق', statusAction:'شوف حالة الحساب',
-    save:'حفظ', cancel:'إلغاء', changePassword:'تغيير كلمة المرور', passwordHint:'حدّث كلمة المرور عند الحاجة.',
+    save:'حفظ', cancel:'إلغاء', changePassword:'تغيير كلمة المرور', passwordHint:'سنطلب كلمة المرور الحالية قبل تغييرها.',
+    currentPassword:'كلمة المرور الحالية', currentPasswordPlaceholder:'كلمة المرور الحالية', currentPasswordRequired:'أدخل كلمة المرور الحالية.', currentPasswordInvalid:'كلمة المرور الحالية غير صحيحة.',
     newPassword:'كلمة المرور الجديدة', confirmPassword:'تأكيد كلمة المرور', requiredPassword:'أنشئ كلمة مرور.', ready:'جاهزة', match:'متطابقة', mismatch:'غير متطابقة',
     ruleLength:'8+ أحرف', ruleNumber:'رقم', ruleSymbol:'رمز', updatePassword:'تحديث كلمة المرور', signOut:'تسجيل الخروج',
     profileError:'تعذر تحميل الحساب.', saveError:'تعذر حفظ التغييرات.', passwordError:'تعذر تحديث كلمة المرور.', saved:'تم حفظ التغييرات.', passwordSaved:'تم تحديث كلمة المرور.'
@@ -56,7 +59,8 @@
     email:'Email', username:'Username', studentId:'Student ID', role:'Role', student:'Student', admin:'Admin',
     status:'Status', approved:'Active', pending:'Pending', suspended:'Suspended',
     identity:'Student verification', verified:'Verified', required:'Required', reviewing:'In review', rejected:'Needs correction', conflict:'Needs review', verify:'Finish verification', statusAction:'Account status',
-    save:'Save', cancel:'Cancel', changePassword:'Change password', passwordHint:'Update your password when you need to.',
+    save:'Save', cancel:'Cancel', changePassword:'Change password', passwordHint:'We’ll verify your current password before changing it.',
+    currentPassword:'Current password', currentPasswordPlaceholder:'Current password', currentPasswordRequired:'Enter your current password.', currentPasswordInvalid:'Current password is incorrect.',
     newPassword:'New password', confirmPassword:'Confirm password', requiredPassword:'Create a password.', ready:'Ready', match:'Passwords match', mismatch:'Doesn’t match',
     ruleLength:'8+ chars', ruleNumber:'1 number', ruleSymbol:'1 symbol', updatePassword:'Update password', signOut:'Sign out',
     profileError:'Couldn’t load your profile.', saveError:'Couldn’t save changes.', passwordError:'Couldn’t update your password.', saved:'Profile updated.', passwordSaved:'Password updated.'
@@ -160,15 +164,30 @@
 
   async function changePassword() {
     error = ''
+    currentPasswordError = ''
     passwordAttempted = true
+
+    if (!currentPassword) {
+      currentPasswordError = copy.currentPasswordRequired
+      return
+    }
     if (!passwordValid || !confirmValid) return
 
     saving = true
     try {
-      const result = await updatePassword(newPassword)
-      if (result.error) throw new Error(result.error.message)
+      const result = await updatePassword(newPassword, currentPassword)
+      if (result.error) {
+        if (result.error.message === 'current_password_invalid' || result.error.message === 'current_password_required') {
+          currentPasswordError = result.error.message === 'current_password_invalid' ? copy.currentPasswordInvalid : copy.currentPasswordRequired
+          return
+        }
+        throw new Error(result.error.message)
+      }
+
       uiState.addToast(copy.passwordSaved, 'success')
       editingPassword = false
+      currentPassword = ''
+      currentPasswordError = ''
       newPassword = ''
       confirmPassword = ''
       passwordAttempted = false
@@ -177,6 +196,16 @@
     } finally {
       saving = false
     }
+  }
+
+  function cancelPasswordEdit() {
+    editingPassword = false
+    currentPassword = ''
+    currentPasswordError = ''
+    newPassword = ''
+    confirmPassword = ''
+    error = ''
+    passwordAttempted = false
   }
 
   async function logout() {
@@ -246,11 +275,12 @@
     <section class="mt-4 uneem-panel overflow-hidden">
       <div class="flex min-h-14 items-center justify-between border-b border-border-light px-4">
         <div><h2 class="font-bold text-text">{copy.security}</h2>{#if !editingPassword}<p class="mt-0.5 text-xs text-text-muted">{copy.passwordHint}</p>{/if}</div>
-        {#if !editingPassword}<button on:click={() => { editingPassword = true; error = '' }} class="min-h-10 text-sm font-bold text-primary">{copy.changePassword}</button>{/if}
+        {#if !editingPassword}<button on:click={() => { editingPassword = true; error = ''; currentPasswordError = '' }} class="min-h-10 text-sm font-bold text-primary">{copy.changePassword}</button>{/if}
       </div>
 
       {#if editingPassword}
         <div class="space-y-4 p-4">
+          <TextField label={copy.currentPassword} type="password" placeholder={copy.currentPasswordPlaceholder} icon="lock" autocomplete="current-password" bind:value={currentPassword} error={currentPasswordError} disabled={saving}/>
           <TextField label={copy.newPassword} type="password" placeholder="8+ characters" icon="lock" autocomplete="new-password" bind:value={newPassword} validation={passwordState} hint={passwordState === 'invalid' && passwordAttempted && !newPassword ? copy.requiredPassword : ''} validHint={copy.ready} disabled={saving}/>
           <div class="grid grid-cols-3 gap-2 px-1 text-xs font-semibold" aria-live="polite">
             {#each [{label:copy.ruleLength,passed:passwordLength},{label:copy.ruleNumber,passed:passwordNumber},{label:copy.ruleSymbol,passed:passwordSymbol}] as rule}
@@ -258,7 +288,7 @@
             {/each}
           </div>
           <TextField label={copy.confirmPassword} type="password" placeholder={copy.confirmPassword} icon="lock" autocomplete="new-password" bind:value={confirmPassword} validation={confirmState} hint={confirmState === 'invalid' ? copy.mismatch : ''} validHint={copy.match} disabled={saving}/>
-          <div class="flex gap-3"><Button size="lg" className="flex-1" loading={saving} on:click={changePassword}>{copy.updatePassword}</Button><Button variant="secondary" size="lg" className="flex-1" disabled={saving} on:click={() => { editingPassword=false; newPassword=''; confirmPassword=''; error=''; passwordAttempted=false }}>{copy.cancel}</Button></div>
+          <div class="flex gap-3"><Button size="lg" className="flex-1" loading={saving} on:click={changePassword}>{copy.updatePassword}</Button><Button variant="secondary" size="lg" className="flex-1" disabled={saving} on:click={cancelPasswordEdit}>{copy.cancel}</Button></div>
         </div>
       {/if}
     </section>

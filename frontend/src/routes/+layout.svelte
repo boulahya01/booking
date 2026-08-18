@@ -14,11 +14,34 @@
   import { authState } from '$lib/stores/auth'
   import { getMyAccountState, getUserProfile } from '$lib/auth'
   import { getMySessionContext } from '$lib/sessionApi'
+  import {
+    clearPasswordRecovery,
+    markPasswordRecovery,
+    passwordRecoveryActive,
+    restorePasswordRecovery
+  } from '$lib/authFlow'
   import { locale } from 'svelte-i18n'
   import { USE_MOCK } from '$lib/mock'
 
   let sideNavOpen = false
   let routeGuardProcessing = false
+  let unsubAuth: (() => void) | null = null
+  let unsubEarlyRecovery: (() => void) | null = null
+
+  // Supabase may resolve an implicit recovery URL before child route onMount
+  // callbacks run. Register this minimal listener during client component setup so
+  // the only trusted recovery grant comes from PASSWORD_RECOVERY itself, never
+  // from a user-editable `?type=recovery` URL marker.
+  if (browser && !USE_MOCK) {
+    const { data: earlyRecoveryListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' && session?.user) {
+        markPasswordRecovery(session)
+      } else if (event === 'SIGNED_OUT') {
+        clearPasswordRecovery()
+      }
+    })
+    unsubEarlyRecovery = () => earlyRecoveryListener.subscription.unsubscribe()
+  }
 
   function toggleSideNav() {
     sideNavOpen = !sideNavOpen
@@ -26,21 +49,19 @@
 
   initializeI18n('en')
 
-  let unsubAuth: (() => void) | null = null
-
   const authPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/logout']
   const publicSupportPaths = ['/help']
   $: isAuthPage = authPaths.includes($page.url.pathname)
   $: isPublicSupportPage = publicSupportPaths.includes($page.url.pathname)
   $: chromeFreePage = isAuthPage || isPublicSupportPage
 
-  // Routing is driven by the authoritative account-state payload. Help stays
-  // outside the access gate so restricted users and signed-out users can recover.
+  // Routing is driven by the authoritative account-state payload. Recovery is a
+  // temporary authenticated capability and is intentionally trapped on the
+  // reset flow until the password is changed or the user signs out.
   $: if (
     browser &&
     !$authState.loading &&
-    !routeGuardProcessing &&
-    !$page.url.pathname.startsWith('/verify-email')
+    !routeGuardProcessing
   ) {
     const pathname = $page.url.pathname
     const hasSession = $authState.user !== null
@@ -50,6 +71,8 @@
     const isPendingPath = pathname === '/pending-approval'
     const isProfilePath = pathname === '/profile'
     const isVerificationPath = pathname === '/verification'
+    const isVerifyEmailPath = pathname === '/verify-email'
+    const isRecoveryPath = pathname === '/reset-password'
     const isAdminPath = pathname === '/admin' || pathname.startsWith('/admin/')
     const isSportsPath = pathname.startsWith('/home') ||
                          pathname.startsWith('/bookings') ||
@@ -58,14 +81,17 @@
                          pathname.startsWith('/notifications')
     const canUseSports = account?.can_use_sports === true
     const isAdminAccount = account?.role === 'admin'
+    const recoveryActive = $passwordRecoveryActive
 
     let targetPath: string | null = null
 
-    if (!hasSession && !isAuthPath && !isSupportPath) {
+    if (recoveryActive && hasSession && !isRecoveryPath && !isSupportPath && pathname !== '/logout') {
+      targetPath = '/reset-password'
+    } else if (!hasSession && !isAuthPath && !isSupportPath) {
       targetPath = '/login'
-    } else if (hasSession && isAuthPath) {
+    } else if (hasSession && isAuthPath && !isVerifyEmailPath && !(isRecoveryPath && recoveryActive)) {
       targetPath = canUseSports ? '/home' : '/pending-approval'
-    } else if (hasSession && !account && !isSupportPath) {
+    } else if (hasSession && !account && !isSupportPath && !isVerifyEmailPath && !isRecoveryPath) {
       targetPath = '/pending-approval'
     } else if (hasSession && isAdminPath && !isAdminAccount) {
       targetPath = canUseSports ? '/home' : '/pending-approval'
@@ -108,16 +134,19 @@
       locale.set(storedLang)
     }
 
+    restorePasswordRecovery()
     let processingAuth = false
 
     async function applySession(session: any) {
       if (!session?.user) {
+        clearPasswordRecovery()
         authState.clear()
         return
       }
 
       try {
-        // One authoritative DB read resolves profile + access/identity routing.
+        restorePasswordRecovery(session.user.id)
+
         const context = await getMySessionContext()
         if (!context) {
           authState.clear()
@@ -146,8 +175,10 @@
       try {
         const { data, error } = await supabase.auth.getSession()
         if (error) throw error
+        if (!data?.session) clearPasswordRecovery()
         await applySession(data?.session)
       } catch {
+        clearPasswordRecovery()
         authState.clear()
       } finally {
         processingAuth = false
@@ -156,6 +187,7 @@
     }
 
     if (USE_MOCK) {
+      clearPasswordRecovery()
       const stored = localStorage.getItem('mock_auth_user')
       if (stored) {
         try {
@@ -186,11 +218,34 @@
     } else {
       const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
         if (event === 'SIGNED_OUT') {
+          clearPasswordRecovery()
           authState.clear()
           return
         }
 
+        if (event === 'PASSWORD_RECOVERY' && session?.user) {
+          markPasswordRecovery(session)
+          if (!processingAuth) {
+            processingAuth = true
+            authState.setLoading(true)
+            void applySession(session).finally(() => {
+              processingAuth = false
+              authState.setLoading(false)
+            })
+          }
+          return
+        }
+
         if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+          restorePasswordRecovery(session.user.id)
+
+          // Interactive email/password login owns its own authoritative session
+          // bootstrap so the submit handler can route without waiting for this
+          // listener. Skip the duplicate RPC while that login form is loading.
+          if (event === 'SIGNED_IN' && $page.url.pathname === '/login' && $authState.loading) {
+            return
+          }
+
           if (!processingAuth) {
             processingAuth = true
             authState.setLoading(true)
@@ -217,6 +272,7 @@
     return () => {
       mediaQuery.removeEventListener('change', handleChange)
       unsubAuth?.()
+      unsubEarlyRecovery?.()
     }
   })
 

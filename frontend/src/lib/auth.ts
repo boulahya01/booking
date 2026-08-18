@@ -3,6 +3,13 @@ import { USE_MOCK, mockProfile, mockDelay } from './mock'
 import type { AccountState, Profile } from './types'
 import { logger } from './logger'
 import { getMySessionContext } from './sessionApi'
+import {
+  clearPasswordRecovery,
+  emailConfirmationRedirectUrl,
+  hasVerifiedRecoveryAuthentication,
+  passwordRecoveryRedirectUrl,
+  restorePasswordRecovery
+} from './authFlow'
 import { get } from 'svelte/store'
 import { locale } from 'svelte-i18n'
 import en from '../locales/en.json'
@@ -19,13 +26,6 @@ function t(key: string): string {
     if (obj && typeof obj === 'object') obj = obj[part]
   }
   return typeof obj === 'string' ? obj : key
-}
-
-function getAppUrl(): string {
-  const configured = (import.meta.env.VITE_APP_URL || '').trim().replace(/\/$/, '')
-  if (configured) return configured
-  if (typeof window !== 'undefined') return window.location.origin
-  return 'http://localhost:5173'
 }
 
 export interface AuthResponse {
@@ -69,7 +69,7 @@ export async function register(
       email: normalizedEmail,
       password,
       options: {
-        emailRedirectTo: `${getAppUrl()}/verify-email?email=${encodeURIComponent(normalizedEmail)}`,
+        emailRedirectTo: emailConfirmationRedirectUrl(normalizedEmail),
         data: {
           full_name: fullName,
           username: normalizedUsername,
@@ -108,15 +108,25 @@ export function mapAuthError(message: string, status?: number): string {
     return t('register.error_registration_failed')
   }
 
-  if (lower.includes('invalid_student_id') || lower.includes('student_id_required_for_personal_email')) {
+  if (lower.includes('invalid_student_id')) {
     return t('register.error_invalid_student')
   }
 
-  if (lower.includes('invalid_username')) return t('register.error_registration_failed')
+  if (lower.includes('student_id_required_for_personal_email')) {
+    return t('register.error_invalid_student')
+  }
+
+  if (lower.includes('invalid_username')) {
+    return t('register.error_registration_failed')
+  }
 
   if (
-    lower.includes('password') &&
-    (lower.includes('should be') || lower.includes('too short') || lower.includes('weak') || lower.includes('length'))
+    lower.includes('password') && (
+      lower.includes('should be') ||
+      lower.includes('too short') ||
+      lower.includes('weak') ||
+      lower.includes('length')
+    )
   ) {
     return t('register.error_password_short')
   }
@@ -145,26 +155,6 @@ export function mapAuthError(message: string, status?: number): string {
   }
 
   return t('register.error_registration_failed')
-}
-
-export function mapLoginAuthError(message: string, status?: number): string {
-  const lower = (message || '').toLowerCase()
-  if (
-    lower.includes('rate limit') ||
-    lower.includes('too many requests') ||
-    lower.includes('security purposes') ||
-    status === 429
-  ) return 'rate_limited'
-
-  if (
-    lower.includes('invalid login credentials') ||
-    lower.includes('invalid credentials') ||
-    lower.includes('email not confirmed') ||
-    lower.includes('user not found') ||
-    status === 400
-  ) return 'invalid_credentials'
-
-  return 'auth_unavailable'
 }
 
 export async function getUserProfile(userId: string): Promise<Profile | null> {
@@ -249,20 +239,27 @@ export async function loginWithEmail(email: string, password: string): Promise<A
   }
 
   try {
+    clearPasswordRecovery()
     const { data, error: signInError } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
       password
     })
 
-    if (signInError) {
-      return { error: { message: mapLoginAuthError(signInError.message, signInError.status) } }
-    }
-    if (!data.user) return { error: { message: 'auth_unavailable' } }
+    if (signInError) return { error: { message: signInError.message } }
+    if (!data.user) return { error: { message: 'Login failed' } }
 
-    const context = await getMySessionContext()
+    let context
+    try {
+      context = await getMySessionContext()
+    } catch (contextError: any) {
+      await supabase.auth.signOut({ scope: 'local' })
+      logger.error('[loginWithEmail] Signed in but account context could not be restored:', contextError?.message || contextError)
+      return { error: { message: 'Unable to restore account' } }
+    }
+
     if (!context) {
       await supabase.auth.signOut({ scope: 'local' })
-      return { error: { message: 'auth_unavailable' } }
+      return { error: { message: 'Unable to restore account' } }
     }
 
     return {
@@ -272,12 +269,14 @@ export async function loginWithEmail(email: string, password: string): Promise<A
         accountState: context.account
       }
     }
-  } catch {
-    return { error: { message: 'auth_unavailable' } }
+  } catch (err: any) {
+    return { error: { message: err.message || 'Login failed' } }
   }
 }
 
 export async function signOut(): Promise<{ error?: any }> {
+  clearPasswordRecovery()
+
   if (USE_MOCK) {
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('mock_auth_user')
@@ -288,7 +287,6 @@ export async function signOut(): Promise<{ error?: any }> {
 
   if (typeof localStorage !== 'undefined') {
     localStorage.removeItem('selectedPitchId')
-    sessionStorage.removeItem('uneem_password_recovery')
   }
   const { error } = await supabase.auth.signOut({ scope: 'local' })
   return { error }
@@ -301,43 +299,95 @@ export async function resetPasswordForEmail(email: string): Promise<AuthResponse
   }
 
   try {
-    const normalizedEmail = email.trim().toLowerCase()
-    const { data, error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
-      redirectTo: `${getAppUrl()}/reset-password`
+    clearPasswordRecovery()
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+      redirectTo: passwordRecoveryRedirectUrl()
     })
 
-    if (error) {
-      const lower = error.message.toLowerCase()
-      if (lower.includes('rate') || lower.includes('too many') || error.status === 429) {
-        return { error: { message: 'rate_limited' } }
-      }
-      if (lower.includes('network') || lower.includes('fetch') || lower.includes('connection')) {
-        return { error: { message: 'network_error' } }
-      }
-      return { data: {} }
-    }
+    if (error) return { error: { message: error.message } }
     return { data }
-  } catch {
-    return { error: { message: 'network_error' } }
+  } catch (err: any) {
+    return { error: { message: err.message || 'Failed to send reset email' } }
   }
 }
 
-export async function updatePassword(newPassword: string): Promise<AuthResponse> {
+// Supabase verifies `current_password` as part of the same credential mutation.
+// This keeps an open browser session alone insufficient for changing a password
+// without creating a second sign-in request or a duplicate SIGNED_IN event.
+export async function updatePassword(newPassword: string, currentPassword?: string): Promise<AuthResponse> {
   if (USE_MOCK) {
     await mockDelay()
     return { data: {} }
   }
 
   try {
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-    if (sessionError || !sessionData.session) {
+    if (currentPassword) {
+      const { data, error } = await supabase.auth.updateUser({
+        password: newPassword,
+        current_password: currentPassword
+      })
+      if (error) {
+        const lower = error.message.toLowerCase()
+        if (
+          lower.includes('current password') ||
+          lower.includes('current_password') ||
+          lower.includes('invalid password') ||
+          lower.includes('password is incorrect')
+        ) {
+          return { error: { message: 'current_password_invalid' } }
+        }
+        return { error: { message: error.message } }
+      }
+
+      const { error: revokeError } = await supabase.auth.signOut({ scope: 'others' })
+      if (revokeError) logger.warn('[updatePassword] Password changed but other-session revocation failed:', revokeError.message)
+      return { data }
+    }
+
+    const { data, error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) return { error: { message: error.message } }
+    return { data }
+  } catch (err: any) {
+    return { error: { message: err.message || 'Failed to update password' } }
+  }
+}
+
+export async function updatePasswordFromRecovery(newPassword: string): Promise<AuthResponse> {
+  if (USE_MOCK) {
+    await mockDelay()
+    clearPasswordRecovery()
+    return { data: {} }
+  }
+
+  try {
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError || !user || !restorePasswordRecovery(user.id)) {
+      clearPasswordRecovery()
+      return { error: { message: 'recovery_session_required' } }
+    }
+
+    // sessionStorage is only continuity metadata. The actual mutation authority
+    // must still come from a Supabase-verified JWT that carries the recovery AMR.
+    if (!(await hasVerifiedRecoveryAuthentication(user.id))) {
+      clearPasswordRecovery()
       return { error: { message: 'recovery_session_required' } }
     }
 
     const { data, error } = await supabase.auth.updateUser({ password: newPassword })
-    if (error) return { error: { message: 'password_update_failed' } }
+    if (error) return { error: { message: error.message } }
+
+    clearPasswordRecovery()
+    const { error: globalSignOutError } = await supabase.auth.signOut()
+    if (globalSignOutError) {
+      logger.warn('[updatePasswordFromRecovery] Password changed but global session revocation failed:', globalSignOutError.message)
+      const { error: localSignOutError } = await supabase.auth.signOut({ scope: 'local' })
+      if (localSignOutError) {
+        logger.warn('[updatePasswordFromRecovery] Local recovery session cleanup also failed:', localSignOutError.message)
+      }
+    }
+
     return { data }
-  } catch {
-    return { error: { message: 'password_update_failed' } }
+  } catch (err: any) {
+    return { error: { message: err.message || 'Failed to update password' } }
   }
 }
