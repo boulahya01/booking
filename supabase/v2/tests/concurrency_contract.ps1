@@ -11,7 +11,8 @@
 #   3. Two users race the last public match spot -> exactly one participant joins.
 #
 # The script creates only fixed, clearly namespaced test fixtures, verifies both
-# workers reached a shared barrier, and removes all fixtures in a finally block.
+# workers reached a shared committed barrier, and removes all fixtures in a
+# finally block.
 
 $ErrorActionPreference = 'Stop'
 
@@ -171,7 +172,7 @@ insert into auth.users (
 ) values
   ('00000000-0000-0000-0000-000000000000','93000000-0000-4000-8000-000000000001','authenticated','authenticated','race-one@usmba.ac.ma','',now(),'','','','','{"provider":"email","providers":["email"]}'::jsonb,'{}'::jsonb,now(),now()),
   ('00000000-0000-0000-0000-000000000000','93000000-0000-4000-8000-000000000002','authenticated','authenticated','race-slot-one@usmba.ac.ma','',now(),'','','','','{"provider":"email","providers":["email"]}'::jsonb,'{}'::jsonb,now(),now()),
-  ('00000000-0000-0000-8000-000000000000','93000000-0000-4000-8000-000000000003','authenticated','authenticated','race-slot-two@usmba.ac.ma','',now(),'','','','','{"provider":"email","providers":["email"]}'::jsonb,'{}'::jsonb,now(),now()),
+  ('00000000-0000-0000-0000-000000000000','93000000-0000-4000-8000-000000000003','authenticated','authenticated','race-slot-two@usmba.ac.ma','',now(),'','','','','{"provider":"email","providers":["email"]}'::jsonb,'{}'::jsonb,now(),now()),
   ('00000000-0000-0000-0000-000000000000','93000000-0000-4000-8000-000000000004','authenticated','authenticated','race-organizer@usmba.ac.ma','',now(),'','','','','{"provider":"email","providers":["email"]}'::jsonb,'{}'::jsonb,now(),now()),
   ('00000000-0000-0000-0000-000000000000','93000000-0000-4000-8000-000000000005','authenticated','authenticated','race-match-one@usmba.ac.ma','',now(),'','','','','{"provider":"email","providers":["email"]}'::jsonb,'{}'::jsonb,now(),now()),
   ('00000000-0000-0000-0000-000000000000','93000000-0000-4000-8000-000000000006','authenticated','authenticated','race-match-two@usmba.ac.ma','',now(),'','','','','{"provider":"email","providers":["email"]}'::jsonb,'{}'::jsonb,now(),now());
@@ -271,9 +272,11 @@ commit;
 '@
 
 $barrier = @'
+begin;
 insert into private.uneem_concurrency_barrier (scenario, worker)
 values ('__SCENARIO__', '__WORKER__')
 on conflict (scenario, worker) do nothing;
+commit;
 
 do $$
 declare
@@ -299,6 +302,11 @@ function New-WorkerSql {
 
     $prefix = $barrier.Replace('__SCENARIO__', $Scenario).Replace('__WORKER__', $Worker)
     return $prefix + "`n" + @"
+select set_config(
+  'uneem.race_start',
+  (select starts_at::text from private.uneem_concurrency_config where scenario = '$Scenario'),
+  false
+);
 select set_config('request.jwt.claim.sub', '$UserId', false);
 set role authenticated;
 $Operation
@@ -312,7 +320,7 @@ begin
   begin
     perform public.create_booking(
       '93500000-0000-4000-8000-000000000001',
-      (select starts_at from private.uneem_concurrency_config where scenario = 'one_active')
+      current_setting('uneem.race_start')::timestamptz
     );
   exception when others then
     if sqlerrm <> 'active_booking_exists' then raise; end if;
@@ -327,7 +335,7 @@ begin
   begin
     perform public.create_booking(
       '93500000-0000-4000-8000-000000000002',
-      (select starts_at from private.uneem_concurrency_config where scenario = 'one_active') + interval '1 hour'
+      current_setting('uneem.race_start')::timestamptz + interval '1 hour'
     );
   exception when others then
     if sqlerrm <> 'active_booking_exists' then raise; end if;
@@ -342,7 +350,7 @@ begin
   begin
     perform public.create_booking(
       '93500000-0000-4000-8000-000000000003',
-      (select starts_at from private.uneem_concurrency_config where scenario = 'same_slot')
+      current_setting('uneem.race_start')::timestamptz
     );
   exception when others then
     if sqlerrm <> 'slot_unavailable' then raise; end if;
@@ -357,7 +365,7 @@ begin
   begin
     perform public.create_booking(
       '93500000-0000-4000-8000-000000000003',
-      (select starts_at from private.uneem_concurrency_config where scenario = 'same_slot')
+      current_setting('uneem.race_start')::timestamptz
     );
   exception when others then
     if sqlerrm <> 'slot_unavailable' then raise; end if;
