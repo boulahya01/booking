@@ -2,6 +2,8 @@
 -- Run against the final V2 schema through layer 024. All fixtures roll back.
 -- Synthetic confirmed Supabase Auth rows are paired with profile fixtures so
 -- confirmation-aware session/admin authorization is exercised explicitly.
+-- The suite remains read-focused: fixture rows are inserted by the privileged
+-- transactional harness, while application assertions run through public RPCs.
 
 \set ON_ERROR_STOP on
 
