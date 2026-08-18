@@ -238,6 +238,14 @@
 
         if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
           restorePasswordRecovery(session.user.id)
+
+          // Interactive email/password login owns its own authoritative session
+          // bootstrap so the submit handler can route without waiting for this
+          // listener. Skip the duplicate RPC while that login form is loading.
+          if (event === 'SIGNED_IN' && $page.url.pathname === '/login' && $authState.loading) {
+            return
+          }
+
           if (!processingAuth) {
             processingAuth = true
             authState.setLoading(true)
