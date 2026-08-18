@@ -5,7 +5,8 @@
   import { supabase } from '$lib/supabaseClient'
   import { authState } from '$lib/stores/auth'
   import { language } from '$lib/stores/ui'
-  import { getMyAccountState, getUserProfile } from '$lib/auth'
+  import { getMySessionContext } from '$lib/sessionApi'
+  import { emailConfirmationRedirectUrl } from '$lib/authFlow'
   import { isValidEmail } from '$lib/utils/cn'
   import Button from '$lib/components/Button.svelte'
   import AuthShell from '$lib/components/AuthShell.svelte'
@@ -19,17 +20,18 @@
   let resendMessage = ''
   let hintedEmail = ''
   let nextPath = '/home'
+  let restoring = false
 
   $: copy = $language === 'ar'
     ? {
         title: 'تحقق من بريدك', subtitle: 'أرسلنا رابط التأكيد إلى بريدك.', resend: 'إرسال رابط جديد', sent: 'إذا كان البريد صالحاً، سيصلك رابط جديد بعد قليل.',
-        verifying: 'جاري تأكيد البريد', verifyingHelp: 'لحظة واحدة فقط.', success: 'تم تأكيد البريد', successHelp: 'حسابك جاهز.', continue: 'متابعة',
+        verifying: 'جاري تأكيد البريد', verifyingHelp: 'لحظة واحدة فقط.', success: 'تم تأكيد البريد', successHelp: 'تم تأكيد بريدك بنجاح.', continue: 'متابعة',
         error: 'تعذر تأكيد الرابط', expired: 'الرابط منتهي أو غير صالح. اطلب رابطاً جديداً.', generic: 'تعذر تأكيد البريد الآن.', help: 'تحتاج مساعدة؟', signIn: 'العودة لتسجيل الدخول',
         rateLimit: 'طلبات كثيرة. انتظر قليلاً ثم حاول مجدداً.'
       }
     : {
         title: 'Check your email', subtitle: 'We sent a confirmation link to your email.', resend: 'Resend link', sent: 'If the email is eligible, a fresh link will arrive shortly.',
-        verifying: 'Confirming email', verifyingHelp: 'Just a moment.', success: 'Email confirmed', successHelp: 'Your account is ready.', continue: 'Continue',
+        verifying: 'Confirming email', verifyingHelp: 'Just a moment.', success: 'Email confirmed', successHelp: 'Your email is confirmed.', continue: 'Continue',
         error: 'Link not confirmed', expired: 'This link is expired or invalid. Request a fresh one.', generic: 'Couldn’t confirm your email.', help: 'Need help?', signIn: 'Back to sign in',
         rateLimit: 'Too many requests. Wait a moment and try again.'
       }
@@ -43,41 +45,87 @@
   }
 
   async function restoreAuthoritativeContext() {
-    const { data: { user }, error } = await supabase.auth.getUser()
-    if (error || !user) throw error || new Error('missing_session')
-
-    const [profile, account] = await Promise.all([getUserProfile(user.id), getMyAccountState()])
-    if (!profile || !account) throw new Error('missing_account_state')
-
-    authState.setSessionContext({
-      id: profile.id,
-      email: user.email ?? undefined,
-      student_id: profile.student_id,
-      full_name: profile.full_name,
-      role: profile.role === 'admin' ? 'admin' : 'user',
-      status: profile.status
-    }, account)
-
-    nextPath = account.can_use_sports ? '/home' : '/pending-approval'
-  }
-
-  onMount(async () => {
-    const queryEmail = $page.url.searchParams.get('email')?.trim().toLowerCase() || ''
-    hintedEmail = isValidEmail(queryEmail) ? queryEmail : ''
-
-    const token = $page.url.searchParams.get('token')
-    if (!token) return
-
+    if (restoring) return
+    restoring = true
     status = 'verifying'
+
     try {
-      const { error } = await supabase.auth.verifyOtp({ token_hash: token, type: 'email' })
-      if (error) throw error
-      await restoreAuthoritativeContext()
+      const { data: { user }, error } = await supabase.auth.getUser()
+      if (error || !user || !user.email_confirmed_at) throw error || new Error('email_not_confirmed')
+
+      const context = await getMySessionContext()
+      if (!context) throw new Error('missing_account_state')
+
+      const { profile, account } = context
+      authState.setSessionContext({
+        id: profile.id,
+        email: user.email ?? undefined,
+        student_id: profile.student_id,
+        full_name: profile.full_name,
+        role: profile.role === 'admin' ? 'admin' : 'user',
+        status: profile.status
+      }, account)
+
+      nextPath = account.can_use_sports ? '/home' : '/pending-approval'
       status = 'success'
+      errorMessage = ''
     } catch (err: any) {
       status = 'error'
       errorMessage = safeVerificationError(err?.message)
+    } finally {
+      restoring = false
     }
+  }
+
+  async function initializeConfirmation() {
+    const tokenHash = $page.url.searchParams.get('token_hash') || $page.url.searchParams.get('token')
+    const rawType = $page.url.searchParams.get('type')
+
+    if (tokenHash) {
+      status = 'verifying'
+      try {
+        const type = rawType === 'signup' ? 'signup' : 'email'
+        const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
+        if (error) throw error
+        await restoreAuthoritativeContext()
+        return
+      } catch (err: any) {
+        status = 'error'
+        errorMessage = safeVerificationError(err?.message)
+        return
+      }
+    }
+
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    const redirectError = hash.get('error_description') || hash.get('error') || ''
+    if (redirectError) {
+      status = 'error'
+      errorMessage = safeVerificationError(redirectError)
+      return
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user?.email_confirmed_at) {
+        await restoreAuthoritativeContext()
+      }
+    } catch {
+      // No authenticated confirmation session yet: remain in the safe waiting state.
+    }
+  }
+
+  onMount(() => {
+    const queryEmail = $page.url.searchParams.get('email')?.trim().toLowerCase() || ''
+    hintedEmail = isValidEmail(queryEmail) ? queryEmail : ''
+
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'USER_UPDATED') && session?.user?.email_confirmed_at) {
+        void restoreAuthoritativeContext()
+      }
+    })
+
+    void initializeConfirmation()
+    return () => listener.subscription.unsubscribe()
   })
 
   async function resendEmail() {
@@ -90,7 +138,11 @@
       const email = user?.email?.trim().toLowerCase() || hintedEmail
 
       if (email && isValidEmail(email)) {
-        const { error } = await supabase.auth.resend({ type: 'signup', email })
+        const { error } = await supabase.auth.resend({
+          type: 'signup',
+          email,
+          options: { emailRedirectTo: emailConfirmationRedirectUrl(email) }
+        })
         if (error) {
           const lower = error.message.toLowerCase()
           if (lower.includes('rate') || lower.includes('too many')) {
