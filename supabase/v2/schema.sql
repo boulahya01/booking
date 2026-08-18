@@ -570,17 +570,20 @@ begin
   end if;
 
   v_is_admin := private.is_admin();
-
-  select b, p.cancellation_cutoff_minutes
-  into v_booking, v_cutoff_minutes
+  select b.*
+  into v_booking
   from public.bookings b
-  join public.pitches p on p.id = b.pitch_id
   where b.id = p_booking_id
-  for update of b;
+  for update;
 
   if not found then
     raise exception 'booking_not_found';
   end if;
+
+  select p.cancellation_cutoff_minutes
+  into v_cutoff_minutes
+  from public.pitches p
+  where p.id = v_booking.pitch_id;
 
   if v_booking.user_id <> v_user_id and not v_is_admin then
     raise exception 'booking_not_owned';
