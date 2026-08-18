@@ -164,11 +164,14 @@ create table private.uneem_concurrency_config (
 revoke all on private.uneem_concurrency_barrier from public, anon, authenticated, service_role;
 revoke all on private.uneem_concurrency_config from public, anon, authenticated, service_role;
 
+-- Keep every race in a deterministic future UTC daytime window. This avoids
+-- wall-clock-dependent failures when the harness is run late in the day while
+-- preserving the same booking-window, alignment, and capacity invariants.
 insert into private.uneem_concurrency_config (scenario, starts_at)
 values
-  ('one_active', date_trunc('hour', now()) + interval '4 hours'),
-  ('same_slot', date_trunc('hour', now()) + interval '6 hours'),
-  ('match_join', date_trunc('hour', now()) + interval '8 hours');
+  ('one_active', (date_trunc('day', now() at time zone 'UTC') + interval '1 day 10 hours') at time zone 'UTC'),
+  ('same_slot', (date_trunc('day', now() at time zone 'UTC') + interval '1 day 12 hours') at time zone 'UTC'),
+  ('match_join', (date_trunc('day', now() at time zone 'UTC') + interval '1 day 14 hours') at time zone 'UTC');
 
 set local session_replication_role = replica;
 
