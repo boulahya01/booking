@@ -192,12 +192,12 @@ begin
 end;
 $$;
 
--- 7. Public usernames are case-insensitively unique and remain separate from Student ID.
+-- 7. Normalized public usernames remain unique and separate from Student ID.
 do $$
 begin
   begin
     update public.profiles
-    set username = 'VERIFIED_PLAYER'
+    set username = 'verified_player'
     where id = '51000000-0000-4000-8000-000000000002';
     raise exception 'FAIL: duplicate username unexpectedly succeeded';
   exception
