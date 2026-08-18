@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const remoteBaseURL = process.env.PLAYWRIGHT_BASE_URL?.replace(/\/$/, '');
+const baseURL = remoteBaseURL ?? 'http://localhost:5173';
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: false,
@@ -8,22 +11,28 @@ export default defineConfig({
   workers: 1,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
 
   projects: [
     {
-      name: 'chromium',
+      name: 'desktop-chromium',
       use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'android-pixel-5',
+      use: { ...devices['Pixel 5'] },
     },
   ],
 
-  webServer: {
-    command: 'npm run dev -- --port 5173',
-    url: 'http://localhost:5173',
-    reuseExistingServer: true,
-    stdout: 'pipe',
-  },
+  webServer: remoteBaseURL
+    ? undefined
+    : {
+        command: 'npm run dev -- --port 5173',
+        url: 'http://localhost:5173',
+        reuseExistingServer: true,
+        stdout: 'pipe',
+      },
 });
