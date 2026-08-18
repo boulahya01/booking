@@ -1,12 +1,55 @@
 -- UNEEM V2 authoritative backend-read contract tests.
--- Run after schema layers through 018_backend_read_contract.sql.
--- All fixtures roll back.
+-- Run against the final V2 schema through layer 024. All fixtures roll back.
+-- Synthetic confirmed Supabase Auth rows are paired with profile fixtures so
+-- confirmation-aware session/admin authorization is exercised explicitly.
 
 \set ON_ERROR_STOP on
 
 begin;
 set local timezone = 'UTC';
 set local session_replication_role = replica;
+
+insert into auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  confirmation_token,
+  recovery_token,
+  email_change_token_new,
+  email_change,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  created_at,
+  updated_at
+) values
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '71000000-0000-4000-8000-000000000001',
+    'authenticated', 'authenticated', 'backend-one@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '71000000-0000-4000-8000-000000000002',
+    'authenticated', 'authenticated', 'backend-two@example.com', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '71000000-0000-4000-8000-000000000003',
+    'authenticated', 'authenticated', 'backend-pending@example.com', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '71000000-0000-4000-8000-000000000004',
+    'authenticated', 'authenticated', 'backend-admin@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  );
 
 insert into public.profiles (
   id, student_id, full_name, username, role, status, email_kind, identity_status
@@ -54,7 +97,8 @@ insert into public.identity_verification_attempts (
 
 set local session_replication_role = origin;
 
--- 1. Session bootstrap is one authoritative payload scoped to auth.uid().
+-- 1. Session bootstrap is one authoritative payload scoped to auth.uid() and
+-- reflects the final confirmation-aware access rule from layer 021.
 select set_config('request.jwt.claim.sub', '71000000-0000-4000-8000-000000000001', true);
 set local role authenticated;
 
@@ -163,7 +207,8 @@ $$;
 
 reset role;
 
--- 8. Admin user directory filtering/pagination runs server-side and stays narrow.
+-- 8. Admin user directory filtering/pagination runs server-side and uses the
+-- same confirmed-email admin predicate as production.
 select set_config('request.jwt.claim.sub', '71000000-0000-4000-8000-000000000004', true);
 set local role authenticated;
 
@@ -184,4 +229,4 @@ $$;
 
 reset role;
 rollback;
-\echo 'UNEEM V2 backend read/session contract tests passed.'
+\echo 'UNEEM V2 final-schema backend read/session contract tests passed.'
