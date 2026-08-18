@@ -1,5 +1,6 @@
 export type AuthFailureKind =
   | 'invalid_credentials'
+  | 'email_unconfirmed'
   | 'rate_limited'
   | 'network'
   | 'profile_missing'
@@ -21,14 +22,17 @@ export function classifyAuthFailure(message?: string, status?: number): AuthFail
     return 'network'
   }
 
-  if (normalized.includes('profile not found')) {
+  if (normalized.includes('profile not found') || normalized.includes('unable to restore account')) {
     return 'profile_missing'
+  }
+
+  if (normalized.includes('email not confirmed') || normalized.includes('email_not_confirmed')) {
+    return 'email_unconfirmed'
   }
 
   if (
     normalized.includes('invalid login credentials') ||
     normalized.includes('invalid credentials') ||
-    normalized.includes('email not confirmed') ||
     normalized.includes('login failed')
   ) {
     return 'invalid_credentials'
