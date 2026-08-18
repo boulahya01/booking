@@ -13,11 +13,7 @@ permissions:
 jobs:
   frontend:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    defaults:
-      run:
-        working-directory: frontend
+    timeout-minutes: 12
 
     steps:
       - name: Checkout
@@ -30,11 +26,17 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install dependencies
+      - name: Release hygiene guard
+        run: node scripts/release-hygiene.mjs
+
+      - name: Install frontend dependencies
+        working-directory: frontend
         run: npm ci
 
       - name: Svelte and TypeScript checks
+        working-directory: frontend
         run: npm run check
 
       - name: Production build
+        working-directory: frontend
         run: npm run build

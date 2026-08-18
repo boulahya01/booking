@@ -1,10 +1,10 @@
-# Supabase V2
+# UNEEM V2 database
 
-This directory is the **clean database source of truth** for UNEEM V2. The historical `supabase/migrations/` tree is V1 reference only and must never initialize the fresh V2 project.
+This directory is the canonical database/authorization source for UNEEM V2. The normal Supabase CLI migration history in `../migrations/` must contain the equivalent timestamped V2 files only; historical V1 migrations are not a supported initialization path.
 
-## Initialization order
+## Ordered source of truth
 
-Apply the complete stack before enabling real registration or application traffic:
+Apply the full stack in this exact order:
 
 1. `schema.sql`
 2. `002_security_contract.sql`
@@ -27,190 +27,128 @@ Apply the complete stack before enabling real registration or application traffi
 19. `019_user_access_moderation.sql`
 20. `020_first_admin_bootstrap.sql`
 21. `021_auth_lifecycle_contract.sql`
+22. `022_hosted_lint_repairs.sql`
+23. `023_guest_support_ip_gate.sql`
+24. `024_advisor_hardening.sql`
 
 No partial stack is a supported application target.
 
-## Supabase Auth configuration
+## Hosted state
 
-Database correctness is not enough: configure Supabase Auth before enabling registration.
+The fresh hosted V2 Supabase project has consumed all 24 layers. Validation evidence established during the release-candidate work includes:
 
-### Provider and confirmation
+- auth lifecycle contract: PASS
+- guest support IP gate contract: PASS
+- advisor hardening contract: PASS
+- booking contract: PASS
+- corrected security, identity, support, match, admin operations, backend read, moderation and first-admin suites: operator-confirmed PASS
+- multi-session concurrency/race gate: PASS
+- post-layer-024 full-schema lint: `No schema errors found`
+- Performance Advisor: 0 errors / 0 warnings
 
-- Enable Email + Password authentication.
-- **Require email confirmation.** Do not enable automatic email confirmation for launch.
-- Production Site URL: `https://uneem.site`.
-- Add `https://uneem.site/**` and `https://www.uneem.site/**` to the allowed redirect URLs.
-- For preview validation, add the exact Vercel branch/preview origin being tested. Prefer an exact preview origin rather than a broad wildcard.
-- Keep signup confirmation and password-recovery templates on Supabase's normal `{{ .ConfirmationURL }}` flow. The application supplies the final `emailRedirectTo` / `redirectTo` destination.
+Do not infer future PASS state after a production-schema change. Any later schema/RLS/RPC change must rerun the affected contract gates.
 
-The application sends signup/resend confirmation back to `/verify-email` and password recovery back to `/reset-password`. `/reset-password` accepts a password update only after Supabase establishes a real `PASSWORD_RECOVERY` session; a normal signed-in session is not a recovery grant.
-
-### Transactional auth email delivery
-
-Supabase's built-in sender is a development-only fallback, not a UNEEM launch transport. Production confirmation and password-recovery emails require a custom SMTP provider with a UNEEM-controlled sending identity.
-
-Current zero-cost operational state:
-
-- the connected Resend account already uses its Free-plan domain allowance for another verified domain;
-- attempting to add `auth.uneem.site` was rejected by Resend with `domain limit of your plan`;
-- do **not** upgrade, remove the existing domain, or send UNEEM Auth mail from that unrelated domain merely to bypass the limit;
-- Brevo is the current $0 fallback candidate because its Free plan supports transactional SMTP, but account creation/domain authentication/SMTP credentials still require external setup before Supabase can be configured.
-
-Target sender architecture:
-
-- dedicated Auth sending subdomain such as `auth.uneem.site`;
-- From address such as `UNEEM <no-reply@auth.uneem.site>`;
-- SPF/DKIM configured at the DNS provider and DMARC reviewed for the parent domain;
-- click/open tracking **disabled** for authentication mail so confirmation/recovery URLs are not rewritten;
-- SMTP credentials stored only in Supabase Auth configuration, never in Git, Vercel browser variables, or `VITE_*` values;
-- successful real delivery of confirmation + recovery messages to non-team student addresses is a hard launch gate.
-
-Do not mark authentication production-ready while custom SMTP is missing.
-
-### Browser environment
-
-Required in Vercel production/preview environments:
-
-```env
-VITE_SUPABASE_URL=https://<fresh-v2-project-ref>.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
-VITE_APP_URL=https://uneem.site
-```
-
-`VITE_SUPABASE_ANON_KEY` remains a legacy compatibility fallback. The production build intentionally fails when the URL/key are missing; UNEEM must never silently run against a dummy Supabase client.
-
-Never expose a secret/service-role key in `VITE_*` variables or browser code.
-
-## Authentication lifecycle contract
+## Authentication authority
 
 Supabase Auth owns credentials and email-link sessions. PostgreSQL owns application capabilities.
 
-- Signup writes user metadata only for profile bootstrap fields; protected authorization never trusts editable user metadata after signup.
-- Every application profile starts `pending`, even if Supabase Auth is accidentally configured to auto-confirm. Academic access is granted only through the explicit email-confirmation transition; this makes Auth misconfiguration fail closed instead of silently opening sports access.
-- Academic signup may omit Student ID. Confirmed `@usmba.ac.ma` email proves affiliation and can unlock sports access.
-- Personal-email signup requires a Student ID claim, but sports access stays blocked until student-card verification is approved.
-- `auth.users.email_confirmed_at` is part of authorization. An `approved` profile with an unconfirmed credential still cannot browse protected sports state, create bookings/matches, submit student-card verification, perform admin actions, or become the first admin.
-- `get_my_session_context()` is the preferred session bootstrap read; `get_my_account_state()` is the narrow remediation/account-status read.
-- Normal login restores the authoritative session payload and routes by role/access state instead of assuming `/home`.
-- Password recovery is a temporary capability. Only Supabase's `PASSWORD_RECOVERY` event may create the local recovery grant; URL query/hash values are never proof of recovery authority.
-- The browser records only the recovery user's ID + expiry in tab-local `sessionStorage`; it never stores recovery/access tokens itself.
-- After a successful recovery password update, the recovery capability is cleared and Supabase sessions are signed out so the user signs in again with the new password.
-- Normal signed-in password changes require `current_password` in the Supabase credential update and attempt to revoke other sessions after success.
-- Logout clears the local recovery capability before ending the current Supabase session.
+- Every application profile starts `pending`.
+- `auth.users.email_confirmed_at` is an authorization prerequisite.
+- A confirmed `@usmba.ac.ma` mailbox proves university affiliation and may unlock sports access.
+- Academic signup may omit Student ID.
+- Personal-email signup requires a Student ID claim and private student-card review before sports access.
+- A normal signed-in session is never password-recovery authority.
+- Only the real Supabase `PASSWORD_RECOVERY` flow may create recovery continuity.
+- Browser-visible metadata never overrides PostgreSQL authorization state.
 
-Layer 021 makes confirmation fail-closed in PostgreSQL through confirmation-aware app/admin/match predicates plus booking/identity-submission guards.
+Production runtime requirements are documented in `../../docs/v2/auth-runtime.md`.
 
-## Identity and access
+## Identity and privacy
 
-Affiliation proof and Student ID ownership are separate security properties.
+- Student ID is private and untrusted until `identity_status='verified'`.
+- Only verified Student IDs are globally unique.
+- Public identity is full name + normalized username.
+- Student email, Student ID and card evidence must never appear in peer/public read models.
+- Student-card evidence is private, image-only and user-scoped.
+- Access suspension and identity remediation remain separate state machines.
 
-- A confirmed `@usmba.ac.ma` mailbox is the fast university-affiliation path.
-- Academic-email students may use sports after email confirmation even when Student ID ownership is not verified.
-- Personal-email students provide a Student ID claim plus private student-card evidence and remain restricted until approval.
-- Student ID is nullable for academic signup and authoritative only when `identity_status='verified'`.
-- Only verified Student IDs are globally unique. Unverified claims may collide until review resolves ownership.
-- Username is the case-insensitive unique **public** handle; Student ID and email remain private identity data.
-- Verification retries stay on the same Auth account. Duplicate-identity conflicts route to safe recovery/Help rather than exposing another account.
-- Student-card evidence is private, image-only, size-limited and user-scoped.
-- Access suspension is separate from identity remediation. Suspension must not erase verification rejection/conflict state.
+## Booking and match invariants
 
-## Booking and matches
-
-- No persistent slot rows and no completion cron; lifecycle is derived from timestamps.
-- Facility timezone is explicit; default `Africa/Casablanca`.
-- One scheduled booking whose `ends_at` is still in the future globally per student.
-- Booking attempts are serialized per user; facility overlap is protected by PostgreSQL exclusion constraints.
-- Booking frequency, slot duration, window and cancellation cutoff are database-authoritative.
-- Shared availability may expose peer display name, never peer Student ID/email or another student's booking UUID.
-- Student booking/cancellation writes use RPCs; direct writes stay closed.
-- A match extends one booking and never creates another reservation.
-- Match capacity/join is first-come-first-served and serialized in PostgreSQL.
-- Roster/discovery expose public name/username only.
-- Cancelling the authoritative booking closes its linked match.
+- Booking lifecycle is derived from timestamps. There is no completion cron/job queue in V2.
+- One scheduled booking with `ends_at > now()` globally per student.
+- Booking attempts are advisory-lock serialized per student.
+- Facility overlap is protected by PostgreSQL exclusion constraints.
+- Facility timezone/window/frequency/alignment/cancellation rules are database-authoritative.
+- A match extends one booking; joining a match creates no booking.
+- Open-match joins are first-come-first-served and serialized.
+- Reserved/offline friends consume capacity.
+- Cancelling the authoritative booking closes the linked match.
 
 ## Help and reports
 
-- Authenticated support/appeals are account-owned conversations.
-- Reports require structured target + reason; generic support cannot create an unstructured report.
-- Guest support uses a high-entropy capability token; only its digest is stored.
-- Direct support writes stay closed; narrow RPCs own mutations.
-- Admin support actions are authorized and audited.
-- Public guest creation still needs an IP-aware zero-cost server/edge abuse gate before launch.
+- Authenticated support conversations are caller-owned.
+- Reports use structured target + reason context.
+- Guest support creation goes through the same-origin server boundary, which HMAC-hashes client IP identity before invoking the service-role-only RPC.
+- Raw client IP is never persisted.
+- Guest resume/reply uses a high-entropy capability token; only its digest is stored.
+- Layer 024 keeps only the intentional anonymous capability RPCs available to anon callers.
+
+Server-only Help variables:
+
+```env
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=...
+SUPPORT_IP_HASH_SECRET=...
+```
+
+Never expose them through `VITE_*`.
 
 ## Admin boundary
 
 Admin authorization is enforced in PostgreSQL, not by UI visibility.
 
-- `admin_list_bookings()` + `admin_cancel_booking()`
-- `admin_save_pitch()` + `admin_archive_pitch()`
-- `admin_list_users()` + audited `admin_set_user_access()`
-- verification queue/review RPCs
+Key narrow contracts include:
+
+- booking list/cancel RPCs
+- facility save/archive RPCs
+- user directory + audited suspend/restore RPCs
+- verification review RPCs
 - support inbox/reply/status RPCs
-- admin match read model
+- match/admin read models
 
-Layer 019 closes direct authenticated profile updates and separates access moderation from identity review.
-
-Layer 020 provides `private.bootstrap_first_admin(uuid)` for exactly one database-owner-controlled zero-admin → one-admin transition. Layer 021 requires the target's Supabase email to be confirmed; personal-email bootstrap candidates must also have verified Student ID ownership. Never expose this function through browser/server API keys or reuse it as a routine promotion path.
-
-## Layer map
-
-- `schema.sql` — clean baseline and booking/facility/announcement primitives.
-- `002` — app-access boundary and safe self-profile mutation.
-- `003` — booking serialization / one-active invariant.
-- `004` — one-call availability.
-- `005`–`006` — identity verification state + private evidence storage.
-- `007`–`012` — Help/reports/admin support/abuse controls.
-- `013` — public username + final signup metadata contract.
-- `014`–`016` — open-match mutation/read/lifecycle integrity.
-- `017` — audited booking/facility admin operations.
-- `018` — authoritative session/bookings/support/verification/admin-user reads.
-- `019` — audited student access moderation + direct profile-write closure.
-- `020` — private one-time first-admin bootstrap.
-- `021` — Supabase email-confirmation authority across app/admin/sports/verification/bootstrap.
+Layer 019 revokes direct authenticated profile updates. Layer 020 exposes the one-time first-admin bootstrap only to the database-owner path. Layer 021 requires confirmed email for the bootstrap target and verified Student ID ownership for personal-email candidates.
 
 ## Contract tests
 
-Committed suites:
+Committed suites in `tests/`:
 
-- `tests/booking_contract.sql`
-- `tests/security_contract.sql`
-- `tests/identity_contract.sql`
-- `tests/support_contract.sql`
-- `tests/match_contract.sql`
-- `tests/admin_operations_contract.sql`
-- `tests/backend_read_contract.sql`
-- `tests/user_moderation_contract.sql`
-- `tests/first_admin_bootstrap_contract.sql`
-- `tests/auth_lifecycle_contract.sql`
+- `booking_contract.sql`
+- `security_contract.sql`
+- `identity_contract.sql`
+- `support_contract.sql`
+- `match_contract.sql`
+- `admin_operations_contract.sql`
+- `backend_read_contract.sql`
+- `user_moderation_contract.sql`
+- `first_admin_bootstrap_contract.sql`
+- `auth_lifecycle_contract.sql`
+- `guest_support_ip_gate_contract.sql`
+- `advisor_hardening_contract.sql`
+- `concurrency_contract.ps1`
 
-All test files are transactional and roll back fixtures.
+The SQL suites use transactional fixtures and roll them back. The concurrency harness intentionally opens independent hosted sessions and cleans its fixed namespaced fixtures in `finally`.
 
-The older domain suites use profile-only fixtures and were authored against layers through 020. Until those fixtures are converted to create matching `auth.users` rows, validate in two phases on a disposable/fresh target:
+## Release rules
 
-1. apply `schema.sql` + layers `002` → `020`;
-2. run the pre-021 domain suites;
-3. apply `021_auth_lifecycle_contract.sql`;
-4. run `tests/auth_lifecycle_contract.sql`;
-5. with real Supabase Auth accounts, re-smoke confirmation-aware booking, match, identity and admin flows on the final 021 schema.
+Before public launch:
 
-Do **not** weaken layer 021 merely to make profile-only fixtures pass. Converting all older fixtures to explicit Auth users is follow-up test-harness cleanup, not a production authorization change.
+1. Keep the hosted schema identical to the reviewed V2 stack unless a new migration is explicitly added and revalidated.
+2. Keep Supabase Email+Password confirmation enabled.
+3. Set Site URL to `https://uneem.site` and use the exact approved verification/recovery redirects.
+4. Configure production SMTP using a UNEEM-controlled sender identity.
+5. Verify real confirmation and recovery delivery to non-team addresses.
+6. Run the browser launch smoke plus authenticated academic/personal/booking/match/Help/admin/moderation/recovery flows.
+7. Re-run lint/advisors whenever the hosted schema changes.
+8. Keep infrastructure at $0 unless the project owner explicitly changes that constraint.
 
-## Hosted launch validation
-
-A hosted V2 project is not launch-ready until all of the following are directly verified:
-
-1. the complete schema through layer 021 is installed on the intended fresh Free project;
-2. all SQL suites above pass in their documented validation phase;
-3. Supabase email/password confirmation, Site URL and redirect allow-list are configured;
-4. custom SMTP with a UNEEM-controlled authenticated sending domain is configured and real confirmation/recovery delivery to non-team addresses succeeds;
-5. academic signup → confirmation → login → sports access passes end-to-end;
-6. personal signup → confirmation → card submission → admin review → access passes end-to-end;
-7. unconfirmed users cannot sign in normally or exercise sports/admin capabilities through edge/recovery sessions;
-8. forgot-password → recovery email → `/reset-password` → password update → forced re-login passes;
-9. expired/reused/non-recovery reset links fail safely;
-10. booking/match concurrency and RLS negative tests pass on the final hosted schema;
-11. Supabase security/performance advisors have no unresolved launch blockers;
-12. generated hosted TypeScript database types match the application contract;
-13. Vercel preview uses only the fresh V2 project URL + browser-safe publishable key.
-
-Keep infrastructure at $0. Do not create a paid Supabase branch/add-on or upgrade an email provider merely to unblock validation.
+Never weaken layer 019, 021, 023 or 024 merely to make a fixture or UI flow pass.
