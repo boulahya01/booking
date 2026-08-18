@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte'
+  import type { HTMLInputAttributes } from 'svelte/elements'
   import { cn } from '$lib/utils/cn'
   import Icon from './Icon.svelte'
 
@@ -17,7 +18,7 @@
   export let disabled = false
   export let required = false
   export let icon = ''
-  export let autocomplete = ''
+  export let autocomplete: HTMLInputAttributes['autocomplete'] = undefined
   export let className = ''
 
   const dispatch = createEventDispatcher()
@@ -69,7 +70,7 @@
       bind:value
       {disabled}
       {required}
-      autocomplete={autocomplete || undefined}
+      {autocomplete}
       aria-invalid={state === 'invalid' ? 'true' : undefined}
       on:focus={handleFocus}
       on:blur={handleBlur}
