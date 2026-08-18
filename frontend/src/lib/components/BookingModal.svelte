@@ -45,12 +45,14 @@
   role="presentation"
   on:click={() => !loading && onClose()}
 >
-  <section
+  <div
     class="uneem-mobile-sheet sm:max-w-md"
     role="dialog"
     aria-modal="true"
     aria-labelledby="booking-title"
+    tabindex="-1"
     on:click|stopPropagation
+    on:keydown|stopPropagation
   >
     <div class="flex items-start justify-between gap-4">
       <div class="min-w-0">
@@ -77,5 +79,5 @@
       {#if loading}<span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></span>{$_('pitch.booking')}{:else}{$_('pitch.confirm_booking')}{/if}
     </button>
     <button on:click={onClose} disabled={loading} class="mt-1 flex min-h-[46px] w-full items-center justify-center text-sm font-bold text-text-secondary">{$_('pitch.cancel')}</button>
-  </section>
+  </div>
 </div>
