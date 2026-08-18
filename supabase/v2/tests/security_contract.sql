@@ -2,9 +2,8 @@
 --
 -- Run against the final V2 schema through layer 024.
 -- The suite rolls back all fixtures.
--- Synthetic Supabase Auth rows are created alongside profiles so approved,
--- pending, and admin authorization is tested against the final
--- confirmation-aware access contract.
+-- Synthetic Supabase Auth rows are created alongside profiles so confirmation-
+-- aware authorization is exercised instead of relying on pre-021 profile-only fixtures.
 
 \set ON_ERROR_STOP on
 
@@ -168,13 +167,27 @@ begin
 end;
 $$;
 
--- 5. A student cannot directly promote their own role/status through table UPDATE.
+-- 5. Direct authenticated profile UPDATE is revoked entirely by layer 019.
+-- The final schema is stricter than the historical RLS-only expectation: an
+-- authenticated browser must receive insufficient_privilege before any role or
+-- status mutation can be attempted.
 select set_config('request.jwt.claim.sub', '41000000-0000-4000-8000-000000000001', true);
 set local role authenticated;
 
-update public.profiles
-set role = 'admin', status = 'approved'
-where id = '41000000-0000-4000-8000-000000000001';
+do $$
+begin
+  begin
+    update public.profiles
+    set role = 'admin', status = 'approved'
+    where id = '41000000-0000-4000-8000-000000000001';
+
+    raise exception 'FAIL: authenticated user unexpectedly retained direct profile UPDATE privilege';
+  exception
+    when insufficient_privilege then
+      null;
+  end;
+end;
+$$;
 
 reset role;
 
