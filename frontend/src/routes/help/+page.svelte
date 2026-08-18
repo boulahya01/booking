@@ -30,6 +30,7 @@
   let showingNewRequest = false
   let initialized = false
   let loadedAuthenticated = false
+  let defaultKind: 'support' | 'appeal' = 'support'
 
   $: signedIn = !!$authState.user
   $: restriction = $authState.account?.access_status === 'suspended'
@@ -179,75 +180,63 @@
       <a href={backHref} class="flex min-h-11 items-center gap-2 text-sm font-bold text-text-secondary hover:text-text">
         <Icon name={ar ? 'arrow-right' : 'arrow-left'} size={18}/><span>{copy.signIn}</span>
       </a>
-      <a href="/login" class="text-[17px] font-extrabold tracking-[0.15em] text-text">UNEEM</a>
-      <button on:click={toggleLanguage} class="min-h-11 rounded-full px-3 text-sm font-bold text-primary hover:bg-primary-light">{ar ? 'EN' : 'AR'}</button>
+      <button type="button" on:click={toggleLanguage} class="min-h-11 rounded-xl px-3 text-sm font-bold text-text-secondary hover:bg-surface-level-1">{ar ? 'EN' : 'ع'}</button>
     </div>
   </header>
 
-  <main class="uneem-page-narrow max-w-2xl">
-    <header class="uneem-page-header">
-      <div>
-        <h1 class="uneem-title">{copy.title}</h1>
-        <p class="uneem-subtitle">{copy.subtitle}</p>
-        {#if !signedIn}<p class="mt-1 text-xs text-text-muted">{copy.guestHint}</p>{/if}
-      </div>
-      {#if signedIn && !showingNewRequest}<button on:click={beginNewRequest} class="uneem-secondary-action min-h-11 shrink-0 px-3 text-sm">{copy.newRequest}</button>{/if}
-    </header>
+  <main class="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+    <div class="mb-7">
+      <p class="uneem-kicker">UNEEM</p>
+      <h1 class="mt-1 text-3xl font-extrabold tracking-[-0.03em] text-text">{copy.title}</h1>
+      <p class="mt-2 text-sm leading-6 text-text-secondary">{copy.subtitle}</p>
+    </div>
 
     {#if error}<div class="mb-4 rounded-2xl bg-danger-light px-4 py-3 text-sm font-semibold text-danger" role="alert">{error}</div>{/if}
     {#if success}<div class="mb-4 rounded-2xl bg-success-light px-4 py-3 text-sm font-semibold text-success" role="status">{success}</div>{/if}
 
-    {#if signedIn && myThreads.length > 1 && !showingNewRequest}
-      <div class="-mx-4 mb-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0" aria-label={copy.existing}>
-        <div class="flex min-w-max gap-2">
-          {#each myThreads as item}
-            <button on:click={() => openMyThread(item.id)} class="uneem-chip max-w-[15rem]" class:is-active={thread?.id === item.id}>
-              <span class="truncate">{item.subject || (item.kind === 'appeal' ? (ar ? 'مراجعة الحساب' : 'Account review') : copy.title)}</span>
-            </button>
-          {/each}
-        </div>
+    {#if signedIn && myThreads.length > 0}
+      <div class="mb-5 flex gap-2 overflow-x-auto pb-1">
+        {#each myThreads as item}
+          <button type="button" on:click={() => openMyThread(item.id)} class={`shrink-0 rounded-full px-4 py-2 text-xs font-bold ${thread?.id === item.id && !showingNewRequest ? 'bg-primary text-white' : 'bg-surface-level-1 text-text-secondary'}`}>{item.subject || copy.existing}</button>
+        {/each}
+        <button type="button" on:click={beginNewRequest} class={`shrink-0 rounded-full px-4 py-2 text-xs font-bold ${showingNewRequest ? 'bg-primary text-white' : 'bg-surface-level-1 text-text-secondary'}`}>+ {copy.newRequest}</button>
       </div>
     {/if}
 
     {#if loadingThread}
-      <section class="uneem-panel space-y-3 p-5" aria-busy="true"><div class="h-5 w-1/3 animate-pulse rounded-full bg-surface-level-2"></div><div class="h-16 animate-pulse rounded-2xl bg-surface-level-1"></div><div class="h-12 animate-pulse rounded-2xl bg-surface-level-1"></div></section>
+      <div class="uneem-card p-5 text-sm text-text-muted">Loading…</div>
     {:else if thread && !showingNewRequest}
-      <section class="uneem-panel overflow-hidden">
-        <div class="flex items-center justify-between gap-4 border-b border-border-light px-4 py-4 sm:px-5">
-          <div class="min-w-0"><p class="truncate font-bold text-text">{thread.subject || (thread.kind === 'appeal' ? (ar ? 'مراجعة الحساب' : 'Account review') : copy.title)}</p><p class="mt-0.5 text-xs font-semibold text-text-muted">{statusLabel(thread.status)}</p></div>
-          {#if !signedIn}<button on:click={startAnotherGuestThread} class="min-h-10 text-sm font-bold text-primary">{copy.newGuest}</button>{/if}
+      <section class="uneem-card overflow-hidden">
+        <div class="border-b border-border-light px-5 py-4">
+          <div class="flex items-start justify-between gap-4">
+            <div><p class="text-xs font-extrabold uppercase tracking-[0.08em] text-primary">{statusLabel(thread.status)}</p><h2 class="mt-1 text-lg font-extrabold text-text">{thread.subject || copy.title}</h2></div>
+            {#if !signedIn}<button type="button" on:click={startAnotherGuestThread} class="text-xs font-bold text-primary">{copy.newGuest}</button>{/if}
+          </div>
         </div>
-
-        <div class="space-y-3 px-4 py-5 sm:px-5">
+        <div class="max-h-[52vh] space-y-3 overflow-y-auto p-5">
           {#each thread.messages as item}
-            <div class:item-admin={item.sender_role === 'admin'} class="support-message max-w-[88%] rounded-2xl px-4 py-3">
-              <p class="whitespace-pre-wrap text-sm leading-6">{item.body}</p>
-              <p class="mt-1.5 text-[11px] opacity-60">{new Date(item.created_at).toLocaleString(ar ? 'ar-MA' : 'en')}</p>
-            </div>
+            <div class={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-6 ${item.sender_role === 'admin' ? 'bg-surface-level-1 text-text' : 'ms-auto bg-primary text-white'}`}>{item.body}</div>
           {/each}
         </div>
-
-        <form on:submit|preventDefault={replyToThread} class="border-t border-border-light p-4 sm:p-5">
-          <label class="text-sm font-bold text-text" for="reply">{copy.reply}</label>
-          <textarea id="reply" bind:value={message} rows="3" maxlength="4000" class="uneem-field mt-2 resize-none" placeholder={copy.replyPlaceholder}></textarea>
-          <button disabled={submitting || !message.trim()} class="uneem-primary-action mt-3 w-full">{submitting ? copy.sending : copy.sendReply}</button>
-        </form>
+        {#if thread.status !== 'resolved'}
+          <div class="border-t border-border-light p-4">
+            <label for="support-reply" class="sr-only">{copy.reply}</label>
+            <textarea id="support-reply" bind:value={message} rows="3" maxlength="4000" placeholder={copy.replyPlaceholder} class="uneem-field min-h-24 resize-y"></textarea>
+            <button type="button" on:click={replyToThread} disabled={submitting || !message.trim()} class="uneem-primary-action mt-3 w-full">{submitting ? copy.sending : copy.sendReply}</button>
+          </div>
+        {/if}
       </section>
     {:else}
-      <form on:submit|preventDefault={submitNewThread} class="uneem-panel p-4 sm:p-5">
-        {#if signedIn && myThreads.length > 0}<button type="button" on:click={() => openMyThread(myThreads[0].id)} class="mb-4 min-h-10 text-sm font-bold text-primary">{copy.existing}</button>{/if}
+      <section class="uneem-card p-5">
         {#if !signedIn}
-          <label class="text-sm font-bold text-text" for="email">{copy.contact} <span class="font-normal text-text-muted">({copy.optional})</span></label>
-          <input id="email" bind:value={contactEmail} type="email" autocomplete="email" class="uneem-field mt-2" placeholder="you@example.com" />
+          <p class="mb-5 rounded-2xl bg-primary-light px-4 py-3 text-sm font-semibold text-primary">{copy.guestHint}</p>
+          <label class="block"><span class="text-sm font-bold text-text">{copy.contact} <span class="font-medium text-text-muted">({copy.optional})</span></span><input bind:value={contactEmail} type="email" autocomplete="email" class="uneem-field mt-2" /></label>
         {/if}
-        <label class="mt-4 block text-sm font-bold text-text" for="subject">{copy.subject}</label>
-        <input id="subject" bind:value={subject} maxlength="120" class="uneem-field mt-2" placeholder={copy.subjectPlaceholder} />
-        <label class="mt-4 block text-sm font-bold text-text" for="message">{copy.message}</label>
-        <textarea id="message" bind:value={message} rows="5" maxlength="4000" class="uneem-field mt-2 resize-none" placeholder={copy.messagePlaceholder}></textarea>
-        <button disabled={submitting || !message.trim()} class="uneem-primary-action mt-5 w-full">{submitting ? copy.sending : restriction ? copy.sendAppeal : copy.start}</button>
-      </form>
+        <label class="mt-4 block"><span class="text-sm font-bold text-text">{copy.subject}</span><input bind:value={subject} maxlength="120" placeholder={copy.subjectPlaceholder} class="uneem-field mt-2" /></label>
+        <label class="mt-4 block"><span class="text-sm font-bold text-text">{copy.message}</span><textarea bind:value={message} rows="6" maxlength="4000" placeholder={copy.messagePlaceholder} class="uneem-field mt-2 min-h-36 resize-y"></textarea></label>
+        <p class="mt-3 text-xs leading-5 text-text-muted">{copy.safe}</p>
+        <button type="button" on:click={submitNewThread} disabled={submitting || !message.trim()} class="uneem-primary-action mt-5 w-full">{submitting ? copy.sending : restriction ? copy.sendAppeal : copy.start}</button>
+      </section>
     {/if}
-
-    <p class="mx-auto mt-4 max-w-md text-center text-xs leading-5 text-text-muted">{copy.safe}</p>
   </main>
 </div>
