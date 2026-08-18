@@ -1,10 +1,8 @@
 -- UNEEM V2 authentication lifecycle contract tests.
 -- Run after schema layers 001-021. All fixtures roll back.
 --
--- These fixtures intentionally include application profiles whose status is
--- already approved while the corresponding Supabase email is unconfirmed. That
--- models profile drift, recovery sessions and accidental Auth misconfiguration:
--- PostgreSQL must still fail closed.
+-- These fixtures model profile/Auth drift and recovery-session edge cases. The
+-- database must fail closed whenever profile status and Auth confirmation differ.
 
 \set ON_ERROR_STOP on
 
@@ -45,6 +43,12 @@ insert into auth.users (
     '81000000-0000-4000-8000-000000000003',
     'authenticated', 'authenticated', 'owner@usmba.ac.ma', '', null,
     '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '81000000-0000-4000-8000-000000000004',
+    'authenticated', 'authenticated', 'autoconfirmed@usmba.ac.ma', '', now(),
+    '', '', '', '', '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()
   );
 
 insert into public.profiles (
@@ -52,7 +56,8 @@ insert into public.profiles (
 ) values
   ('81000000-0000-4000-8000-000000000001', null, 'Unconfirmed Academic', 'unconfirmed_academic', 'student', 'approved', 'academic', 'required'),
   ('81000000-0000-4000-8000-000000000002', 'S810000002', 'Confirmed Personal', 'confirmed_personal', 'student', 'pending', 'personal', 'required'),
-  ('81000000-0000-4000-8000-000000000003', null, 'Admin Candidate', 'admin_candidate', 'student', 'pending', 'academic', 'required');
+  ('81000000-0000-4000-8000-000000000003', null, 'Admin Candidate', 'admin_candidate', 'student', 'pending', 'academic', 'required'),
+  ('81000000-0000-4000-8000-000000000004', null, 'Auto Confirm Guard', 'auto_confirm_guard', 'student', 'pending', 'academic', 'required');
 
 insert into public.pitches (
   id, name, location, sport_type, capacity, timezone, open_time, close_time,
@@ -140,7 +145,7 @@ end;
 $$;
 reset role;
 
--- 5. The owner-only first-admin bootstrap also refuses an unconfirmed target.
+-- 5. The owner-only first-admin bootstrap refuses an unconfirmed target.
 do $$
 begin
   begin
@@ -153,8 +158,42 @@ begin
 end;
 $$;
 
--- 6. Confirming the academic email unlocks the already-approved profile at the
--- database capability boundary and booking succeeds after the stale fixture is removed.
+-- 6. A personal-email account cannot become first admin merely because its email
+-- is confirmed; Student ID ownership must already be verified.
+do $$
+begin
+  begin
+    perform private.bootstrap_first_admin('81000000-0000-4000-8000-000000000002');
+    raise exception 'FAIL: unverified personal-email account became first admin';
+  exception
+    when others then
+      if sqlerrm not like '%bootstrap_identity_not_verified%' then raise; end if;
+  end;
+end;
+$$;
+
+-- 7. A confirmed credential paired with a pending application profile remains
+-- blocked. This is the fail-closed state expected when Auth is accidentally set
+-- to auto-confirm new users: handle_new_user() always creates pending profiles.
+select set_config('request.jwt.claim.sub', '81000000-0000-4000-8000-000000000004', true);
+set local role authenticated;
+do $$
+declare
+  v_state record;
+begin
+  select * into v_state from public.get_my_account_state();
+  if v_state.can_use_sports then
+    raise exception 'FAIL: auto-confirm guard profile received sports access';
+  end if;
+  if v_state.access_status <> 'pending' then
+    raise exception 'FAIL: auto-confirm guard profile did not remain pending';
+  end if;
+end;
+$$;
+reset role;
+
+-- 8. Confirming the academic email unlocks the already-approved drift fixture at
+-- the database capability boundary; booking succeeds once the stale fixture is removed.
 update auth.users
 set email_confirmed_at = now(), updated_at = now()
 where id = '81000000-0000-4000-8000-000000000001';
@@ -183,7 +222,7 @@ end;
 $$;
 reset role;
 
--- 7. A confirmed personal-email account remains sports-blocked while identity is
+-- 9. A confirmed personal-email account remains sports-blocked while identity is
 -- pending, but can submit evidence through the normal verification workflow.
 select set_config('request.jwt.claim.sub', '81000000-0000-4000-8000-000000000002', true);
 set local role authenticated;
@@ -209,8 +248,8 @@ end;
 $$;
 reset role;
 
--- 8. First-admin bootstrap succeeds only after the candidate email is confirmed,
--- and the resulting admin predicate becomes true for that caller.
+-- 10. First-admin bootstrap succeeds after the academic candidate email is
+-- confirmed, and the resulting admin predicate becomes true for that caller.
 update auth.users
 set email_confirmed_at = now(), updated_at = now()
 where id = '81000000-0000-4000-8000-000000000003';
