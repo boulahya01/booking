@@ -94,7 +94,7 @@ $$;
 reset role;
 
 -- 3. Admin booking cancellation is authoritative. The authenticated client sees
--- only the RPC result; the privileged harness verifies the private audit table.
+-- only the RPC result; the privileged harness verifies the audit record directly.
 select set_config('request.jwt.claim.sub', '71000000-0000-4000-8000-000000000001', true);
 set local role authenticated;
 do $$
