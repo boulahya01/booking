@@ -302,9 +302,9 @@ export async function resetPasswordForEmail(email: string): Promise<AuthResponse
   }
 }
 
-// In-app password changes require the current credential as well as an existing
-// session. This avoids treating possession of an open browser session alone as
-// sufficient proof for a high-impact credential mutation.
+// Supabase verifies `current_password` as part of the same credential mutation.
+// This keeps an open browser session alone insufficient for changing a password
+// without creating a second sign-in request or a duplicate SIGNED_IN event.
 export async function updatePassword(newPassword: string, currentPassword?: string): Promise<AuthResponse> {
   if (USE_MOCK) {
     await mockDelay()
@@ -313,24 +313,22 @@ export async function updatePassword(newPassword: string, currentPassword?: stri
 
   try {
     if (currentPassword) {
-      const { data: { user }, error: userError } = await supabase.auth.getUser()
-      if (userError || !user?.email) {
-        return { error: { message: 'current_password_required' } }
-      }
-
-      const { error: verifyError } = await supabase.auth.signInWithPassword({
-        email: user.email,
-        password: currentPassword
-      })
-      if (verifyError) {
-        return { error: { message: 'current_password_invalid' } }
-      }
-
       const { data, error } = await supabase.auth.updateUser({
         password: newPassword,
         current_password: currentPassword
       })
-      if (error) return { error: { message: error.message } }
+      if (error) {
+        const lower = error.message.toLowerCase()
+        if (
+          lower.includes('current password') ||
+          lower.includes('current_password') ||
+          lower.includes('invalid password') ||
+          lower.includes('password is incorrect')
+        ) {
+          return { error: { message: 'current_password_invalid' } }
+        }
+        return { error: { message: error.message } }
+      }
 
       const { error: revokeError } = await supabase.auth.signOut({ scope: 'others' })
       if (revokeError) logger.warn('[updatePassword] Password changed but other-session revocation failed:', revokeError.message)
