@@ -7,7 +7,11 @@ export const sanitizeInput = (s = ''): string => {
 
 export const sanitizeName = (s = ''): string => sanitizeInput(s).replace(/\s+/g, ' ').slice(0, 100)
 
-export const sanitizeStudentId = (s = ''): string => String(s || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 50)
+// Match the Postgres identity contract exactly: Student IDs are case-insensitive
+// only through canonical uppercasing, and whitespace is ignored. Punctuation is
+// deliberately NOT stripped so malformed values are shown as invalid instead of
+// being silently rewritten into a different identifier.
+export const sanitizeStudentId = (s = ''): string => String(s || '').replace(/\s+/g, '').toUpperCase().slice(0, 50)
 
 export const sanitizeDescription = (s = ''): string => {
   return DOMPurify.sanitize(String(s || ''), {
@@ -44,5 +48,5 @@ export const NameSchema = z.string().min(1).max(100)
 export const validate = <T>(schema: z.ZodSchema<T>, data: unknown): T => schema.parse(data)
 
 export const isValidUsmbaEmail = (email: string): boolean => {
-  return /^[^\s@]+@usmba\.ac\.ma$/.test(email)
+  return /^[^\s@]+@usmba\.ac\.ma$/.test(email.trim().toLowerCase())
 }
