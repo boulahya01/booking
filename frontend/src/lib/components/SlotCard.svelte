@@ -13,9 +13,10 @@
   $: ar = ($locale || 'en').startsWith('ar')
 
   function formatTime(value: string) {
-    return new Date(value).toLocaleTimeString($locale || 'en', {
+    return new Intl.DateTimeFormat($locale || 'en', {
+      timeZone: slot.timezone || 'Africa/Casablanca',
       hour: '2-digit', minute: '2-digit', hour12: false
-    })
+    }).format(new Date(value))
   }
 </script>
 

@@ -16,11 +16,17 @@
   let error: string | null = null
 
   function formatDate(value: string) {
-    return new Date(value).toLocaleDateString($locale || 'en', { weekday: 'long', month: 'long', day: 'numeric' })
+    return new Intl.DateTimeFormat($locale || 'en', {
+      timeZone: slot.timezone || 'Africa/Casablanca',
+      weekday: 'long', month: 'long', day: 'numeric'
+    }).format(new Date(value))
   }
 
   function formatTime(value: string) {
-    return new Date(value).toLocaleTimeString($locale || 'en', { hour: '2-digit', minute: '2-digit', hour12: false })
+    return new Intl.DateTimeFormat($locale || 'en', {
+      timeZone: slot.timezone || 'Africa/Casablanca',
+      hour: '2-digit', minute: '2-digit', hour12: false
+    }).format(new Date(value))
   }
 
   async function confirmBooking() {

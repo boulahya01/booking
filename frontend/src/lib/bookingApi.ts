@@ -33,6 +33,7 @@ export type AvailabilitySlot = {
   pitch_id: string
   datetime_start: string
   datetime_end: string
+  timezone: string
   is_available: boolean
   booked_by_me: boolean
   booker_name: string | null
@@ -112,19 +113,25 @@ function normalizeAuthoritativeBooking(row: any): MyBooking {
 }
 
 export async function getPitchAvailability(pitchId: string): Promise<AvailabilitySlot[]> {
-  const { data, error } = await supabase.rpc('get_pitch_availability', {
-    p_pitch_id: pitchId
-  })
+  const [availabilityResult, pitchResult] = await Promise.all([
+    supabase.rpc('get_pitch_availability', { p_pitch_id: pitchId }),
+    supabase.from('pitches').select('timezone').eq('id', pitchId).maybeSingle()
+  ])
 
-  if (error) throwApiError(error)
-  if (!Array.isArray(data)) return []
+  if (availabilityResult.error) throwApiError(availabilityResult.error)
+  if (pitchResult.error) throwApiError(pitchResult.error)
+  if (!pitchResult.data) throw new BookingApiError('pitch_not_found')
+  if (!Array.isArray(availabilityResult.data)) return []
 
-  return data.map((row: any) => ({
+  const timezone = pitchResult.data.timezone || 'Africa/Casablanca'
+
+  return availabilityResult.data.map((row: any) => ({
     id: row.booking_id || `${pitchId}:${row.starts_at}`,
     booking_id: row.booking_id || null,
     pitch_id: pitchId,
     datetime_start: row.starts_at,
     datetime_end: row.ends_at,
+    timezone,
     is_available: Boolean(row.is_available),
     booked_by_me: Boolean(row.booked_by_me),
     booker_name: row.booker_name || null
