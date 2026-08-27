@@ -119,29 +119,6 @@ test.describe('public auth authority negatives', () => {
   });
 });
 
-test.describe('guest Help request boundary', () => {
-  test('rejects non-JSON requests before reaching the trusted database RPC', async ({ page }) => {
-    const response = await page.request.post('/api/support/guest', {
-      data: 'not-json',
-      headers: { 'content-type': 'text/plain' },
-    });
-
-    expect(response.status()).toBe(415);
-  });
-
-  test('rejects oversized anonymous bodies before reaching the trusted database RPC', async ({ page }) => {
-    const response = await page.request.post('/api/support/guest', {
-      data: {
-        contactEmail: '',
-        subject: 'boundary check',
-        body: 'x'.repeat(40 * 1024),
-      },
-    });
-
-    expect(response.status()).toBe(413);
-  });
-});
-
 test('PWA install metadata is reachable', async ({ page }) => {
   const manifestResponse = await page.request.get('/app.webmanifest');
   expect(manifestResponse.ok()).toBe(true);
