@@ -3,7 +3,7 @@
 import { build, files, version } from '$service-worker'
 
 const worker = /** @type {ServiceWorkerGlobalScope} */ (/** @type {unknown} */ (globalThis))
-const CACHE = `unembook-shell-${version}`
+const CACHE = `uneem-shell-${version}`
 
 // Only cache compiled app assets and files from /static. Dynamic pages,
 // Supabase requests, availability and booking mutations always use the network.
@@ -20,12 +20,18 @@ worker.addEventListener('activate', (event) => {
     caches.keys().then(async (keys) => {
       await Promise.all(
         keys
-          .filter((key) => key.startsWith('unembook-shell-') && key !== CACHE)
+          .filter((key) => (key.startsWith('uneem-shell-') || key.startsWith('unembook-shell-')) && key !== CACHE)
           .map((key) => caches.delete(key))
       )
       await worker.clients.claim()
     })
   )
+})
+
+worker.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    void worker.skipWaiting()
+  }
 })
 
 worker.addEventListener('fetch', (event) => {
