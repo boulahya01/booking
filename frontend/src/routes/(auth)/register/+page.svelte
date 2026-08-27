@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation'
   import { onMount } from 'svelte'
   import { register, isAcademicEmail, mapAuthError } from '$lib/registrationApi'
+  import { rememberConfirmationSend } from '$lib/confirmationResend'
   import { language } from '$lib/stores/ui'
   import TextField from '$lib/components/TextField.svelte'
   import Button from '$lib/components/Button.svelte'
@@ -128,6 +129,7 @@
         submitError = result.error.message
         return
       }
+      rememberConfirmationSend(cleanEmail)
       await goto(`/verify-email?email=${encodeURIComponent(cleanEmail)}`)
     } catch (err: any) {
       submitError = mapAuthError(err?.message, err?.status)
