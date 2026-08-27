@@ -1,5 +1,5 @@
 {
-  "name": "booking",
+  "name": "uneem",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,6 +7,8 @@
     "dev": "cd frontend && npm run dev",
     "build": "cd frontend && npm run build",
     "preview": "cd frontend && npm run preview",
-    "check": "cd frontend && npm run check"
+    "check": "cd frontend && npm run check",
+    "release:hygiene": "node scripts/release-hygiene.mjs",
+    "release:check": "npm run release:hygiene && npm run check && npm run build"
   }
 }

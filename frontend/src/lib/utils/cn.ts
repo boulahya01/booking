@@ -66,7 +66,7 @@ export function debounce<T extends (...args: any[]) => any>(
 ): (...args: Parameters<T>) => void {
   let timeout: ReturnType<typeof setTimeout>
 
-  return function (...args: Parameters<T>) {
+  return (...args: Parameters<T>) => {
     clearTimeout(timeout)
     timeout = setTimeout(() => func(...args), delay)
   }
@@ -80,6 +80,13 @@ export function isValidEmail(email: string): boolean {
 }
 
 /**
+ * Validate public username: 3-24 lowercase letters, numbers, or underscores.
+ */
+export function isValidUsername(username: string): boolean {
+  return /^[a-z0-9_]{3,24}$/.test(username.trim().toLowerCase())
+}
+
+/**
  * Validate student ID: 1 uppercase letter followed by 9 digits (e.g., S123456789)
  */
 export function isValidStudentId(id: string): boolean {
@@ -87,7 +94,7 @@ export function isValidStudentId(id: string): boolean {
 }
 
 /**
- * change to min 8 chars, at least 1 number, and 1 special character
+ * Validate password: min 8 chars, at least 1 number, and 1 special character.
  */
 export function isValidPassword(password: string): boolean {
   return /^(?=.*\d)(?=.*[!@#$%^&*()-+]).{8,}$/.test(password)

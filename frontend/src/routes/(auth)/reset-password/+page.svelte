@@ -1,137 +1,204 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
-  import { page } from '$app/stores'
-  import Card from '$lib/components/Card.svelte'
-  import Button from '$lib/components/Button.svelte'
+  import { onMount } from 'svelte'
+  import { supabase } from '$lib/supabaseClient'
+  import { updatePasswordFromRecovery } from '$lib/auth'
+  import {
+    clearPasswordRecovery,
+    markPasswordRecovery,
+    restorePasswordRecovery
+  } from '$lib/authFlow'
+  import { language } from '$lib/stores/ui'
+  import { isValidPassword } from '$lib/utils/cn'
   import TextField from '$lib/components/TextField.svelte'
-  import { resetPasswordForEmail, updatePassword } from '$lib/auth'
-  import { uiState } from '$lib/stores/ui'
-  import { _ } from 'svelte-i18n'
-  import { isValidEmail, isValidPassword } from '$lib/utils/cn'
+  import Button from '$lib/components/Button.svelte'
+  import AuthShell from '$lib/components/AuthShell.svelte'
+  import Icon from '$lib/components/Icon.svelte'
 
-  let email = ''
+  type FieldState = 'idle' | 'valid' | 'invalid'
+  type RecoveryState = 'checking' | 'ready' | 'invalid' | 'complete'
+
   let newPassword = ''
   let confirmPassword = ''
-  let mode: 'request' | 'reset' = 'request'
   let loading = false
   let error = ''
-  let success = ''
+  let attempted = false
+  let recoveryState: RecoveryState = 'checking'
 
-  // Check for recovery mode in URL (supports both hash fragments and query params)
-  $: {
-    const hash = $page.url.hash
-    const search = $page.url.search
-    if (
-      (hash && hash.includes('type=recovery')) ||
-      (search && search.includes('type=recovery'))
-    ) {
-      mode = 'reset'
-    }
+  $: passwordLength = newPassword.length >= 8
+  $: passwordNumber = /\d/.test(newPassword)
+  $: passwordSymbol = /[!@#$%^&*()\-+]/.test(newPassword)
+  $: passwordValid = isValidPassword(newPassword)
+  $: confirmValid = confirmPassword.length > 0 && confirmPassword === newPassword
+  $: passwordState = fieldState(newPassword.length > 0 || attempted, passwordValid)
+  $: confirmState = fieldState(confirmPassword.length > 0 || attempted, confirmValid)
+  $: complete = recoveryState === 'complete'
+
+  $: copy = $language === 'ar'
+    ? {
+        title: 'كلمة مرور جديدة', subtitle: 'اختر كلمة مرور جديدة لحسابك.', password: 'كلمة المرور الجديدة', passwordPlaceholder: 'كلمة مرور جديدة',
+        confirm: 'تأكيد كلمة المرور', confirmPlaceholder: 'أعد كتابة كلمة المرور', update: 'تحديث كلمة المرور', required: 'أنشئ كلمة مرور.', mismatch: 'غير متطابقة',
+        ready: 'جاهزة', match: 'متطابقة', ruleLength: '8+ أحرف', ruleNumber: 'رقم', ruleSymbol: 'رمز', generic: 'تعذر تحديث كلمة المرور. اطلب رابطاً جديداً وحاول مرة أخرى.',
+        doneTitle: 'تم تحديث كلمة المرور', doneBody: 'تم إغلاق جلسة الاسترجاع. سجّل الدخول بكلمة المرور الجديدة.', signIn: 'تسجيل الدخول', newLink: 'طلب رابط جديد', help: 'تحتاج مساعدة؟',
+        checkingTitle: 'جارٍ التحقق من رابط الاسترجاع', checkingBody: 'لحظة واحدة.', invalidTitle: 'رابط الاسترجاع غير صالح', invalidBody: 'الرابط منتهي أو غير صالح. اطلب رابطاً جديداً من صفحة نسيت كلمة المرور.'
+      }
+    : {
+        title: 'Reset password', subtitle: 'Choose a new password for your account.', password: 'New password', passwordPlaceholder: 'New password',
+        confirm: 'Confirm password', confirmPlaceholder: 'Confirm password', update: 'Update password', required: 'Create a password.', mismatch: 'Doesn’t match',
+        ready: 'Ready', match: 'Passwords match', ruleLength: '8+ chars', ruleNumber: '1 number', ruleSymbol: '1 symbol', generic: 'Couldn’t update your password. Request a fresh link and try again.',
+        doneTitle: 'Password updated', doneBody: 'The recovery session is closed. Sign in with your new password.', signIn: 'Back to sign in', newLink: 'Request a new link', help: 'Need help?',
+        checkingTitle: 'Checking recovery link', checkingBody: 'Just a moment.', invalidTitle: 'Recovery link not valid', invalidBody: 'This link is expired or invalid. Request a fresh link from Forgot password.'
+      }
+
+  function fieldState(active: boolean, valid: boolean): FieldState {
+    if (!active) return 'idle'
+    return valid ? 'valid' : 'invalid'
   }
 
-  async function handleRequest() {
-    error = ''
-    success = ''
-    if (!email || !isValidEmail(email)) {
-      error = $_('reset_password.error_invalid_email')
+  function ruleClass(passed: boolean) {
+    if (!newPassword.length) return 'text-text-muted'
+    return passed ? 'text-success' : 'text-danger'
+  }
+
+  function redirectError(): string {
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    const query = new URLSearchParams(window.location.search)
+    return hash.get('error_description') || query.get('error_description') || hash.get('error') || query.get('error') || ''
+  }
+
+  function stripRecoveryUrl() {
+    if (typeof history !== 'undefined') history.replaceState({}, '', '/reset-password')
+  }
+
+  async function resolveRecoverySession() {
+    if (redirectError()) {
+      clearPasswordRecovery()
+      recoveryState = 'invalid'
       return
     }
-    loading = true
-    const result = await resetPasswordForEmail(email)
-    loading = false
-    if (result.error) {
-      error = result.error.message
-    } else {
-      success = $_('reset_password.success_sent')
-      email = ''
+
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !session?.user) throw sessionError || new Error('missing_recovery_session')
+
+      // Only PASSWORD_RECOVERY listeners are allowed to create the local grant.
+      // URL query/hash markers are intentionally not trusted because the user can
+      // edit them. Give the early/root listener a short chance to persist the
+      // grant if Supabase is still completing URL-session initialization.
+      if (!restorePasswordRecovery(session.user.id)) {
+        await new Promise((resolve) => setTimeout(resolve, 250))
+      }
+      if (!restorePasswordRecovery(session.user.id)) {
+        throw new Error('recovery_session_required')
+      }
+
+      recoveryState = 'ready'
+      error = ''
+      stripRecoveryUrl()
+    } catch {
+      clearPasswordRecovery()
+      recoveryState = 'invalid'
     }
   }
+
+  onMount(() => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' && session?.user) {
+        markPasswordRecovery(session)
+        recoveryState = 'ready'
+        error = ''
+        stripRecoveryUrl()
+      } else if (event === 'SIGNED_OUT' && recoveryState !== 'complete') {
+        clearPasswordRecovery()
+        recoveryState = 'invalid'
+      }
+    })
+
+    void resolveRecoverySession()
+    return () => listener.subscription.unsubscribe()
+  })
 
   async function handleReset() {
     error = ''
-    success = ''
-    if (!newPassword || !confirmPassword) {
-      error = $_('reset_password.error_required')
-      return
-    }
-    if (newPassword !== confirmPassword) {
-      error = $_('reset_password.error_mismatch')
-      return
-    }
-    if (!isValidPassword(newPassword)) {
-      error = $_('reset_password.error_password_invalid')
-      return
-    }
+    attempted = true
+    if (recoveryState !== 'ready' || !passwordValid || !confirmValid) return
+
     loading = true
-    const result = await updatePassword(newPassword)
-    loading = false
-    if (result.error) {
-      error = result.error.message
-    } else {
-      success = $_('reset_password.success_updated')
-      uiState.addToast(success, 'success')
-      setTimeout(() => goto('/login'), 2000)
+    try {
+      const result = await updatePasswordFromRecovery(newPassword)
+      if (result.error) {
+        if (result.error.message === 'recovery_session_required') {
+          recoveryState = 'invalid'
+          clearPasswordRecovery()
+        } else {
+          error = copy.generic
+        }
+        return
+      }
+
+      newPassword = ''
+      confirmPassword = ''
+      recoveryState = 'complete'
+    } catch {
+      error = copy.generic
+    } finally {
+      loading = false
     }
   }
 </script>
 
-<div class="min-h-screen flex items-center justify-center px-4 py-8">
-  <Card className="w-full max-w-md" variant="elevated">
-    <div class="space-y-6">
-      <div class="text-center">
-        <h1 class="text-2xl font-medium font-serif text-text">{$_('reset_password.title')}</h1>
-        <p class="text-text-secondary mt-2">
-          {mode === 'request' ? $_('reset_password.subtitle_request') : $_('reset_password.subtitle_reset')}
-        </p>
+<svelte:head><title>{complete ? copy.doneTitle : recoveryState === 'invalid' ? copy.invalidTitle : recoveryState === 'checking' ? copy.checkingTitle : copy.title} · UNEEM</title></svelte:head>
+
+<AuthShell backHref={complete ? '/login' : '/forgot-password'} backLabel={complete ? copy.signIn : copy.newLink}>
+  <section class="w-full">
+    {#if recoveryState === 'checking'}
+      <div class="py-8 text-center" aria-live="polite" aria-busy="true">
+        <span class="mx-auto block h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" aria-hidden="true"></span>
+        <h1 class="mt-6 text-[30px] font-semibold tracking-[-0.035em] text-text">{copy.checkingTitle}</h1>
+        <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-text-secondary">{copy.checkingBody}</p>
+      </div>
+    {:else if recoveryState === 'invalid'}
+      <div class="text-center" aria-live="polite">
+        <div class="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-danger-light text-danger"><Icon name="alert-circle" size={21} /></div>
+        <h1 class="text-[30px] font-semibold tracking-[-0.035em] text-text">{copy.invalidTitle}</h1>
+        <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-text-secondary">{copy.invalidBody}</p>
+        <Button on:click={() => goto('/forgot-password')} variant="primary" size="lg" className="mt-8 w-full">{copy.newLink}</Button>
+      </div>
+    {:else if complete}
+      <div class="text-center" aria-live="polite">
+        <div class="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-success-light text-success"><Icon name="check" size={21} /></div>
+        <h1 class="text-[30px] font-semibold tracking-[-0.035em] text-text">{copy.doneTitle}</h1>
+        <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-text-secondary">{copy.doneBody}</p>
+        <Button on:click={() => goto('/login')} variant="primary" size="lg" className="mt-8 w-full">{copy.signIn}</Button>
+      </div>
+    {:else}
+      <div class="mb-9 text-center">
+        <h1 class="text-[30px] font-semibold tracking-[-0.035em] text-text">{copy.title}</h1>
+        <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-text-secondary">{copy.subtitle}</p>
       </div>
 
-      {#if success}
-        <div class="bg-success-light border border-success/20 text-success p-3 rounded-lg text-sm">{success}</div>
-      {/if}
       {#if error}
-        <div class="bg-danger-light border border-danger/20 text-danger p-3 rounded-lg text-sm">{error}</div>
+        <div class="mb-5 rounded-[18px] bg-danger-light p-4 text-sm font-medium leading-6 text-danger" role="alert">{error}</div>
       {/if}
 
-      {#if mode === 'request'}
-        <form on:submit|preventDefault={handleRequest} class="space-y-4">
-          <TextField
-            label={$_('reset_password.email_label')}
-            type="email"
-            placeholder={$_('login.email_placeholder')}
-            bind:value={email}
-            disabled={loading || !!success}
-          />
-          <Button type="submit" variant="primary" size="lg" {loading} className="w-full">
-            {loading ? $_('common.loading') : $_('reset_password.send_link')}
-          </Button>
-        </form>
-      {:else}
-        <form on:submit|preventDefault={handleReset} class="space-y-4">
-          <TextField
-            label={$_('reset_password.new_password_label')}
-            type="password"
-            placeholder={$_('register.password_placeholder')}
-            bind:value={newPassword}
-            disabled={loading}
-          />
-          <TextField
-            label={$_('reset_password.confirm_password_label')}
-            type="password"
-            placeholder={$_('register.confirm_password_placeholder')}
-            bind:value={confirmPassword}
-            disabled={loading}
-          />
-          <Button type="submit" variant="primary" size="lg" {loading} className="w-full">
-            {loading ? $_('reset_password.updating') : $_('reset_password.update_password')}
-          </Button>
-        </form>
-      {/if}
+      <form on:submit|preventDefault={handleReset} class="space-y-4">
+        <TextField ariaLabel={copy.password} type="password" placeholder={copy.passwordPlaceholder} icon="lock" autocomplete="new-password" bind:value={newPassword} validation={passwordState} hint={passwordState === 'invalid' && attempted && !newPassword.length ? copy.required : ''} validHint={copy.ready} disabled={loading} />
 
-      <div class="text-center">
-        <a href="/login" class="text-primary font-semibold hover:underline">
-          {$_('reset_password.back_to_login')}
-        </a>
-      </div>
-    </div>
-  </Card>
-</div>
+        <div class="grid grid-cols-3 gap-2 rounded-[16px] bg-surface-level-1 px-3 py-3" aria-live="polite">
+          {#each [{ label: copy.ruleLength, passed: passwordLength }, { label: copy.ruleNumber, passed: passwordNumber }, { label: copy.ruleSymbol, passed: passwordSymbol }] as rule}
+            <div class={`flex items-center justify-center gap-1.5 text-xs font-medium ${ruleClass(rule.passed)}`}>
+              <Icon name={rule.passed ? 'check' : 'x'} size={12} /><span>{rule.label}</span>
+            </div>
+          {/each}
+        </div>
+
+        <TextField ariaLabel={copy.confirm} type="password" placeholder={copy.confirmPlaceholder} icon="lock" autocomplete="new-password" bind:value={confirmPassword} validation={confirmState} hint={confirmState === 'invalid' ? copy.mismatch : ''} validHint={copy.match} disabled={loading} />
+        <Button type="submit" variant="primary" size="lg" {loading} className="mt-2 w-full">{copy.update}</Button>
+      </form>
+    {/if}
+  </section>
+
+  <div slot="footer" class="text-center">
+    <a href="/help" class="inline-flex min-h-11 items-center justify-center gap-2 px-3 text-sm text-text-muted transition-colors hover:text-text"><Icon name="info" size={17} /><span>{copy.help}</span></a>
+  </div>
+</AuthShell>

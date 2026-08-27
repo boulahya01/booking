@@ -4,19 +4,44 @@
   import { browser } from '$app/environment'
   import { page } from '$app/stores'
   import '$lib/styles/global.css'
+  import '$lib/styles/system.css'
   import TopBar from '$lib/components/TopBar.svelte'
   import SideNav from '$lib/components/SideNav.svelte'
   import Toast from '$lib/components/Toast.svelte'
   import { theme, toasts, uiState } from '$lib/stores/ui'
   import { initializeI18n } from '$lib/i18n'
   import { supabase } from '$lib/supabaseClient'
-  import { authState, isAuthenticated } from '$lib/stores/auth'
-  import { getUserProfile } from '$lib/auth'
+  import { authState } from '$lib/stores/auth'
+  import { getMyAccountState, getUserProfile } from '$lib/auth'
+  import { getMySessionContext } from '$lib/sessionApi'
+  import {
+    clearPasswordRecovery,
+    markPasswordRecovery,
+    passwordRecoveryActive,
+    restorePasswordRecovery
+  } from '$lib/authFlow'
   import { locale } from 'svelte-i18n'
-  import { USE_MOCK, mockProfile } from '$lib/mock'
+  import { USE_MOCK } from '$lib/mock'
 
   let sideNavOpen = false
   let routeGuardProcessing = false
+  let unsubAuth: (() => void) | null = null
+  let unsubEarlyRecovery: (() => void) | null = null
+
+  // Supabase may resolve an implicit recovery URL before child route onMount
+  // callbacks run. Register this minimal listener during client component setup so
+  // the only trusted recovery grant comes from PASSWORD_RECOVERY itself, never
+  // from a user-editable `?type=recovery` URL marker.
+  if (browser && !USE_MOCK) {
+    const { data: earlyRecoveryListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' && session?.user) {
+        markPasswordRecovery(session)
+      } else if (event === 'SIGNED_OUT') {
+        clearPasswordRecovery()
+      }
+    })
+    unsubEarlyRecovery = () => earlyRecoveryListener.subscription.unsubscribe()
+  }
 
   function toggleSideNav() {
     sideNavOpen = !sideNavOpen
@@ -24,46 +49,65 @@
 
   initializeI18n('en')
 
-  let unsubAuth: (() => void) | null = null
-
   const authPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/logout']
+  const publicSupportPaths = ['/help']
   $: isAuthPage = authPaths.includes($page.url.pathname)
+  $: isPublicSupportPage = publicSupportPaths.includes($page.url.pathname)
+  $: chromeFreePage = isAuthPage || isPublicSupportPage
 
-  // Route guard: redirect based on auth state and profile status
-  // Uses a guard flag to prevent navigation loops from goto() re-triggering the block
-  $: if (browser && !routeGuardProcessing && !$page.url.pathname.startsWith('/verify-email')) {
+  // Routing is driven by the authoritative account-state payload. Recovery is a
+  // temporary authenticated capability and is intentionally trapped on the
+  // reset flow until the password is changed or the user signs out.
+  $: if (
+    browser &&
+    !$authState.loading &&
+    !routeGuardProcessing
+  ) {
     const pathname = $page.url.pathname
     const hasSession = $authState.user !== null
-    const userStatus = $authState.user?.status
+    const account = $authState.account
     const isAuthPath = authPaths.includes(pathname)
+    const isSupportPath = publicSupportPaths.includes(pathname)
     const isPendingPath = pathname === '/pending-approval'
     const isProfilePath = pathname === '/profile'
-    const isAppPath = pathname.startsWith('/home') ||
-                      pathname.startsWith('/bookings') ||
-                      pathname.startsWith('/pitch/') ||
-                      pathname.startsWith('/notifications') ||
-                      pathname.startsWith('/admin/')
+    const isVerificationPath = pathname === '/verification'
+    const isVerifyEmailPath = pathname === '/verify-email'
+    const isRecoveryPath = pathname === '/reset-password'
+    const isAdminPath = pathname === '/admin' || pathname.startsWith('/admin/')
+    const isSportsPath = pathname.startsWith('/home') ||
+                         pathname.startsWith('/bookings') ||
+                         pathname.startsWith('/pitch/') ||
+                         pathname.startsWith('/matches') ||
+                         pathname.startsWith('/notifications')
+    const canUseSports = account?.can_use_sports === true
+    const isAdminAccount = account?.role === 'admin'
+    const recoveryActive = $passwordRecoveryActive
 
     let targetPath: string | null = null
 
-    if (!hasSession && !isAuthPath) {
-      // No session, redirect to login
+    if (recoveryActive && hasSession && !isRecoveryPath && !isSupportPath && pathname !== '/logout') {
+      targetPath = '/reset-password'
+    } else if (!hasSession && !isAuthPath && !isSupportPath) {
       targetPath = '/login'
-    } else if (hasSession && isAuthPath) {
-      // Has session but on auth page, redirect based on status
-      if (userStatus === 'pending' || userStatus === 'rejected') {
-        targetPath = '/pending-approval'
-      } else {
-        targetPath = '/home'
-      }
-    } else if (hasSession && userStatus === 'approved' && isPendingPath) {
-      // Approved users shouldn't access pending page
-      targetPath = '/home'
-    } else if (hasSession && (userStatus === 'pending' || userStatus === 'rejected') && isAppPath) {
-      // Pending/rejected users shouldn't access app pages
+    } else if (hasSession && isAuthPath && !isVerifyEmailPath && !(isRecoveryPath && recoveryActive)) {
+      targetPath = canUseSports ? '/home' : '/pending-approval'
+    } else if (hasSession && !account && !isSupportPath && !isVerifyEmailPath && !isRecoveryPath) {
       targetPath = '/pending-approval'
-    } else if (hasSession && (userStatus === 'pending' || userStatus === 'rejected') && !isPendingPath && !isProfilePath && !isAuthPath) {
-      // Pending/rejected users can only access pending-approval and profile
+    } else if (hasSession && isAdminPath && !isAdminAccount) {
+      targetPath = canUseSports ? '/home' : '/pending-approval'
+    } else if (hasSession && !canUseSports && (isSportsPath || isAdminPath)) {
+      targetPath = '/pending-approval'
+    } else if (hasSession && canUseSports && isPendingPath) {
+      targetPath = '/home'
+    } else if (
+      hasSession &&
+      !canUseSports &&
+      !isPendingPath &&
+      !isProfilePath &&
+      !isVerificationPath &&
+      !isSupportPath &&
+      !isAuthPath
+    ) {
       targetPath = '/pending-approval'
     }
 
@@ -79,109 +123,148 @@
     const storedTheme = localStorage.getItem('theme') as 'light' | 'dark' | 'auto' | null
     const storedLang = localStorage.getItem('language') as 'en' | 'ar' | null
 
-    // Apply stored theme or default to 'auto' (system preference)
     if (storedTheme) {
       uiState.setTheme(storedTheme)
     } else {
-      // Default to auto which respects system preference
       uiState.setTheme('auto')
     }
-    
+
     if (storedLang) {
       uiState.setLanguage(storedLang)
       locale.set(storedLang)
     }
 
-    if (USE_MOCK && typeof localStorage !== 'undefined') {
-      const stored = localStorage.getItem('mock_auth_user')
-      if (stored) {
-        try {
-          const user = JSON.parse(stored)
-          authState.setUser({
-            id: user.id,
-            email: user.email,
-            student_id: user.student_id,
-            full_name: user.full_name,
-            role: user.role === 'admin' ? 'admin' : 'user',
-            status: user.status
-          })
-        } catch (e) {
-          // silent - mock auth parse error
+    restorePasswordRecovery()
+    let processingAuth = false
+
+    async function applySession(session: any) {
+      if (!session?.user) {
+        clearPasswordRecovery()
+        authState.clear()
+        return
+      }
+
+      try {
+        restorePasswordRecovery(session.user.id)
+
+        const context = await getMySessionContext()
+        if (!context) {
+          authState.clear()
+          return
         }
+
+        const { profile, account } = context
+        authState.setSessionContext({
+          id: profile.id,
+          email: session.user.email ?? undefined,
+          student_id: profile.student_id,
+          full_name: profile.full_name,
+          role: profile.role === 'admin' ? 'admin' : 'user',
+          status: profile.status
+        }, account)
+      } catch {
+        authState.clear()
       }
     }
-
-    // Track if we're currently processing auth to prevent concurrent operations
-    let processingAuth = false
 
     async function syncSession() {
       if (processingAuth) return
       processingAuth = true
-      
-      try {
-        const { data } = await supabase.auth.getSession()
-        const session = data?.session
+      authState.setLoading(true)
 
-        if (session?.user) {
-          try {
-            const profile = await getUserProfile(session.user.id)
-            if (profile) {
-              authState.setUser({
-                id: profile.id,
-                email: session.user.email ?? undefined,
-                student_id: profile.student_id,
-                full_name: profile.full_name,
-                role: profile.role === 'admin' ? 'admin' : 'user',
-                status: profile.status as import('$lib/stores/auth').UserStatus
-              })
-            }
-          } catch (e) {
-            // silent - profile load error
-          }
-        }
-      } catch (e) {
-        // silent - session sync error
+      try {
+        const { data, error } = await supabase.auth.getSession()
+        if (error) throw error
+        if (!data?.session) clearPasswordRecovery()
+        await applySession(data?.session)
+      } catch {
+        clearPasswordRecovery()
+        authState.clear()
       } finally {
         processingAuth = false
+        authState.setLoading(false)
       }
     }
 
-    syncSession()
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Skip processing if we're already handling auth or if this is just a token refresh
-      if (processingAuth || event === 'TOKEN_REFRESHED') return
-      
-      if (event === 'SIGNED_IN' && session?.user) {
-        processingAuth = true
+    if (USE_MOCK) {
+      clearPasswordRecovery()
+      const stored = localStorage.getItem('mock_auth_user')
+      if (stored) {
         try {
-          const profile = await getUserProfile(session.user.id)
-          if (profile) {
-            authState.setUser({
+          const user = JSON.parse(stored)
+          void Promise.all([
+            getUserProfile(user.id),
+            getMyAccountState()
+          ]).then(([profile, account]) => {
+            if (!profile || !account) {
+              authState.clear()
+              return
+            }
+            authState.setSessionContext({
               id: profile.id,
-              email: session.user.email ?? undefined,
+              email: user.email,
               student_id: profile.student_id,
               full_name: profile.full_name,
               role: profile.role === 'admin' ? 'admin' : 'user',
-              status: profile.status as import('$lib/stores/auth').UserStatus
-            })
-          }
-        } catch (e) {
-            // silent - auth state change error
-          } finally {
-            processingAuth = false
-          }
-      } else if (event === 'SIGNED_OUT') {
+              status: profile.status
+            }, account)
+          }).catch(() => authState.clear())
+        } catch {
+          authState.clear()
+        }
+      } else {
         authState.clear()
       }
-    })
+    } else {
+      const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_OUT') {
+          clearPasswordRecovery()
+          authState.clear()
+          return
+        }
 
-    unsubAuth = () => authListener?.subscription?.unsubscribe()
+        if (event === 'PASSWORD_RECOVERY' && session?.user) {
+          markPasswordRecovery(session)
+          if (!processingAuth) {
+            processingAuth = true
+            authState.setLoading(true)
+            void applySession(session).finally(() => {
+              processingAuth = false
+              authState.setLoading(false)
+            })
+          }
+          return
+        }
+
+        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+          restorePasswordRecovery(session.user.id)
+
+          // Interactive email/password login owns its own authoritative session
+          // bootstrap so the submit handler can route without waiting for this
+          // listener. Skip the duplicate RPC while that login form is loading.
+          if (event === 'SIGNED_IN' && $page.url.pathname === '/login' && $authState.loading) {
+            return
+          }
+
+          if (!processingAuth) {
+            processingAuth = true
+            authState.setLoading(true)
+            void applySession(session).finally(() => {
+              processingAuth = false
+              authState.setLoading(false)
+            })
+          }
+        }
+      })
+
+      unsubAuth = () => authListener?.subscription?.unsubscribe()
+      void syncSession()
+    }
 
     applyTheme($theme)
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    const handleChange = (e: MediaQueryListEvent) => {
+    const handleChange = () => {
       if ($theme === 'auto') applyTheme('auto')
     }
     mediaQuery.addEventListener('change', handleChange)
@@ -189,6 +272,7 @@
     return () => {
       mediaQuery.removeEventListener('change', handleChange)
       unsubAuth?.()
+      unsubEarlyRecovery?.()
     }
   })
 
@@ -208,17 +292,17 @@
 </script>
 
 <svelte:head>
-  <title>Booking App</title>
+  <title>UNEEM</title>
 </svelte:head>
 
 <div class="app-shell">
-  {#if !isAuthPage}
+  {#if !chromeFreePage}
     <TopBar onMenuToggle={toggleSideNav} />
   {/if}
-  <main class="app-content">
+  <main class:app-content={!chromeFreePage} class:app-content-plain={chromeFreePage}>
     <slot />
   </main>
-  {#if !isAuthPage}
+  {#if !chromeFreePage}
     <SideNav bind:isOpen={sideNavOpen} on:close={() => sideNavOpen = false} />
   {/if}
 
@@ -243,6 +327,11 @@
     --safe-area-inset-bottom: 0;
     --safe-area-inset-left: 0;
     --safe-area-inset-right: 0;
+  }
+
+  :global(.app-content-plain) {
+    flex: 1;
+    width: 100%;
   }
 
   @supports (padding: max(0px)) {

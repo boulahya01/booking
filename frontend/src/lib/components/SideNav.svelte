@@ -2,40 +2,34 @@
   import { goto } from '$app/navigation'
   import { page } from '$app/stores'
   import { createEventDispatcher } from 'svelte'
-  import { authState, isAdmin, isAuthenticated } from '$lib/stores/auth'
+  import { isAdmin, isAuthenticated, needsIdentityAction } from '$lib/stores/auth'
   import { theme, language, uiState } from '$lib/stores/ui'
   import { signOut } from '$lib/auth'
-  import { cn } from '$lib/utils/cn'
   import Icon from './Icon.svelte'
-  import { _ } from 'svelte-i18n'
 
   export let isOpen = false
   const dispatch = createEventDispatcher()
 
-  type NavItem = {
-    labelKey: string
-    href: string
-    icon: string
-    adminOnly?: boolean
-  }
-
-  const regularItems: NavItem[] = [
-    { labelKey: 'nav.home', href: '/home', icon: 'home' },
-    { labelKey: 'nav.bookings', href: '/bookings', icon: 'calendar-days' },
-    { labelKey: 'nav.profile', href: '/profile', icon: 'user' },
-    { labelKey: 'nav.notifications', href: '/notifications', icon: 'bell' }
+  const regularItems = [
+    { en: 'Home', ar: 'الرئيسية', href: '/home', icon: 'home' },
+    { en: 'Matches', ar: 'المباريات', href: '/matches', icon: 'users' },
+    { en: 'My Sports', ar: 'رياضتي', href: '/bookings', icon: 'calendar-days' },
+    { en: 'Profile', ar: 'حسابي', href: '/profile', icon: 'user' },
+    { en: 'Notifications', ar: 'الإشعارات', href: '/notifications', icon: 'bell' },
+    { en: 'Help', ar: 'المساعدة', href: '/help', icon: 'mail' }
   ]
 
-  const adminItems: NavItem[] = [
-    { labelKey: 'nav.all_bookings', href: '/admin/bookings', icon: 'calendar-check' },
-    { labelKey: 'nav.manage_pitches', href: '/admin/pitches', icon: 'map-pin' },
-    { labelKey: 'nav.manage_users', href: '/admin/manage-users', icon: 'users' },
-    { labelKey: 'nav.notifications_admin', href: '/admin/notifications', icon: 'bell-dot' },
-    { labelKey: 'nav.admin', href: '/admin/users', icon: 'shield' }
+  const adminItems = [
+    { en: 'Bookings', ar: 'الحجوزات', href: '/admin/bookings', icon: 'calendar-check' },
+    { en: 'Facilities', ar: 'المرافق', href: '/admin/pitches', icon: 'map-pin' },
+    { en: 'Users', ar: 'المستخدمون', href: '/admin/users', icon: 'users' },
+    { en: 'Verification', ar: 'التحقق', href: '/admin/verification', icon: 'shield' },
+    { en: 'Help & reports', ar: 'الدعم والتقارير', href: '/admin/support', icon: 'mail' },
+    { en: 'Announcements', ar: 'الإعلانات', href: '/admin/notifications', icon: 'bell-dot' }
   ]
 
   function isActive(href: string): boolean {
-    return $page.url.pathname.startsWith(href)
+    return $page.url.pathname === href || $page.url.pathname.startsWith(`${href}/`)
   }
 
   async function handleLogout() {
@@ -58,123 +52,93 @@
   }
 </script>
 
-<!-- Backdrop -->
 {#if isOpen}
-  <div
-    class="fixed inset-0 bg-black/40 dark:bg-black/60 z-40"
-    on:click={() => dispatch('close')}
-    role="presentation"
-  ></div>
+  <div class="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]" on:click={() => dispatch('close')} role="presentation"></div>
 {/if}
 
-<!-- Side Navigation Panel -->
 <nav
-  class={cn(
-    'fixed top-0 left-0 bottom-0 z-50 w-72 bg-surface border-r border-border dark:border-white/6',
-    'transform transition-transform duration-300 ease-in-out',
-    isOpen ? 'translate-x-0' : '-translate-x-full'
-  )}
-  aria-label="Side navigation"
+  class="fixed inset-y-0 z-50 w-[19rem] max-w-[86vw] border-e border-border-light bg-surface-raised shadow-xl transition-transform duration-200 ease-out"
+  class:left-0={$language !== 'ar'}
+  class:right-0={$language === 'ar'}
+  class:translate-x-0={isOpen}
+  class:-translate-x-full={!isOpen && $language !== 'ar'}
+  class:translate-x-full={!isOpen && $language === 'ar'}
+  aria-label={$language === 'ar' ? 'القائمة' : 'Navigation menu'}
 >
-  <div class="flex flex-col h-full">
-    <!-- Header -->
-    <div class="flex items-center justify-between px-5 py-4 border-b border-border dark:border-white/6">
-      <div class="flex items-center gap-2.5">
-        <div class="w-8 h-8 bg-gradient-to-br from-primary to-primary-dark rounded-lg flex items-center justify-center text-white font-bold text-sm">
-          B
-        </div>
-        <span class="font-medium font-serif text-text">Booking</span>
-      </div>
-      <button
-        on:click={() => dispatch('close')}
-        class="p-2 hover:bg-surface-level-1 rounded-lg transition"
-        aria-label="Close menu"
-      >
-        <Icon name="x" size={20} className="text-text-secondary" />
+  <div class="flex h-full flex-col">
+    <div class="flex min-h-[68px] items-center justify-between border-b border-border-light px-5">
+      <button on:click={() => navigate('/home')} class="min-h-11 text-[18px] font-extrabold tracking-[0.15em] text-text">UNEEM</button>
+      <button on:click={() => dispatch('close')} class="grid h-11 w-11 place-items-center rounded-full text-text-secondary hover:bg-surface-level-1 hover:text-text" aria-label={$language === 'ar' ? 'إغلاق' : 'Close menu'}>
+        <Icon name="x" size={20} />
       </button>
     </div>
 
-    <!-- Navigation Links -->
-    <div class="flex-1 overflow-y-auto py-3">
-      <!-- Regular items -->
-      {#each regularItems as item}
-        <button
-          on:click={() => navigate(item.href)}
-          class={cn(
-            'w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors',
-            isActive(item.href)
-              ? 'text-primary bg-primary-light'
-              : 'text-text-secondary hover:text-text hover:bg-surface-level-1'
-          )}
-          aria-label={$_(item.labelKey)}
-        >
-          <Icon name={item.icon} size={20} strokeWidth={isActive(item.href) ? 2.5 : 2} />
-          <span>{$_(item.labelKey)}</span>
-        </button>
-      {/each}
-
-      <!-- Admin section -->
-      {#if $isAdmin}
-        <div class="flex items-center gap-3 px-5 py-3 mt-1">
-          <div class="flex-1 h-[1px] bg-border/60"></div>
-          <span class="text-[10px] font-bold uppercase tracking-widest text-text-muted/70">Admin</span>
-          <div class="flex-1 h-[1px] bg-border/60"></div>
-        </div>
-
-        {#each adminItems as item}
+    <div class="flex-1 overflow-y-auto px-3 py-3">
+      <div class="space-y-1">
+        {#each regularItems as item}
           <button
             on:click={() => navigate(item.href)}
-            class={cn(
-              'w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors',
-              isActive(item.href)
-                ? 'text-primary bg-primary-light'
-                : 'text-text-secondary hover:text-text hover:bg-surface-level-1'
-            )}
-            aria-label={$_(item.labelKey)}
+            class="flex min-h-12 w-full items-center gap-3 rounded-2xl px-3 text-start text-sm font-semibold transition-colors"
+            class:bg-primary-light={isActive(item.href)}
+            class:text-primary={isActive(item.href)}
+            class:text-text-secondary={!isActive(item.href)}
           >
-            <Icon name={item.icon} size={20} strokeWidth={isActive(item.href) ? 2.5 : 2} />
-            <span>{$_(item.labelKey)}</span>
+            <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl" class:bg-surface-level-1={!isActive(item.href)}>
+              <Icon name={item.icon} size={19} strokeWidth={isActive(item.href) ? 2.5 : 2} />
+            </span>
+            <span>{$language === 'ar' ? item.ar : item.en}</span>
           </button>
         {/each}
+      </div>
+
+      {#if $needsIdentityAction}
+        <button on:click={() => navigate('/verification')} class="mt-4 flex w-full items-start gap-3 rounded-2xl bg-warning-light p-3 text-start text-warning">
+          <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-surface/60"><Icon name="shield" size={19} /></span>
+          <span class="min-w-0">
+            <span class="block text-sm font-bold">{$language === 'ar' ? 'أكمل التحقق' : 'Finish verification'}</span>
+            <span class="mt-0.5 block text-xs leading-5 opacity-80">{$language === 'ar' ? 'راجع بيانات الطالب والبطاقة' : 'Review your Student ID and card'}</span>
+          </span>
+        </button>
+      {/if}
+
+      {#if $isAdmin}
+        <div class="my-5 flex items-center gap-3 px-2">
+          <div class="h-px flex-1 bg-border-light"></div>
+          <span class="text-[10px] font-extrabold uppercase tracking-[0.16em] text-text-muted">Admin</span>
+          <div class="h-px flex-1 bg-border-light"></div>
+        </div>
+        <div class="space-y-1">
+          {#each adminItems as item}
+            <button
+              on:click={() => navigate(item.href)}
+              class="flex min-h-12 w-full items-center gap-3 rounded-2xl px-3 text-start text-sm font-semibold transition-colors"
+              class:bg-primary-light={isActive(item.href)}
+              class:text-primary={isActive(item.href)}
+              class:text-text-secondary={!isActive(item.href)}
+            >
+              <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl" class:bg-surface-level-1={!isActive(item.href)}>
+                <Icon name={item.icon} size={19} strokeWidth={isActive(item.href) ? 2.5 : 2} />
+              </span>
+              <span>{$language === 'ar' ? item.ar : item.en}</span>
+            </button>
+          {/each}
+        </div>
       {/if}
     </div>
 
-    <!-- Footer Actions -->
-    <div class="border-t border-border dark:border-white/6 py-3 px-3 space-y-1">
-      <!-- Theme Toggle -->
-      <button
-        on:click={toggleTheme}
-        class="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-text-secondary hover:text-text hover:bg-surface-level-1 rounded-lg transition"
-        aria-label={$theme === 'dark' ? $_('nav.light_mode') : $_('nav.dark_mode')}
-      >
-        {#if $theme === 'dark'}
-          <Icon name="sun" size={18} />
-          <span>{$_('nav.dark_mode')}</span>
-        {:else}
-          <Icon name="moon" size={18} />
-          <span>{$_('nav.light_mode')}</span>
-        {/if}
-      </button>
-
-      <!-- Language Toggle -->
-      <button
-        on:click={toggleLanguage}
-        class="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-text-secondary hover:text-text hover:bg-surface-level-1 rounded-lg transition"
-        aria-label={$_('nav.toggle_language')}
-      >
-        <span class="w-[18px] h-[18px] flex items-center justify-center text-text-muted font-semibold text-xs">Aa</span>
+    <div class="space-y-1 border-t border-border-light p-3">
+      <button on:click={toggleLanguage} class="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold text-text-secondary hover:bg-surface-level-1 hover:text-text">
+        <span class="grid h-8 w-8 place-items-center rounded-lg bg-surface-level-1 text-xs font-bold">Aa</span>
         <span>{$language === 'en' ? 'العربية' : 'English'}</span>
       </button>
-
-      <!-- Logout -->
+      <button on:click={toggleTheme} class="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold text-text-secondary hover:bg-surface-level-1 hover:text-text">
+        <span class="grid h-8 w-8 place-items-center rounded-lg bg-surface-level-1"><Icon name={$theme === 'dark' ? 'sun' : 'moon'} size={17} /></span>
+        <span>{$theme === 'dark' ? ($language === 'ar' ? 'الوضع الفاتح' : 'Light mode') : ($language === 'ar' ? 'الوضع الداكن' : 'Dark mode')}</span>
+      </button>
       {#if $isAuthenticated}
-        <button
-          on:click={handleLogout}
-          class="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-danger hover:bg-danger-light rounded-lg transition"
-          aria-label={$_('nav.logout')}
-        >
-          <Icon name="log-out" size={18} />
-          <span>{$_('nav.logout')}</span>
+        <button on:click={handleLogout} class="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-semibold text-danger hover:bg-danger-light">
+          <span class="grid h-8 w-8 place-items-center rounded-lg bg-danger-light"><Icon name="log-out" size={17} /></span>
+          <span>{$language === 'ar' ? 'تسجيل الخروج' : 'Sign out'}</span>
         </button>
       {/if}
     </div>

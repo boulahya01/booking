@@ -1,123 +1,156 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
-  import { createEventDispatcher } from 'svelte'
+  import { onMount, createEventDispatcher } from 'svelte'
   import { supabase } from '$lib/supabaseClient'
   import { authState } from '$lib/stores/auth'
   import { uiState } from '$lib/stores/ui'
   import Icon from './Icon.svelte'
-  import { _ } from 'svelte-i18n'
-  import { locale } from 'svelte-i18n'
+  import { _ , locale } from 'svelte-i18n'
   import { logger } from '$lib/logger'
 
   const dispatch = createEventDispatcher()
-
-  // Auto-detect Arabic from language store
   $: isArabic = $locale === 'ar'
 
-  interface Notification {
-    key: string
+  interface Announcement {
+    id: string
     title_en: string
     title_ar: string
-    message_en: string
-    message_ar: string
-    created_at: string
+    body_en: string
+    body_ar: string
+    published_at: string
     expires_at: string | null
   }
 
-  let notifications: Notification[] = []
+  let notifications: Announcement[] = []
   let loading = true
+  let loadError = false
+  let currentUserId: string | null = null
+  let requestVersion = 0
 
-  onMount(async () => {
-    await loadNotifications()
+  function reportCount() {
+    uiState.setUnreadNotifications(notifications.length)
+    dispatch('count', { count: notifications.length })
+  }
+
+  onMount(() => {
+    const unsubscribe = authState.subscribe((state) => {
+      if (state.loading) {
+        loading = true
+        return
+      }
+
+      const userId = state.user?.id ?? null
+      if (userId === currentUserId && !loadError) return
+
+      currentUserId = userId
+      requestVersion += 1
+
+      if (!userId) {
+        notifications = []
+        loadError = false
+        reportCount()
+        loading = false
+        return
+      }
+
+      void loadNotifications(userId)
+    })
+
+    return unsubscribe
   })
 
-  async function loadNotifications() {
-    if (!$authState.user?.id) {
-      loading = false
+  async function loadNotifications(userId: string) {
+    const version = requestVersion
+    loading = notifications.length === 0
+    loadError = false
+
+    try {
+      const now = new Date().toISOString()
+      const [announcementsResult, dismissalsResult] = await Promise.all([
+        supabase
+          .from('announcements')
+          .select('id,title_en,title_ar,body_en,body_ar,published_at,expires_at')
+          .eq('is_active', true)
+          .lte('published_at', now)
+          .or(`expires_at.is.null,expires_at.gt.${now}`)
+          .order('published_at', { ascending: false }),
+        supabase
+          .from('announcement_dismissals')
+          .select('announcement_id')
+          .eq('user_id', userId)
+      ])
+
+      if (version !== requestVersion || userId !== currentUserId) return
+      if (announcementsResult.error) throw announcementsResult.error
+      if (dismissalsResult.error) throw dismissalsResult.error
+
+      const dismissed = new Set((dismissalsResult.data || []).map((row: any) => row.announcement_id))
+      notifications = (announcementsResult.data || []).filter((announcement: any) => !dismissed.has(announcement.id))
+      reportCount()
+    } catch (error) {
+      if (version !== requestVersion || userId !== currentUserId) return
+      logger.error('Failed to load announcements:', error)
+      loadError = true
+      uiState.setUnreadNotifications(notifications.length)
+    } finally {
+      if (version === requestVersion && userId === currentUserId) loading = false
+    }
+  }
+
+  function retry() {
+    if (!currentUserId) return
+    requestVersion += 1
+    void loadNotifications(currentUserId)
+  }
+
+  async function dismissNotification(announcementId: string) {
+    const userId = currentUserId
+    if (!userId) return
+
+    const { error } = await supabase.from('announcement_dismissals').insert({ user_id: userId, announcement_id: announcementId })
+
+    if (error) {
+      logger.error('Failed to dismiss announcement:', error)
+      uiState.addToast($_('common.error'), 'error')
       return
     }
 
-    // Use the RPC function to get active, non-dismissed notifications
-    const { data, error } = await supabase
-      .rpc('get_active_notifications_for_user', { p_user_id: $authState.user.id })
-
-    if (error) {
-      logger.error('Failed to load notifications:', error)
-    } else {
-      notifications = data || []
-      uiState.setUnreadNotifications(notifications.length)
-    }
-    loading = false
-  }
-
-  async function dismissNotification(key: string) {
-    if (!$authState.user?.id) return
-
-    const { error } = await supabase
-      .rpc('dismiss_notification_for_user', {
-        p_notification_key: key,
-        p_user_id: $authState.user.id
-      })
-
-    if (error) {
-      logger.error('Failed to dismiss notification:', error)
-    } else {
-      // Remove from local list
-      notifications = notifications.filter(n => n.key !== key)
-      uiState.setUnreadNotifications(notifications.length)
-      dispatch('dismissed', { key })
-    }
+    notifications = notifications.filter((notification) => notification.id !== announcementId)
+    reportCount()
+    dispatch('dismissed', { id: announcementId, remaining: notifications.length })
   }
 </script>
 
 {#if loading}
-  <div class="animate-pulse space-y-3">
-    <div class="h-20 rounded-xl bg-surface-level-2"></div>
+  <div class="h-20 animate-pulse rounded-[22px] bg-surface-level-1" aria-busy="true"></div>
+{:else if loadError && notifications.length === 0}
+  <div class="uneem-card flex items-center gap-3" role="status">
+    <div class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-danger-light text-danger"><Icon name="alert-triangle" size={18} /></div>
+    <div class="min-w-0 flex-1"><p class="text-sm font-semibold text-text">{$_('common.error')}</p></div>
+    <button type="button" on:click={retry} class="min-h-10 text-sm font-bold text-primary">{$_('common.retry')}</button>
   </div>
 {:else if notifications.length > 0}
-  <div class="space-y-3">
-    {#each notifications as notification (notification.key)}
-      <div class="group relative overflow-hidden rounded-xl bg-gradient-to-br from-primary-light/30 via-surface to-surface shadow-md hover:shadow-lg transition-all duration-300">
-        <!-- Decorative glow -->
-        <div class="absolute -top-4 -start-4 w-20 h-20 rounded-full bg-primary/10 blur-xl"></div>
+  <div class="space-y-2.5">
+    {#if loadError}
+      <div class="flex items-center justify-between gap-3 rounded-2xl bg-warning-light px-4 py-3 text-sm text-warning">
+        <span>{$_('common.error')}</span>
+        <button type="button" on:click={retry} class="font-bold">{$_('common.retry')}</button>
+      </div>
+    {/if}
 
-        <!-- Accent bar -->
-        <div class="absolute inset-y-0 start-0 w-1 bg-gradient-to-b from-primary via-primary/80 to-primary/40"></div>
-
-        <!-- Dismiss button -->
-        <button
-          class="absolute top-3 end-3 p-1.5 rounded-lg text-text-muted/60 hover:text-text hover:bg-surface-raised/60 transition-all duration-200"
-          on:click={() => dismissNotification(notification.key)}
-          title={$_('notification_banner.dismiss')}
-        >
-          <Icon name="x" size={14} />
+    {#each notifications as notification (notification.id)}
+      <article class="uneem-card relative pe-12">
+        <button class="absolute end-2.5 top-2.5 grid h-9 w-9 place-items-center rounded-full text-text-muted hover:bg-surface-level-1 hover:text-text" on:click={() => dismissNotification(notification.id)} title={$_('notification_banner.dismiss')}>
+          <Icon name="x" size={15} />
         </button>
-
-        <!-- Content -->
-        <div class="relative flex items-start gap-3.5 p-4 ps-5 rtl:ps-4 rtl:pe-5">
-          <div class="flex-shrink-0 mt-0.5">
-            <div class="relative w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5 text-primary shadow-sm">
-              <!-- Pulse ring -->
-              <span class="absolute inset-0 rounded-xl bg-primary/20 animate-ping opacity-40"></span>
-              <Icon name="bell" size={18} />
-            </div>
-          </div>
-          <div class="flex-1 min-w-0">
-            <h3 class="text-[15px] font-semibold text-text leading-snug">
-              {isArabic ? notification.title_ar : notification.title_en}
-            </h3>
-            <p class="text-sm mt-1 leading-relaxed whitespace-pre-wrap text-text-secondary">
-              {isArabic ? notification.message_ar : notification.message_en}
-            </p>
-            <div class="flex items-center gap-1.5 mt-2.5">
-              <div class="w-1 h-1 rounded-full bg-primary/40"></div>
-              <time class="text-xs text-text-muted">
-                {new Date(notification.created_at).toLocaleDateString(isArabic ? 'ar' : 'en', { month: 'short', day: 'numeric', year: 'numeric' })}
-              </time>
-            </div>
+        <div class="flex items-start gap-3">
+          <div class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary-light text-primary"><Icon name="bell" size={18} /></div>
+          <div class="min-w-0 flex-1">
+            <h3 class="text-sm font-bold leading-5 text-text">{isArabic ? notification.title_ar : notification.title_en}</h3>
+            <p class="mt-1 whitespace-pre-wrap text-sm leading-6 text-text-secondary">{isArabic ? notification.body_ar : notification.body_en}</p>
+            <time class="mt-2 block text-xs text-text-muted">{new Date(notification.published_at).toLocaleDateString(isArabic ? 'ar-MA' : 'en', { month: 'short', day: 'numeric' })}</time>
           </div>
         </div>
-      </div>
+      </article>
     {/each}
   </div>
 {/if}

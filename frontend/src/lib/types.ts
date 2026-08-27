@@ -1,13 +1,33 @@
+export type AccessStatus = 'pending' | 'approved' | 'suspended'
+export type IdentityStatus = 'required' | 'pending' | 'verified' | 'rejected' | 'conflict'
+export type EmailKind = 'academic' | 'personal'
+
 export type Profile = {
   id: string
-  student_id: string
+  student_id: string | null
   full_name: string
+  username: string | null
   email?: string
-  rejection_reason?: string | null
-  role: 'student' | 'admin' | 'moderator'
-  status: 'pending' | 'approved' | 'rejected' | 'suspended'
+  email_kind?: EmailKind
+  identity_status?: IdentityStatus
+  restriction_reason?: string | null
+  verified_student_id_at?: string | null
+  role: 'student' | 'admin'
+  status: AccessStatus
   created_at: string
   updated_at: string
+}
+
+export type AccountState = {
+  user_id: string
+  role: 'student' | 'admin'
+  access_status: AccessStatus
+  email_kind: EmailKind
+  identity_status: IdentityStatus
+  student_id: string | null
+  restriction_reason: string | null
+  can_use_sports: boolean
+  needs_identity_action: boolean
 }
 
 export type Pitch = {
@@ -74,7 +94,7 @@ export type BookingWithDetails = {
   status: 'active' | 'cancelled' | 'completed'
   created_at: string
   full_name: string
-  student_id: string
+  student_id: string | null
   email: string
   pitch_name: string
   pitch_location: string

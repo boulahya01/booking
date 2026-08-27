@@ -1,143 +1,118 @@
 <script lang="ts">
-  import Card from '$lib/components/Card.svelte'
-  import Button from '$lib/components/Button.svelte'
-  import TextField from '$lib/components/TextField.svelte'
-  import Icon from '$lib/components/Icon.svelte'
+  import { onMount } from 'svelte'
   import { resetPasswordForEmail } from '$lib/auth'
-  import { _ } from 'svelte-i18n'
+  import { language } from '$lib/stores/ui'
   import { isValidEmail } from '$lib/utils/cn'
+  import TextField from '$lib/components/TextField.svelte'
+  import Button from '$lib/components/Button.svelte'
+  import AuthShell from '$lib/components/AuthShell.svelte'
+  import Icon from '$lib/components/Icon.svelte'
+
+  type FieldState = 'idle' | 'valid' | 'invalid'
 
   let email = ''
   let error = ''
   let loading = false
   let emailSent = false
+  let attempted = false
 
-  // Rate limiting: max 3 attempts per 5 minutes
-  const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000
-  const RATE_LIMIT_MAX_ATTEMPTS = 3
-  let attemptTimestamps: number[] = []
+  $: copy = $language === 'ar'
+    ? {
+        title: 'نسيت كلمة المرور؟', subtitle: 'أدخل بريدك وسنرسل رابطاً جديداً.', email: 'البريد الإلكتروني', placeholder: 'mehdi@usmba.ac.ma',
+        send: 'إرسال رابط الاسترجاع', sentTitle: 'تحقق من بريدك', sentBody: 'إذا كان البريد مرتبطاً بحساب، ستصلك التعليمات بعد قليل.',
+        another: 'استخدام بريد آخر', invalid: 'أدخل بريداً صحيحاً.', generic: 'تعذر إرسال الطلب. حاول بعد قليل.', rateLimited: 'طلبات كثيرة الآن. انتظر قليلاً ثم حاول مجدداً.', signIn: 'العودة لتسجيل الدخول', help: 'تحتاج مساعدة؟'
+      }
+    : {
+        title: 'Forgot password?', subtitle: 'Enter your email to reset your password.', email: 'Email address', placeholder: 'mehdi@usmba.ac.ma',
+        send: 'Send reset link', sentTitle: 'Check your email', sentBody: 'If the email is linked to an account, recovery instructions will arrive shortly.',
+        another: 'Use another email', invalid: 'Enter a valid email.', generic: 'Couldn’t send the request. Try again shortly.', rateLimited: 'Too many recovery requests. Wait a moment and try again.', signIn: 'Back to sign in', help: 'Need help?'
+      }
 
-  function checkRateLimit(): boolean {
-    const now = Date.now()
-    // Remove timestamps outside the window
-    attemptTimestamps = attemptTimestamps.filter(t => now - t < RATE_LIMIT_WINDOW_MS)
-    if (attemptTimestamps.length >= RATE_LIMIT_MAX_ATTEMPTS) {
-      const oldestInWindow = attemptTimestamps[0]
-      const remainingMs = RATE_LIMIT_WINDOW_MS - (now - oldestInWindow)
-      const remainingMin = Math.ceil(remainingMs / 60000)
-      error = `Too many attempts. Please try again in ${remainingMin} minute${remainingMin > 1 ? 's' : ''}.`
-      return false
-    }
-    return true
+  $: normalizedEmail = email.trim().toLowerCase()
+  $: emailValid = isValidEmail(normalizedEmail)
+  $: emailState = fieldState(email.length > 0 || attempted, emailValid)
+  $: emailHint = emailState === 'invalid' ? copy.invalid : ''
+  $: loginHref = emailValid ? `/login?email=${encodeURIComponent(normalizedEmail)}` : '/login'
+
+  function fieldState(active: boolean, valid: boolean): FieldState {
+    if (!active) return 'idle'
+    return valid ? 'valid' : 'invalid'
   }
 
-  function recordAttempt() {
-    attemptTimestamps.push(Date.now())
-  }
-
-  function validateEmail(value: string) {
-    if (!value) {
-      error = $_('forgot_password.error_email_required')
-      return false
-    }
-    if (!isValidEmail(value)) {
-      error = $_('forgot_password.error_invalid_email')
-      return false
-    }
-    return true
-  }
+  onMount(() => {
+    const hintedEmail = new URLSearchParams(window.location.search).get('email')?.trim().toLowerCase() || ''
+    if (isValidEmail(hintedEmail)) email = hintedEmail
+  })
 
   async function handleSubmit() {
     error = ''
-
-    if (!validateEmail(email)) {
-      return
-    }
-
-    if (!checkRateLimit()) {
-      return
-    }
+    attempted = true
+    if (!emailValid) return
 
     loading = true
-    recordAttempt()
-    const result = await resetPasswordForEmail(email)
-    loading = false
+    try {
+      const result = await resetPasswordForEmail(normalizedEmail)
+      if (result.error) {
+        const lower = result.error.message.toLowerCase()
+        if (lower.includes('rate') || lower.includes('too many') || lower.includes('429')) {
+          error = copy.rateLimited
+        } else {
+          error = copy.generic
+        }
+        return
+      }
 
-    if (result.error) {
-      error = result.error.message
-    } else {
+      // Supabase's successful recovery response is intentionally treated as
+      // non-enumerating; we never reveal whether the address exists.
       emailSent = true
-      email = ''
+    } catch {
+      error = copy.generic
+    } finally {
+      loading = false
     }
   }
 
-  function handleReset() {
+  function startAgain() {
     emailSent = false
-    email = ''
     error = ''
+    attempted = false
   }
 </script>
 
-<div class="min-h-screen flex items-center justify-center px-4 py-8">
-  <Card className="w-full max-w-md" variant="elevated">
-    <div class="space-y-6">
-      {#if emailSent}
-        <div class="text-center space-y-4">
-          <div class="mx-auto w-14 h-14 rounded-full bg-success-light flex items-center justify-center text-success">
-            <Icon name="check" size={28} />
-          </div>
-          <h1 class="text-2xl font-medium font-serif text-text">{$_('forgot_password.email_sent_title')}</h1>
-          <p class="text-text-secondary">{$_('forgot_password.email_sent_subtitle')}</p>
-          <div class="bg-success-light border border-success/20 text-success p-3 rounded-lg text-sm">
-            {$_('forgot_password.email_sent_instruction')}
-          </div>
-          <Button variant="primary" className="w-full" on:click={handleReset}>
-            {$_('forgot_password.send_another_email')}
-          </Button>
-          <p class="text-sm text-text-secondary">
-            {$_('forgot_password.back_to_login')}
-            <a href="/login" class="text-primary font-semibold hover:underline inline-flex items-center gap-1">
-              {$_('forgot_password.login_here')}
-              <Icon name="arrow-right" size={14} />
-            </a>
-          </p>
-        </div>
-      {:else}
-        <div class="text-center space-y-2">
-          <div class="mx-auto w-12 h-12 rounded-full bg-primary-light flex items-center justify-center text-primary mb-3">
-            <Icon name="mail" size={24} />
-          </div>
-          <h1 class="text-2xl font-medium font-serif text-text">{$_('forgot_password.title')}</h1>
-          <p class="text-text-secondary">{$_('forgot_password.subtitle')}</p>
-        </div>
+<svelte:head><title>{emailSent ? copy.sentTitle : copy.title} · UNEEM</title></svelte:head>
 
-        {#if error}
-          <div class="bg-danger-light border border-danger/20 text-danger p-3 rounded-lg text-sm">{error}</div>
-        {/if}
-
-        <form on:submit|preventDefault={handleSubmit} class="space-y-4">
-          <TextField
-            label={$_('forgot_password.email_label')}
-            type="email"
-            placeholder={$_('login.email_placeholder')}
-            bind:value={email}
-            disabled={loading}
-            required
-          />
-
-          <Button type="submit" variant="primary" size="lg" {loading} className="w-full">
-            {loading ? $_('common.loading') : $_('forgot_password.send_reset_link')}
-          </Button>
-        </form>
-
-        <p class="text-sm text-center text-text-secondary">
-          {$_('forgot_password.remember_password')}
-          <a href="/login" class="text-primary font-semibold hover:underline inline-flex items-center gap-1">
-            {$_('forgot_password.login_here')}
-            <Icon name="arrow-right" size={14} />
-          </a>
-        </p>
-      {/if}
+<AuthShell backHref={loginHref} backLabel={copy.signIn}>
+  <section class="w-full">
+    <div class="mb-9 text-center">
+      <h1 class="text-[30px] font-semibold tracking-[-0.035em] text-text">{emailSent ? copy.sentTitle : copy.title}</h1>
+      <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-text-secondary">{emailSent ? copy.sentBody : copy.subtitle}</p>
     </div>
-  </Card>
-</div>
+
+    {#if error}
+      <div class="mb-5 rounded-[18px] bg-danger-light p-4 text-sm font-medium leading-6 text-danger" role="alert">{error}</div>
+    {/if}
+
+    {#if emailSent}
+      <div class="space-y-5">
+        <div class="rounded-[18px] border border-border bg-surface px-4 py-4 text-center">
+          <div class="mb-2 flex justify-center text-primary"><Icon name="mail" size={20} /></div>
+          <p class="break-all text-sm font-semibold text-text">{normalizedEmail}</p>
+        </div>
+        <button type="button" on:click={startAgain} class="mx-auto block min-h-11 px-3 text-sm font-medium text-text-secondary transition-colors hover:text-text">{copy.another}</button>
+      </div>
+    {:else}
+      <form on:submit|preventDefault={handleSubmit} class="space-y-5">
+        <TextField ariaLabel={copy.email} type="email" placeholder={copy.placeholder} icon="mail" autocomplete="email" bind:value={email} validation={emailState} hint={emailHint} disabled={loading} />
+        <Button type="submit" variant="primary" size="lg" {loading} className="w-full">{copy.send}</Button>
+      </form>
+    {/if}
+
+    <div class="mt-6 text-center">
+      <a href={loginHref} class="inline-flex min-h-11 items-center justify-center px-3 text-sm font-medium text-text-secondary transition-colors hover:text-text">{copy.signIn}</a>
+    </div>
+  </section>
+
+  <div slot="footer" class="text-center">
+    <a href="/help" class="inline-flex min-h-11 items-center justify-center gap-2 px-3 text-sm text-text-muted transition-colors hover:text-text"><Icon name="info" size={17} /><span>{copy.help}</span></a>
+  </div>
+</AuthShell>

@@ -1,58 +1,70 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { user } from '$lib/stores/auth'
-  import { supabase } from '$lib/supabaseClient'
-  import { _ } from 'svelte-i18n'
-  import { locale } from 'svelte-i18n'
-  import { USE_MOCK, mockBookings, mockPitches } from '$lib/mock'
+  import { authState } from '$lib/stores/auth'
+  import { _ , locale } from 'svelte-i18n'
+  import { USE_MOCK } from '$lib/mock'
   import Icon from './Icon.svelte'
+  import { getNextBooking, BookingApiError, type MyBooking } from '$lib/bookingApi'
+  import { bookingFailureMessage } from '$lib/ux/bookingFailure'
 
-  let booking: any = null
+  let booking: MyBooking | null = null
   let loading = true
+  let error: string | null = null
+  let currentUserId: string | null = null
+  let requestVersion = 0
+
+  $: isArabic = ($locale || 'en').startsWith('ar')
 
   onMount(() => {
     if (USE_MOCK) {
-      const active = mockBookings.find(b => b.status === 'active')
-      if (active) {
-        const pitch = mockPitches.find(p => p.id === active.pitch_id)
-        booking = { ...active, pitch_name: pitch?.name || active.pitch_id }
-      }
+      booking = null
       loading = false
       return
     }
-    const unsub = user.subscribe(async (u) => {
-      if (!u) {
+
+    const unsubscribe = authState.subscribe((state) => {
+      if (state.loading) {
+        loading = true
+        return
+      }
+
+      const userId = state.user?.id ?? null
+      if (userId === currentUserId) return
+
+      currentUserId = userId
+      requestVersion += 1
+
+      if (!userId) {
         booking = null
+        error = null
         loading = false
         return
       }
-      loading = true
-      try {
-        const now = new Date().toISOString()
-        const { data, error } = await supabase
-          .from('bookings')
-          .select('id,pitch_id,slot_datetime,status')
-          .eq('user_id', u.id)
-          .eq('status', 'active')
-          .gt('slot_datetime', now)
-          .order('slot_datetime', { ascending: true })
-          .limit(1)
 
-        if (!error && data && data.length) {
-          booking = data[0]
-          const { data: pitchData } = await supabase.from('pitches').select('name').eq('id', booking.pitch_id).maybeSingle()
-          booking.pitch_name = pitchData?.name || booking.pitch_id
-        } else {
-          booking = null
-        }
-      } catch (err) {
-        booking = null
-      }
-      loading = false
+      void loadBooking(userId)
     })
 
-    return () => unsub()
+    return unsubscribe
   })
+
+  async function loadBooking(userId: string) {
+    const version = requestVersion
+    loading = true
+    error = null
+
+    try {
+      const next = await getNextBooking(userId)
+      if (version !== requestVersion || userId !== currentUserId) return
+      booking = next
+    } catch (loadError) {
+      if (version !== requestVersion || userId !== currentUserId) return
+      const code = loadError instanceof BookingApiError ? loadError.code : 'unknown'
+      booking = null
+      error = bookingFailureMessage(code, $locale)
+    } finally {
+      if (version === requestVersion) loading = false
+    }
+  }
 
   function formatBookingTime(dateString: string) {
     const date = new Date(dateString)
@@ -60,54 +72,52 @@
     return {
       day: date.getDate(),
       month: date.toLocaleDateString(currentLocale, { month: 'short' }),
-      weekday: date.toLocaleDateString(currentLocale, { weekday: 'long' }),
+      weekday: date.toLocaleDateString(currentLocale, { weekday: 'short' }),
       time: date.toLocaleTimeString(currentLocale, { hour: '2-digit', minute: '2-digit', hour12: false })
     }
   }
 </script>
 
-<!-- Next Booking Card — Claude-inspired: ring shadows, warm tones -->
-<div class="rounded-xl p-4 transition-all duration-200"
-     style={booking
-       ? 'background: var(--primary-light/40); box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12);'
-       : 'background: var(--surface-level-1/40); box-shadow: 0 0 0 1px var(--border);'}>
+<section class="uneem-card">
   {#if loading}
-    <div class="flex items-center gap-3" style="color: var(--text-muted);">
-      <div class="w-10 h-10 rounded-full animate-pulse" style="background: var(--surface-level-1);"></div>
-      <div class="h-4 w-32 animate-pulse rounded" style="background: var(--surface-level-1);"></div>
+    <div class="flex items-center gap-3" aria-busy="true">
+      <div class="h-12 w-12 animate-pulse rounded-2xl bg-surface-level-1"></div>
+      <div class="flex-1 space-y-2">
+        <div class="h-4 w-28 animate-pulse rounded-full bg-surface-level-1"></div>
+        <div class="h-4 w-40 animate-pulse rounded-full bg-surface-level-1"></div>
+      </div>
+    </div>
+  {:else if error}
+    <div class="flex items-center gap-3">
+      <div class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-danger-light text-danger"><Icon name="alert-circle" size={19} /></div>
+      <div class="min-w-0 flex-1">
+        <p class="text-sm font-semibold text-text">{error}</p>
+        {#if currentUserId}<button on:click={() => void loadBooking(currentUserId!)} class="mt-1 min-h-8 text-sm font-bold text-primary">{$_('common.retry')}</button>{/if}
+      </div>
     </div>
   {:else if booking}
-    {@const time = formatBookingTime(booking.slot_datetime)}
-    <a href="/bookings" class="flex items-center gap-4 group">
-      <!-- Date badge -->
-      <div class="w-14 h-14 rounded-xl flex flex-col items-center justify-center flex-shrink-0"
-           style="background: var(--primary-light/60); color: var(--primary); box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.1);">
-        <span class="text-[10px] font-semibold uppercase tracking-wide">{time.month}</span>
-        <span class="text-lg font-bold leading-none">{time.day}</span>
+    {@const time = formatBookingTime(booking.starts_at)}
+    <a href="/bookings" class="group flex items-center gap-3.5">
+      <div class="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-primary-light text-primary">
+        <span class="text-[10px] font-extrabold uppercase tracking-wide">{time.month}</span>
+        <span class="text-xl font-extrabold leading-none">{time.day}</span>
       </div>
-      <!-- Info -->
-      <div class="flex-1 min-w-0">
-        <h3 class="font-semibold truncate" style="color: var(--text);">{booking.pitch_name}</h3>
-        <p class="text-sm" style="color: var(--text-secondary);">{time.weekday} at {time.time}</p>
+      <div class="min-w-0 flex-1">
+        <p class="text-xs font-bold uppercase tracking-[0.1em] text-primary">{isArabic ? 'حجزك الجاي' : 'Next booking'}</p>
+        <h3 class="mt-1 truncate font-bold text-text">{booking.pitches?.name || $_('bookings.unknown_pitch')}</h3>
+        <p class="mt-0.5 text-sm text-text-secondary">{time.weekday} · {time.time}</p>
       </div>
-      <!-- Arrow -->
-      <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200 group-hover:-translate-y-0.5"
-           style="background: var(--primary-light); color: var(--primary);">
-        <Icon name="arrow-right" size={20} />
-      </div>
+      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-text-muted transition-colors group-hover:bg-primary-light group-hover:text-primary">
+        <Icon name={isArabic ? 'arrow-left' : 'arrow-right'} size={18} />
+      </span>
     </a>
   {:else}
-    <div class="flex items-center gap-4">
-      <!-- Empty icon -->
-      <div class="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
-           style="background: var(--surface-level-1); color: var(--text-muted);">
-        <Icon name="calendar-x" size={24} />
-      </div>
-      <!-- Info -->
-      <div class="flex-1 min-w-0">
-        <p class="font-semibold" style="color: var(--text);">{$_('home.no_upcoming_bookings')}</p>
-        <p class="text-sm" style="color: var(--text-muted);">{$_('home.no_upcoming_bookings_hint')}</p>
+    <div class="flex items-center gap-3.5">
+      <div class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-surface-level-1 text-text-muted"><Icon name="calendar-x" size={21} /></div>
+      <div class="min-w-0 flex-1">
+        <p class="font-bold text-text">{isArabic ? 'ما عندك حتى حجز جاي' : 'No booking yet'}</p>
+        <a href="/home" class="mt-1 inline-flex min-h-8 items-center text-sm font-bold text-primary">{isArabic ? 'اختار مرفق' : 'Find a facility'}</a>
       </div>
     </div>
   {/if}
-</div>
+</section>

@@ -1,329 +1,144 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { goto } from '$app/navigation'
   import { supabase } from '$lib/supabaseClient'
-  import { uiState } from '$lib/stores/ui'
-  import Card from '$lib/components/Card.svelte'
-  import Button from '$lib/components/Button.svelte'
-  import TextField from '$lib/components/TextField.svelte'
+  import { language, uiState } from '$lib/stores/ui'
   import Toggle from '$lib/components/Toggle.svelte'
-  import LoadingSkeleton from '$lib/components/LoadingSkeleton.svelte'
-  import { _ } from 'svelte-i18n'
-  import { USE_MOCK, mockDelay } from '$lib/mock'
+  import TextField from '$lib/components/TextField.svelte'
+  import Button from '$lib/components/Button.svelte'
+  import Icon from '$lib/components/Icon.svelte'
 
-  interface Notification {
-    key: string
+  type Announcement = {
+    id: string
     title_en: string
     title_ar: string
-    message_en: string
-    message_ar: string
-    enabled: boolean
-    created_at: string
+    body_en: string
+    body_ar: string
+    published_at: string
     expires_at: string | null
-    updated_at: string
+    is_active: boolean
+    created_at: string
   }
 
-  let notifications: Notification[] = []
+  let announcements: Announcement[] = []
   let loading = true
-  let showForm = false
-  let editingKey: string | null = null
-  let formData = {
-    key: '',
-    title_en: '',
-    title_ar: '',
-    message_en: '',
-    message_ar: '',
-    enabled: true,
-    expires_at: ''
-  }
   let error = ''
+  let showForm = false
+  let editingId: string | null = null
+  let saving = false
+  let form = { title_en:'', title_ar:'', body_en:'', body_ar:'', published_at:'', expires_at:'', is_active:true }
 
-  onMount(async () => {
-    await checkAdmin()
-    await loadNotifications()
-  })
-
-  async function checkAdmin() {
-    if (USE_MOCK) return
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      await goto('/login')
-      return
-    }
-    const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-    if (data?.role !== 'admin') {
-      await goto('/home')
-    }
+  $: ar = $language === 'ar'
+  $: copy = ar ? {
+    title:'الإعلانات', subtitle:'رسائل قصيرة للطلبة.', add:'إعلان جديد', edit:'تعديل الإعلان', create:'إعلان جديد', enTitle:'العنوان بالإنجليزية', arTitle:'العنوان بالعربية', enBody:'النص بالإنجليزية', arBody:'النص بالعربية', publish:'النشر', expiry:'ينتهي', active:'مفعّل', save:'حفظ', cancel:'إلغاء', empty:'ما كاين حتى إعلان', archived:'مؤرشف', archive:'أرشفة', activate:'تفعيل', loadError:'تعذر تحميل الإعلانات.', saveError:'تعذر حفظ الإعلان.', required:'أضف العنوان والنص باللغتين.', noExpiry:'بدون انتهاء'
+  } : {
+    title:'Announcements', subtitle:'Short updates for students.', add:'New announcement', edit:'Edit announcement', create:'New announcement', enTitle:'English title', arTitle:'Arabic title', enBody:'English message', arBody:'Arabic message', publish:'Publish', expiry:'Expires', active:'Active', save:'Save', cancel:'Cancel', empty:'No announcements yet', archived:'Archived', archive:'Archive', activate:'Activate', loadError:'Couldn’t load announcements.', saveError:'Couldn’t save announcement.', required:'Add the title and message in both languages.', noExpiry:'No expiry'
   }
 
-  async function loadNotifications() {
-    if (USE_MOCK) {
-      notifications = []
-      loading = false
-      return
-    }
-    const { data, error: err } = await supabase
-      .from('system_notifications')
-      .select('*')
-      .order('created_at', { ascending: false })
+  onMount(load)
 
-    if (!err && data) {
-      notifications = data
-    }
+  function toLocalInput(value: string | null) {
+    if (!value) return ''
+    const date = new Date(value)
+    const offset = date.getTimezoneOffset()
+    return new Date(date.getTime() - offset * 60000).toISOString().slice(0,16)
+  }
+
+  async function load() {
+    loading = true
+    error = ''
+    const { data, error: err } = await supabase.from('announcements').select('id,title_en,title_ar,body_en,body_ar,published_at,expires_at,is_active,created_at').order('published_at',{ascending:false})
+    if (err) error = copy.loadError
+    else announcements = (data || []) as Announcement[]
     loading = false
   }
 
-  function openCreateForm() {
-    editingKey = null
-    formData = {
-      key: '',
-      title_en: '',
-      title_ar: '',
-      message_en: '',
-      message_ar: '',
-      enabled: true,
-      expires_at: ''
-    }
-    showForm = true
-  }
-
-  function openEditForm(notification: Notification) {
-    editingKey = notification.key
-    formData = {
-      key: notification.key,
-      title_en: notification.title_en,
-      title_ar: notification.title_ar,
-      message_en: notification.message_en,
-      message_ar: notification.message_ar,
-      enabled: notification.enabled,
-      expires_at: notification.expires_at ? notification.expires_at.substring(0, 16) : ''
-    }
-    showForm = true
-  }
-
-  async function saveNotification() {
+  function openCreate() {
+    editingId = null
+    form = { title_en:'', title_ar:'', body_en:'', body_ar:'', published_at:toLocalInput(new Date().toISOString()), expires_at:'', is_active:true }
     error = ''
-    if (!formData.key || !formData.title_en || !formData.message_en) {
-      error = $_('notifications.error_key_required')
-      return
-    }
+    showForm = true
+  }
 
-    // Validate key format (alphanumeric + underscores only)
-    if (!/^[a-z0-9_]+$/.test(formData.key)) {
-      error = $_('notifications.error_key_unique')
-      return
-    }
+  function openEdit(item: Announcement) {
+    editingId = item.id
+    form = { title_en:item.title_en, title_ar:item.title_ar, body_en:item.body_en, body_ar:item.body_ar, published_at:toLocalInput(item.published_at), expires_at:toLocalInput(item.expires_at), is_active:item.is_active }
+    error = ''
+    showForm = true
+  }
 
+  async function save() {
+    error = ''
+    if (![form.title_en,form.title_ar,form.body_en,form.body_ar].every((value) => value.trim())) { error = copy.required; return }
+    saving = true
     try {
-      if (USE_MOCK) {
-        await mockDelay()
-        uiState.addToast(editingKey ? 'Notification updated!' : 'Notification created!', 'success')
-        showForm = false
-        return
-      }
-
       const payload = {
-        key: formData.key,
-        title_en: formData.title_en,
-        title_ar: formData.title_ar || formData.title_en,
-        message_en: formData.message_en,
-        message_ar: formData.message_ar || formData.message_en,
-        enabled: formData.enabled,
-        expires_at: formData.expires_at ? new Date(formData.expires_at).toISOString() : null
+        title_en:form.title_en.trim(), title_ar:form.title_ar.trim(), body_en:form.body_en.trim(), body_ar:form.body_ar.trim(),
+        published_at:form.published_at ? new Date(form.published_at).toISOString() : new Date().toISOString(),
+        expires_at:form.expires_at ? new Date(form.expires_at).toISOString() : null,
+        is_active:form.is_active
       }
-
-      if (editingKey) {
-        const { error: err } = await supabase
-          .from('system_notifications')
-          .update(payload)
-          .eq('key', editingKey)
-
-        if (err) { error = 'Failed to update notification. Please try again.'; return }
-        uiState.addToast($_('notifications.save_success'), 'success')
+      if (editingId) {
+        const { error: err } = await supabase.from('announcements').update(payload).eq('id',editingId)
+        if (err) throw err
       } else {
-        // Check if key already exists
-        const { data: existing } = await supabase
-          .from('system_notifications')
-          .select('key')
-          .eq('key', formData.key)
-          .maybeSingle()
-
-        if (existing) {
-          error = $_('notifications.error_key_unique')
-          return
-        }
-
-        const { error: err } = await supabase
-          .from('system_notifications')
-          .insert([payload])
-
-        if (err) { error = 'Failed to create notification. Please try again.'; return }
-        uiState.addToast($_('notifications.save_success'), 'success')
+        const { data:{ user } } = await supabase.auth.getUser()
+        if (!user) throw new Error('auth_required')
+        const { error: err } = await supabase.from('announcements').insert([{...payload,created_by:user.id}])
+        if (err) throw err
       }
-
       showForm = false
-      await loadNotifications()
-    } catch (e: any) {
-      error = 'An error occurred. Please try again.'
-    }
+      uiState.addToast(ar ? 'تم حفظ الإعلان' : 'Announcement saved', 'success')
+      await load()
+    } catch {
+      error = copy.saveError
+    } finally { saving = false }
   }
 
-  async function toggleNotification(key: string, currentEnabled: boolean) {
-    if (USE_MOCK) {
-      uiState.addToast('Notification toggled!', 'success')
-      return
-    }
-
-    const { error: err } = await supabase
-      .from('system_notifications')
-      .update({ enabled: !currentEnabled })
-      .eq('key', key)
-
-    if (!err) {
-      uiState.addToast(!currentEnabled ? $_('notifications.status_enabled') : $_('notifications.status_disabled'), 'success')
-      await loadNotifications()
-    } else {
-      uiState.addToast(err.message, 'error')
-    }
-  }
-
-  async function deleteNotification(key: string) {
-    if (!confirm($_('notifications.delete_confirm'))) return
-
-    if (USE_MOCK) {
-      uiState.addToast('Notification deleted!', 'success')
-      return
-    }
-
-    const { error: err } = await supabase
-      .from('system_notifications')
-      .delete()
-      .eq('key', key)
-
-    if (!err) {
-      uiState.addToast('Notification deleted!', 'success')
-      await loadNotifications()
-    } else {
-      uiState.addToast(err.message, 'error')
-    }
+  async function setActive(item: Announcement, active: boolean) {
+    const { error: err } = await supabase.from('announcements').update({is_active:active}).eq('id',item.id)
+    if (err) { uiState.addToast(copy.saveError,'error'); return }
+    announcements = announcements.map((row) => row.id===item.id ? {...row,is_active:active} : row)
+    uiState.addToast(active ? (ar?'تم التفعيل':'Announcement activated') : (ar?'تمت الأرشفة':'Announcement archived'),'success')
   }
 </script>
 
-<div class="max-w-4xl mx-auto p-4">
-  <div class="flex justify-between items-center mb-6">
-    <h1 class="text-2xl font-medium font-serif text-text">{$_('notifications.title')}</h1>
-    {#if !showForm}
-      <Button variant="primary" size="sm" on:click={openCreateForm}>{$_('notifications.add_new')}</Button>
-    {/if}
-  </div>
+<svelte:head><title>{copy.title} · UNEEM Admin</title></svelte:head>
 
-  {#if error}
-    <div class="bg-danger-light border border-danger/20 text-danger p-3 rounded-lg mb-4 text-sm">{error}</div>
-  {/if}
+<main class="uneem-page max-w-6xl">
+  <header class="uneem-page-header">
+    <div><p class="uneem-kicker">Admin</p><h1 class="uneem-title">{copy.title}</h1><p class="uneem-subtitle">{copy.subtitle}</p></div>
+    {#if !showForm}<button on:click={openCreate} class="uneem-primary-action min-h-11 shrink-0 px-4 text-sm"><Icon name="plus" size={17}/>{copy.add}</button>{/if}
+  </header>
+
+  {#if error}<div class="mb-4 rounded-2xl bg-danger-light px-4 py-3 text-sm font-semibold text-danger" role="alert">{error}</div>{/if}
 
   {#if showForm}
-    <Card variant="elevated" className="mb-5">
-      <div class="space-y-4">
-        <h2 class="text-base font-medium font-serif text-text">{editingKey ? $_('notifications.edit_notification') : $_('notifications.create_notification')}</h2>
-
-        <TextField label={$_('notifications.key_label')} placeholder={$_('notifications.key_placeholder')} helperText={$_('notifications.key_helper')} bind:value={formData.key} disabled={editingKey !== null} />
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <TextField label={$_('notifications.title_en_label')} bind:value={formData.title_en} />
-          </div>
-          <div>
-            <TextField label={$_('notifications.title_ar_label')} bind:value={formData.title_ar} />
-          </div>
-        </div>
-
-        <div>
-          <label for="msg-en" class="block text-sm font-medium text-text-secondary mb-1">{$_('notifications.message_en_label')}</label>
-          <textarea
-            id="msg-en"
-            class="w-full rounded-lg border border-border bg-surface-level-1 p-3 text-sm text-text placeholder:text-text-muted focus:border-info focus:outline-none focus:ring-1 focus:ring-info transition-colors min-h-[100px]"
-            bind:value={formData.message_en}
-          ></textarea>
-        </div>
-
-        <div>
-          <label for="msg-ar" class="block text-sm font-medium text-text-secondary mb-1">{$_('notifications.message_ar_label')}</label>
-          <textarea
-            id="msg-ar"
-            class="w-full rounded-lg border border-border bg-surface-level-1 p-3 text-sm text-text placeholder:text-text-muted focus:border-info focus:outline-none focus:ring-1 focus:ring-info transition-colors min-h-[100px]"
-            bind:value={formData.message_ar}
-          ></textarea>
-        </div>
-
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label for="expires-at" class="block text-sm font-medium text-text-secondary mb-1">{$_('notifications.expires_at_label')}</label>
-            <input
-              id="expires-at"
-              type="datetime-local"
-              class="w-full rounded-lg border border-border bg-surface-level-1 p-3 text-sm text-text focus:border-info focus:outline-none focus:ring-1 focus:ring-info transition-colors"
-              bind:value={formData.expires_at}
-            />
-          </div>
-          <div class="flex items-end">
-            <Toggle
-              checked={formData.enabled}
-              onToggle={() => formData.enabled = !formData.enabled}
-              label={$_('notifications.enabled_label')}
-            />
-          </div>
-        </div>
-
-        <div class="flex gap-3">
-          <Button variant="primary" className="flex-1" on:click={saveNotification}>{$_('notifications.save')}</Button>
-          <Button variant="secondary" className="flex-1" on:click={() => (showForm = false)}>{$_('common.cancel')}</Button>
-        </div>
+    <section class="uneem-panel mb-6 overflow-hidden">
+      <div class="flex min-h-14 items-center justify-between border-b border-border-light px-4 sm:px-5"><h2 class="font-bold text-text">{editingId ? copy.edit : copy.create}</h2><button on:click={() => showForm=false} class="grid h-10 w-10 place-items-center rounded-full text-text-muted hover:bg-surface-level-1"><Icon name="x" size={18}/></button></div>
+      <div class="grid gap-4 p-4 sm:grid-cols-2 sm:p-5">
+        <TextField label={copy.enTitle} bind:value={form.title_en}/><TextField label={copy.arTitle} bind:value={form.title_ar}/>
+        <div><label class="text-sm font-bold text-text" for="body-en">{copy.enBody}</label><textarea id="body-en" bind:value={form.body_en} rows="4" class="uneem-field mt-2 resize-none"></textarea></div>
+        <div><label class="text-sm font-bold text-text" for="body-ar">{copy.arBody}</label><textarea id="body-ar" bind:value={form.body_ar} rows="4" dir="rtl" class="uneem-field mt-2 resize-none"></textarea></div>
+        <div><label class="text-sm font-bold text-text" for="published-at">{copy.publish}</label><input id="published-at" type="datetime-local" bind:value={form.published_at} class="uneem-field mt-2"/></div>
+        <div><label class="text-sm font-bold text-text" for="expires-at">{copy.expiry}</label><input id="expires-at" type="datetime-local" bind:value={form.expires_at} class="uneem-field mt-2"/></div>
       </div>
-    </Card>
+      <div class="mx-4 mb-4 rounded-[18px] bg-surface-level-1 p-4 sm:mx-5 sm:mb-5"><Toggle checked={form.is_active} onToggle={() => form.is_active=!form.is_active} label={copy.active}/></div>
+      <div class="flex gap-3 border-t border-border-light p-4 sm:justify-end sm:p-5"><Button variant="secondary" size="lg" className="flex-1 sm:flex-none sm:min-w-28" disabled={saving} on:click={() => showForm=false}>{copy.cancel}</Button><Button size="lg" className="flex-1 sm:flex-none sm:min-w-28" loading={saving} on:click={save}>{copy.save}</Button></div>
+    </section>
   {/if}
 
   {#if loading}
-    <div class="space-y-4">
-      <LoadingSkeleton />
-      <LoadingSkeleton />
-    </div>
-  {:else if notifications.length === 0}
-    <Card variant="elevated" className="text-center py-12">
-      <p class="text-text-secondary mb-4">{$_('notifications.no_notifications')}</p>
-      <Button variant="primary" on:click={openCreateForm}>{$_('notifications.create_first')}</Button>
-    </Card>
+    <div class="space-y-3" aria-busy="true">{#each [1,2,3] as _}<div class="h-28 animate-pulse rounded-[22px] bg-surface-level-1"></div>{/each}</div>
+  {:else if announcements.length===0}
+    <section class="uneem-empty"><div class="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-surface text-text-muted"><Icon name="bell" size={22}/></div><p class="mt-3 font-bold text-text">{copy.empty}</p><button on:click={openCreate} class="mt-3 min-h-10 text-sm font-bold text-primary">{copy.add}</button></section>
   {:else}
     <div class="space-y-3">
-      {#each notifications as notification (notification.key)}
-        <Card variant="elevated" className="p-4">
-          <div class="flex justify-between items-start gap-4 flex-wrap">
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 mb-1">
-                <h3 class="text-base font-semibold text-text">{notification.title_en}</h3>
-                <span class="px-2 py-0.5 text-xs rounded-full {notification.enabled ? 'bg-success/20 text-success' : 'bg-text-muted/20 text-text-muted'}">
-                  {notification.enabled ? $_('notifications.status_enabled') : $_('notifications.status_disabled')}
-                </span>
-              </div>
-              <p class="text-text-secondary text-sm mb-1 line-clamp-2">{notification.message_en}</p>
-              <p class="text-text-muted text-xs">
-                {$_('notifications.key_label')}: <code class="bg-surface-level-2 px-1.5 py-0.5 rounded text-xs">{notification.key}</code>
-                {#if notification.expires_at}
-                  | {$_('notifications.expires')}: {new Date(notification.expires_at).toLocaleDateString()}
-                {:else}
-                  | {$_('notifications.never_expires')}
-                {/if}
-              </p>
-            </div>
-            <div class="flex gap-2 flex-shrink-0">
-              <Button variant="ghost" size="sm" on:click={() => toggleNotification(notification.key, notification.enabled)}>
-                {notification.enabled ? $_('notifications.enabled_off') : $_('notifications.enabled_on')}
-              </Button>
-              <Button variant="secondary" size="sm" on:click={() => openEditForm(notification)}>{$_('common.edit')}</Button>
-              <Button variant="danger" size="sm" on:click={() => deleteNotification(notification.key)}>{$_('common.delete')}</Button>
-            </div>
-          </div>
-        </Card>
+      {#each announcements as item (item.id)}
+        <article class="uneem-card" class:opacity-60={!item.is_active}>
+          <div class="flex items-start justify-between gap-4"><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2"><h2 class="truncate font-bold text-text">{ar ? item.title_ar : item.title_en}</h2>{#if !item.is_active}<span class="rounded-full bg-surface-level-1 px-2 py-0.5 text-[10px] font-bold text-text-muted">{copy.archived}</span>{/if}</div><p class="mt-1 line-clamp-2 text-sm leading-6 text-text-secondary">{ar ? item.body_ar : item.body_en}</p><p class="mt-2 text-xs text-text-muted">{new Date(item.published_at).toLocaleString(ar?'ar-MA':'en')} · {item.expires_at ? new Date(item.expires_at).toLocaleDateString(ar?'ar-MA':'en') : copy.noExpiry}</p></div><button on:click={() => openEdit(item)} class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-text-muted hover:bg-surface-level-1 hover:text-text"><Icon name="edit" size={17}/></button></div>
+          <div class="mt-3 border-t border-border-light pt-3"><button on:click={() => setActive(item,!item.is_active)} class={`min-h-10 text-sm font-bold ${item.is_active ? 'text-danger' : 'text-success'}`}>{item.is_active ? copy.archive : copy.activate}</button></div>
+        </article>
       {/each}
     </div>
   {/if}
-</div>
+</main>

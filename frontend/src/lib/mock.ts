@@ -1,14 +1,13 @@
-// Mock mode for UI testing without a real backend
-// Set USE_MOCK=true in environment to enable mock mode (default: false = use real database)
-export const USE_MOCK = typeof process !== 'undefined'
-  ? process.env.USE_MOCK === 'true'
-  : false
+// Legacy fixture data retained only for development screenshots/tests.
+// UNEEM release builds cannot enable mock mode through environment variables.
+export const USE_MOCK = false as const
 
 export const mockProfile = {
   id: 'mock-user-1',
-  email: 'test@unem.edu',
+  email: 'test@usmba.ac.ma',
   student_id: 'S123456789',
   full_name: 'Test Student',
+  username: 'test_student',
   role: 'admin',
   status: 'approved',
   rejection_reason: null,
@@ -36,8 +35,8 @@ export const mockSlots = [
 
 export const mockUsers = [
   mockProfile,
-  { id: 'mock-user-2', email: 'pending@unem.edu', student_id: 'S987654321', full_name: 'Pending Student', role: 'student', status: 'pending', rejection_reason: null as string | null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: 'mock-user-3', email: 'student@unem.edu', student_id: 'S111222333', full_name: 'Regular Student', role: 'student', status: 'approved', rejection_reason: null as string | null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+  { id: 'mock-user-2', email: 'pending@usmba.ac.ma', student_id: 'S987654321', full_name: 'Pending Student', role: 'student', status: 'pending', rejection_reason: null as string | null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+  { id: 'mock-user-3', email: 'student@usmba.ac.ma', student_id: 'S111222333', full_name: 'Regular Student', role: 'student', status: 'approved', rejection_reason: null as string | null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
 ]
 
 export function mockDelay(ms = 300) {
