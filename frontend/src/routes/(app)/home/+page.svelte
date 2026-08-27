@@ -3,6 +3,7 @@
   import { supabase } from '$lib/supabaseClient'
   import PitchCard from '$lib/components/PitchCard.svelte'
   import NextBookingCard from '$lib/components/NextBookingCard.svelte'
+  import PwaInstallCard from '$lib/components/PwaInstallCard.svelte'
   import Icon from '$lib/components/Icon.svelte'
   import NotificationBanner from '$lib/components/NotificationBanner.svelte'
   import { _, locale } from 'svelte-i18n'
@@ -85,6 +86,7 @@
   <div class="space-y-3">
     <NextBookingCard />
     <NotificationBanner />
+    <PwaInstallCard />
   </div>
 
   <section aria-labelledby="facilities-heading" class="mt-8">
