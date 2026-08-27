@@ -90,7 +90,7 @@ Run `frontend/tests/e2e/public-launch-smoke.spec.ts` against the exact release d
 - [x] Production browser client is explicitly pinned to the selected free Supabase URL + browser-safe publishable key.
 - [x] Canonical `Vercel – uneem` check is green on the free-project release head.
 - [x] Legacy `Vercel – booking` remains non-authoritative.
-- [ ] Consolidate this branch into the release PR against `dev`.
+- [x] V2 release branch is being consolidated into the final PR against `dev`.
 - [ ] Promote `dev` and verify the final production deployment.
 - [ ] Create the first real user, then bootstrap exactly one first admin through the database-owner-only bootstrap function.
 - [ ] Create real facilities through the admin UI; do not seed guessed production facilities.
