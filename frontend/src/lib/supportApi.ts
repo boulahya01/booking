@@ -165,41 +165,34 @@ export async function createGuestSupportThread(input: {
   subject?: string
   body: string
 }): Promise<{ threadId: string; accessToken: string }> {
-  let response: Response
-  try {
-    response = await fetch('/api/support/guest', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        contactEmail: input.contactEmail ?? '',
-        subject: input.subject ?? '',
-        body: input.body
-      })
-    })
-  } catch {
+  const { data, error } = await supabase.functions.invoke('guest-support', {
+    body: {
+      contactEmail: input.contactEmail ?? '',
+      subject: input.subject ?? '',
+      body: input.body
+    }
+  })
+
+  if (error) {
+    const response = (error as any)?.context
+    if (response instanceof Response) {
+      try {
+        const payload = await response.clone().json()
+        if (typeof payload?.error === 'string' && payload.error.trim()) {
+          throw new Error(payload.error)
+        }
+      } catch (cause) {
+        if (cause instanceof Error && cause.message !== 'Unexpected end of JSON input') throw cause
+      }
+    }
     throw new Error('Support is temporarily unavailable. Please try again.')
   }
 
-  let payload: any = null
-  try {
-    payload = await response.json()
-  } catch {
-    // Keep proxy/runtime failures generic.
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      typeof payload?.error === 'string'
-        ? payload.error
-        : 'Support is temporarily unavailable. Please try again.'
-    )
-  }
-
-  if (!payload?.threadId || !payload?.accessToken) {
+  if (!data?.threadId || !data?.accessToken) {
     throw new Error('Support is temporarily unavailable. Please try again.')
   }
 
-  return { threadId: payload.threadId, accessToken: payload.accessToken }
+  return { threadId: data.threadId, accessToken: data.accessToken }
 }
 
 export async function getGuestSupportThread(accessToken: string): Promise<SupportThread | null> {
