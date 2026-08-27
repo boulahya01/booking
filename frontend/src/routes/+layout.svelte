@@ -8,6 +8,7 @@
   import TopBar from '$lib/components/TopBar.svelte'
   import SideNav from '$lib/components/SideNav.svelte'
   import Toast from '$lib/components/Toast.svelte'
+  import PwaRuntime from '$lib/components/PwaRuntime.svelte'
   import { theme, toasts, uiState } from '$lib/stores/ui'
   import { initializeI18n } from '$lib/i18n'
   import { supabase } from '$lib/supabaseClient'
@@ -294,6 +295,8 @@
 <svelte:head>
   <title>UNEEM</title>
 </svelte:head>
+
+<PwaRuntime />
 
 <div class="app-shell">
   {#if !chromeFreePage}
