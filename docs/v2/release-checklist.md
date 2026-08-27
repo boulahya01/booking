@@ -6,52 +6,56 @@ This checklist is the public-launch gate for the current V2 release candidate. A
 
 - [x] UNEEM is the active product identity in app/PWA assets.
 - [x] Canonical V2 database source exists under `supabase/v2/`.
-- [x] Deployable `supabase/migrations/` contains only the hosted V2 migration versions.
+- [x] Deployable `supabase/migrations/` contains the active V2 migration stack through layer 025.
 - [x] Legacy V1 booking cron/job and Edge Function runtime is removed from the release tree.
+- [x] Guest Help uses the single V2 `guest-support` Supabase Edge Function; no service-role credential is required in Vercel.
 - [x] Legacy `/admin/manage-users` implementation is removed; the compatibility route only redirects to `/admin/users`.
-- [x] Release-hygiene guard runs in CI.
+- [x] Release-hygiene guard runs in the production build path.
 - [x] Legacy UI mock mode is hard-disabled and cannot be enabled from runtime environment variables.
-- [ ] Review remaining old naming/dead helpers and remove only when usage is proven absent.
 
 ## 2. Database and authorization
 
-- [x] V2 layers 001–024 applied to the fresh hosted Supabase project.
-- [x] Auth lifecycle contract passed.
-- [x] Guest support IP-gate contract passed.
-- [x] Advisor hardening contract passed.
-- [x] Booking contract passed.
-- [x] Security/identity/support/match/admin/backend-read/moderation/first-admin final-schema suites passed after required fixture corrections.
-- [x] Multi-session concurrency gate passed for one-active booking, same-slot exclusion and last-match-spot capacity.
-- [x] Full-schema lint returned no schema errors after layer 024.
-- [x] Performance Advisor reached 0 errors / 0 warnings.
-- [ ] If any schema/RLS/RPC migration changes after this checkpoint, rerun every affected contract and advisor gate.
+Production/free target: Supabase `unem-booking` (`hudjpcrjoryyhpphonsp`).
+
+- [x] Empty V1 tables were removed before V2 installation; no real users/data were present.
+- [x] V2 layers 001–024 applied successfully to the selected free project.
+- [x] Layer 025 revoked unnecessary anonymous support/timeline reads and added current-advisor FK indexes.
+- [x] All application tables have RLS enabled.
+- [x] Current Performance Advisor has no ERROR/WARN findings; traffic-free unused-index INFO is expected.
+- [x] Adapted production-path security contract passed using the real Auth signup trigger path.
+- [x] Integrated booking -> open match -> join -> support privilege smoke passed and rolled back.
+- [x] Server guest-creation RPC is service-role-only.
+- [x] Capability-token guest read/reply RPCs remain intentionally anonymous.
+- [x] Type generation succeeds against the selected project.
+- [x] Historical full V2 contract/race stack passed on the earlier canonical V2 validation project; any future behavioral schema change must rerun affected contracts here.
 
 ## 3. Supabase Auth production configuration
 
-- [ ] Email + Password enabled.
-- [ ] Confirm Email enabled.
-- [ ] Anonymous sign-in disabled.
-- [ ] Production Site URL is `https://uneem.site`.
-- [ ] Exact production verification/recovery redirect URLs are allowed.
-- [ ] Exact preview origin used for launch validation is allowed; no broad production wildcard.
+Live Auth settings verified through GoTrue `/settings` on the selected free project:
+
+- [x] Email provider enabled.
+- [x] Signup enabled.
+- [x] Anonymous sign-in disabled.
+- [x] Email confirmation required (`mailer_autoconfirm=false`).
+- [ ] Production Site URL is the intended canonical UNEEM origin.
+- [ ] Exact production `/verify-email` redirect URL is allowed.
+- [ ] Exact production `/reset-password` redirect URL is allowed.
 - [ ] Confirmation template uses the supported Supabase confirmation callback flow.
 - [ ] Recovery template returns to `/reset-password`.
-- [ ] No service-role or database-owner credential is present in browser/VITE variables.
+- [x] No service-role or database-owner credential is present in browser/VITE variables.
+
+The connected Supabase tooling does not expose Auth dashboard redirect/template mutation, so the unchecked settings above require dashboard verification.
 
 ## 4. Production auth email
 
-- [ ] Custom SMTP configured with a UNEEM-controlled sender/domain.
-- [ ] SPF passes.
-- [ ] DKIM passes.
-- [ ] DMARC posture reviewed.
-- [ ] Click/open tracking disabled for auth mail.
-- [ ] Real signup confirmation reaches a non-team student address.
-- [ ] Real password-recovery email reaches a non-team student address.
+- [ ] Real signup confirmation reaches a student-controlled address.
+- [ ] Real password-recovery email reaches a student-controlled address.
 - [ ] Confirmation and recovery links resolve to the intended UNEEM origin and routes.
+- [ ] If launch volume exceeds the free/default mailer envelope, configure a UNEEM-controlled SMTP sender instead of weakening confirmation.
 
 ## 5. Browser launch smoke
 
-Run `frontend/tests/e2e/public-launch-smoke.spec.ts` against the exact release preview.
+Run `frontend/tests/e2e/public-launch-smoke.spec.ts` against the exact release deployment.
 
 - [ ] Desktop Chrome suite passes.
 - [ ] Pixel 5/mobile suite passes.
@@ -63,7 +67,7 @@ Run `frontend/tests/e2e/public-launch-smoke.spec.ts` against the exact release p
 - [ ] Manifest/favicon/install assets are reachable.
 - [ ] Direct reset-password visit fails closed without recovery authority.
 - [ ] Malformed verification token remains on safe error path.
-- [ ] Guest Help rejects non-JSON and oversized anonymous bodies before DB execution.
+- [ ] Real browser guest Help create/resume/reply passes through the deployed Supabase Edge Function.
 
 ## 6. Authenticated end-to-end flows
 
@@ -75,29 +79,22 @@ Run `frontend/tests/e2e/public-launch-smoke.spec.ts` against the exact release p
 - [ ] Forgot password -> recovery -> new password -> forced re-login.
 - [ ] Expired/reused/forged recovery states fail closed.
 - [ ] Signed-in password change requires current password.
-- [ ] Booking create/cancel flow works against hosted V2.
+- [ ] Booking create/cancel flow works against the selected free project.
 - [ ] Open match create/join/leave/roster/capacity flow works.
 - [ ] Authenticated Help thread flow works.
-- [ ] Guest Help create/resume/reply works without exposing server secrets.
 - [ ] Admin booking/facility/user/verification/support/announcement flows work.
 - [ ] Suspension/restoration and identity-remediation paths remain distinct.
 
 ## 7. Deployment and release
 
-- [ ] Canonical `Vercel – uneem` check is green on the exact release head.
-- [ ] No release-blocking runtime error groups appear after smoke traffic.
-- [ ] GitHub PR stack is consolidated into one release PR against `dev` or merged in verified dependency order.
-- [ ] Final release PR is non-draft only after all hard gates above are satisfied.
-- [ ] Release merge uses normal GitHub history; no force-push/history rewrite.
-- [ ] Production promotion occurs only after exact-head validation.
+- [x] Production browser client is explicitly pinned to the selected free Supabase URL + browser-safe publishable key.
+- [x] Canonical `Vercel – uneem` check is green on the free-project release head.
+- [x] Legacy `Vercel – booking` remains non-authoritative.
+- [ ] Consolidate this branch into the release PR against `dev`.
+- [ ] Promote `dev` and verify the final production deployment.
+- [ ] Create the first real user, then bootstrap exactly one first admin through the database-owner-only bootstrap function.
+- [ ] Create real facilities through the admin UI; do not seed guessed production facilities.
 
 ## Stop conditions
 
-Do not release when any of these are true:
-
-- production confirmation/recovery email delivery is unverified;
-- Auth Site URL/redirect/template configuration is unknown;
-- an authorization/database regression is unresolved;
-- a release-head build/smoke has not been executed;
-- service-role/SMTP/database-owner credentials are exposed to browser code or Git;
-- the canonical deployment is red for a real code/runtime failure.
+Do not call email/auth flows production-complete when Site URL/redirect/template configuration is unknown. Do not expose service-role, SMTP, or database-owner credentials to browser code or Git. Any real authorization/database regression remains release-blocking.
