@@ -44,7 +44,7 @@ Live Auth settings verified through GoTrue `/settings` on the selected free proj
 - [ ] Recovery template returns to `/reset-password`.
 - [x] No service-role or database-owner credential is present in browser/VITE variables.
 
-The connected Supabase tooling does not expose Auth dashboard redirect/template mutation, so the unchecked settings above require dashboard verification.
+The connected Supabase tooling does not expose Auth dashboard redirect/template mutation. Those five unchecked Auth dashboard items are the remaining manual configuration handoff; they are not silently assumed complete.
 
 ## 4. Production auth email
 
