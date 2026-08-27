@@ -5,20 +5,24 @@
   import Icon from './Icon.svelte'
 
   let showingIosHelp = false
+  let showingManualHelp = false
   let installing = false
 
   $: isArabic = ($locale || 'en').startsWith('ar')
-  $: visible = !$pwaInstallState.standalone && ($pwaInstallState.available || $pwaInstallState.ios)
+  $: visible = !$pwaInstallState.standalone && ($pwaInstallState.available || $pwaInstallState.ios || showingManualHelp)
   $: title = isArabic ? 'ثبّت UNEEM' : 'Install UNEEM'
   $: body = isArabic ? 'افتح الحجوزات والمباريات بسرعة من شاشتك الرئيسية.' : 'Open bookings and matches faster from your home screen.'
   $: cta = isArabic ? 'تثبيت التطبيق' : 'Install app'
   $: iosHelp = isArabic ? 'في Safari: اضغط مشاركة، ثم «إضافة إلى الشاشة الرئيسية».' : 'In Safari: tap Share, then “Add to Home Screen”.'
+  $: manualHelp = isArabic ? 'تعذر فتح نافذة التثبيت. افتح قائمة المتصفح واختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».' : 'The install prompt isn’t available right now. Open your browser menu and choose “Install app” or “Add to Home Screen”.'
 
   async function install() {
     installing = true
+    showingManualHelp = false
     try {
       const outcome = await promptPwaInstall()
       if (outcome === 'ios') showingIosHelp = true
+      if (outcome === 'unavailable') showingManualHelp = true
     } finally {
       installing = false
     }
@@ -37,18 +41,22 @@
         <p class="mt-1 max-w-md text-xs leading-5 text-text-secondary">{body}</p>
       </div>
 
-      <div class="hidden shrink-0 sm:block">
-        <Button variant="primary" size="sm" loading={installing} disabled={installing} on:click={install}>{cta}</Button>
+      {#if !showingManualHelp}
+        <div class="hidden shrink-0 sm:block">
+          <Button variant="primary" size="sm" loading={installing} disabled={installing} on:click={install}>{cta}</Button>
+        </div>
+      {/if}
+    </div>
+
+    {#if !showingManualHelp}
+      <div class="border-t border-border-light px-4 py-3 sm:hidden">
+        <Button variant="primary" size="md" className="w-full" loading={installing} disabled={installing} on:click={install}>{cta}</Button>
       </div>
-    </div>
+    {/if}
 
-    <div class="border-t border-border-light px-4 py-3 sm:hidden">
-      <Button variant="primary" size="md" className="w-full" loading={installing} disabled={installing} on:click={install}>{cta}</Button>
-    </div>
-
-    {#if showingIosHelp}
+    {#if showingIosHelp || showingManualHelp}
       <div class="border-t border-border-light bg-surface-level-1 px-4 py-3 text-xs font-medium leading-5 text-text-secondary" role="status">
-        {iosHelp}
+        {showingManualHelp ? manualHelp : iosHelp}
       </div>
     {/if}
   </section>
