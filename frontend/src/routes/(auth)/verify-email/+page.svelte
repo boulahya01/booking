@@ -7,6 +7,12 @@
   import { language } from '$lib/stores/ui'
   import { getMySessionContext } from '$lib/sessionApi'
   import { emailConfirmationRedirectUrl } from '$lib/authFlow'
+  import {
+    confirmationResendSeconds,
+    formatConfirmationCountdown,
+    rememberConfirmationSend
+  } from '$lib/confirmationResend'
+  import { authRetryAfterSeconds, classifyAuthFailure } from '$lib/ux/authFailure'
   import { isValidEmail } from '$lib/utils/cn'
   import Button from '$lib/components/Button.svelte'
   import AuthShell from '$lib/components/AuthShell.svelte'
@@ -18,30 +24,41 @@
   let errorMessage = ''
   let resendLoading = false
   let resendMessage = ''
+  let resendSeconds = 0
   let hintedEmail = ''
   let nextPath = '/home'
   let restoring = false
 
   $: copy = $language === 'ar'
     ? {
-        title: 'تحقق من بريدك', subtitle: 'أرسلنا رابط التأكيد إلى بريدك.', resend: 'إرسال رابط جديد', sent: 'إذا كان البريد صالحاً، سيصلك رابط جديد بعد قليل.',
+        title: 'تحقق من بريدك', subtitle: 'أرسلنا رابط التأكيد. تحقق من صندوق الوارد والرسائل غير المرغوب فيها.', resend: 'إرسال رابط جديد', resendIn: 'إعادة الإرسال بعد',
+        sent: 'إذا كان حسابك ما زال ينتظر التأكيد، فسيصلك رابط جديد. إذا أكدت البريد بالفعل، سجّل الدخول.',
         verifying: 'جاري تأكيد البريد', verifyingHelp: 'لحظة واحدة فقط.', success: 'تم تأكيد البريد', successHelp: 'تم تأكيد بريدك بنجاح.', continue: 'متابعة',
         error: 'تعذر تأكيد الرابط', expired: 'الرابط منتهي أو غير صالح. اطلب رابطاً جديداً.', generic: 'تعذر تأكيد البريد الآن.', help: 'تحتاج مساعدة؟', signIn: 'العودة لتسجيل الدخول',
-        rateLimit: 'طلبات كثيرة. انتظر قليلاً ثم حاول مجدداً.'
+        rateLimit: 'طلبت رابطاً مؤخراً. انتظر انتهاء العداد ثم حاول مجدداً.', network: 'تعذر الوصول إلى خدمة البريد. تحقق من اتصالك وحاول مجدداً.',
+        resendFailed: 'تعذر إرسال رابط جديد الآن. حاول مرة أخرى بعد قليل.', missingEmail: 'ارجع إلى تسجيل الدخول وأدخل بريدك من جديد.'
       }
     : {
-        title: 'Check your email', subtitle: 'We sent a confirmation link to your email.', resend: 'Resend link', sent: 'If the email is eligible, a fresh link will arrive shortly.',
+        title: 'Check your email', subtitle: 'We sent a confirmation link. Check your inbox and spam folder.', resend: 'Resend link', resendIn: 'Resend in',
+        sent: 'If your account still needs confirmation, a fresh link is on the way. Already confirmed? Sign in instead.',
         verifying: 'Confirming email', verifyingHelp: 'Just a moment.', success: 'Email confirmed', successHelp: 'Your email is confirmed.', continue: 'Continue',
         error: 'Link not confirmed', expired: 'This link is expired or invalid. Request a fresh one.', generic: 'Couldn’t confirm your email.', help: 'Need help?', signIn: 'Back to sign in',
-        rateLimit: 'Too many requests. Wait a moment and try again.'
+        rateLimit: 'You requested a link recently. Wait for the timer to finish, then try again.', network: 'UNEEM cannot reach the email service. Check your connection and try again.',
+        resendFailed: 'Couldn’t send a new link right now. Try again shortly.', missingEmail: 'Go back to sign in and enter your email again.'
       }
 
   $: loginHref = hintedEmail ? `/login?email=${encodeURIComponent(hintedEmail)}` : '/login'
+  $: resendLabel = resendSeconds > 0 ? `${copy.resendIn} ${formatConfirmationCountdown(resendSeconds)}` : copy.resend
+  $: resendDisabled = resendLoading || resendSeconds > 0
 
   function safeVerificationError(raw = '') {
     const value = raw.toLowerCase()
     if (value.includes('expired') || value.includes('token') || value.includes('invalid')) return copy.expired
     return copy.generic
+  }
+
+  function refreshResendCooldown() {
+    resendSeconds = hintedEmail ? confirmationResendSeconds(hintedEmail) : 0
   }
 
   async function restoreAuthoritativeContext() {
@@ -69,6 +86,7 @@
       nextPath = account.can_use_sports ? '/home' : '/pending-approval'
       status = 'success'
       errorMessage = ''
+      resendMessage = ''
     } catch (err: any) {
       status = 'error'
       errorMessage = safeVerificationError(err?.message)
@@ -117,7 +135,9 @@
   onMount(() => {
     const queryEmail = $page.url.searchParams.get('email')?.trim().toLowerCase() || ''
     hintedEmail = isValidEmail(queryEmail) ? queryEmail : ''
+    refreshResendCooldown()
 
+    const cooldownTimer = window.setInterval(refreshResendCooldown, 1000)
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'USER_UPDATED') && session?.user?.email_confirmed_at) {
         void restoreAuthoritativeContext()
@@ -125,36 +145,56 @@
     })
 
     void initializeConfirmation()
-    return () => listener.subscription.unsubscribe()
+    return () => {
+      window.clearInterval(cooldownTimer)
+      listener.subscription.unsubscribe()
+    }
   })
 
   async function resendEmail() {
+    if (resendDisabled) return
+
     resendLoading = true
     resendMessage = ''
     errorMessage = ''
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      const email = user?.email?.trim().toLowerCase() || hintedEmail
-
-      if (email && isValidEmail(email)) {
-        const { error } = await supabase.auth.resend({
-          type: 'signup',
-          email,
-          options: { emailRedirectTo: emailConfirmationRedirectUrl(email) }
-        })
-        if (error) {
-          const lower = error.message.toLowerCase()
-          if (lower.includes('rate') || lower.includes('too many')) {
-            errorMessage = copy.rateLimit
-            return
-          }
-        }
+      if (user?.email_confirmed_at) {
+        await restoreAuthoritativeContext()
+        return
       }
 
+      const email = user?.email?.trim().toLowerCase() || hintedEmail
+      if (!email || !isValidEmail(email)) {
+        errorMessage = copy.missingEmail
+        return
+      }
+
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: { emailRedirectTo: emailConfirmationRedirectUrl(email) }
+      })
+
+      if (error) {
+        const kind = classifyAuthFailure(error.message, error.status, error.code)
+        if (kind === 'rate_limited') {
+          rememberConfirmationSend(email, authRetryAfterSeconds(error.message) ?? 60)
+          refreshResendCooldown()
+          errorMessage = copy.rateLimit
+          return
+        }
+        errorMessage = kind === 'network' ? copy.network : copy.resendFailed
+        return
+      }
+
+      rememberConfirmationSend(email)
+      refreshResendCooldown()
       resendMessage = copy.sent
-    } catch {
-      resendMessage = copy.sent
+    } catch (err: any) {
+      const kind = classifyAuthFailure(err?.message, err?.status, err?.code)
+      errorMessage = kind === 'network' ? copy.network : copy.resendFailed
     } finally {
       resendLoading = false
     }
@@ -189,19 +229,19 @@
     </div>
 
     {#if resendMessage}
-      <div class="mb-4 rounded-[18px] bg-success-light p-4 text-sm font-medium text-success" role="status">{resendMessage}</div>
+      <div class="mb-4 rounded-[18px] bg-success-light p-4 text-sm font-medium leading-6 text-success" role="status">{resendMessage}</div>
     {/if}
     {#if errorMessage && status !== 'error'}
-      <div class="mb-4 rounded-[18px] bg-danger-light p-4 text-sm font-medium text-danger" role="alert">{errorMessage}</div>
+      <div class="mb-4 rounded-[18px] bg-danger-light p-4 text-sm font-medium leading-6 text-danger" role="alert">{errorMessage}</div>
     {/if}
 
     {#if status === 'waiting'}
-      <Button on:click={resendEmail} loading={resendLoading} variant="primary" size="lg" className="w-full">{copy.resend}</Button>
+      <Button on:click={resendEmail} loading={resendLoading} disabled={resendDisabled} variant="primary" size="lg" className="w-full">{resendLabel}</Button>
       <a href={loginHref} class="mt-5 inline-flex min-h-11 items-center justify-center px-3 text-sm font-medium text-text-secondary transition-colors hover:text-text">{copy.signIn}</a>
     {:else if status === 'success'}
       <Button on:click={() => goto(nextPath)} variant="primary" size="lg" className="w-full">{copy.continue}</Button>
     {:else if status === 'error'}
-      <Button on:click={resendEmail} loading={resendLoading} variant="primary" size="lg" className="w-full">{copy.resend}</Button>
+      <Button on:click={resendEmail} loading={resendLoading} disabled={resendDisabled} variant="primary" size="lg" className="w-full">{resendLabel}</Button>
       <a href={loginHref} class="mt-5 inline-flex min-h-11 items-center justify-center px-3 text-sm font-medium text-text-secondary transition-colors hover:text-text">{copy.signIn}</a>
     {/if}
   </section>
