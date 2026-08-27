@@ -3,9 +3,10 @@ import { writable } from 'svelte/store'
 type PwaUpdateState = {
   available: boolean
   applying: boolean
+  error: boolean
 }
 
-export const pwaUpdateState = writable<PwaUpdateState>({ available: false, applying: false })
+export const pwaUpdateState = writable<PwaUpdateState>({ available: false, applying: false, error: false })
 
 let registration: ServiceWorkerRegistration | null = null
 let initialized = false
@@ -13,7 +14,18 @@ let reloading = false
 
 function markWaitingWorker() {
   if (registration?.waiting && navigator.serviceWorker.controller) {
-    pwaUpdateState.set({ available: true, applying: false })
+    pwaUpdateState.set({ available: true, applying: false, error: false })
+  }
+}
+
+async function checkForUpdate() {
+  if (!registration) return
+  try {
+    await registration.update()
+    markWaitingWorker()
+  } catch {
+    // Background checks are best-effort. Only surface a failure after the user
+    // explicitly asks to apply an update.
   }
 }
 
@@ -38,7 +50,7 @@ export function initPwaUpdates(): () => void {
   }
 
   const handleVisibility = () => {
-    if (document.visibilityState === 'visible') void registration?.update()
+    if (document.visibilityState === 'visible') void checkForUpdate()
   }
 
   navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange)
@@ -49,8 +61,8 @@ export function initPwaUpdates(): () => void {
     markWaitingWorker()
     watchInstalling(registration.installing)
     registration.addEventListener('updatefound', () => watchInstalling(registration?.installing ?? null))
-    void registration.update()
-  })
+    void checkForUpdate()
+  }).catch(() => undefined)
 
   return () => {
     navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange)
@@ -62,16 +74,21 @@ export function initPwaUpdates(): () => void {
 
 export async function applyPwaUpdate(): Promise<void> {
   if (!registration) return
-  pwaUpdateState.update((state) => ({ ...state, applying: true }))
+  pwaUpdateState.update((state) => ({ ...state, applying: true, error: false }))
 
-  if (!registration.waiting) {
-    await registration.update()
-    markWaitingWorker()
-  }
+  try {
+    if (!registration.waiting) {
+      await registration.update()
+      markWaitingWorker()
+    }
 
-  if (registration.waiting) {
-    registration.waiting.postMessage({ type: 'SKIP_WAITING' })
-  } else {
-    pwaUpdateState.set({ available: false, applying: false })
+    if (registration.waiting) {
+      registration.waiting.postMessage({ type: 'SKIP_WAITING' })
+      return
+    }
+
+    pwaUpdateState.set({ available: false, applying: false, error: false })
+  } catch {
+    pwaUpdateState.set({ available: true, applying: false, error: true })
   }
 }
