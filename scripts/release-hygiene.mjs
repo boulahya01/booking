@@ -8,7 +8,10 @@ const atRepo = (path) => resolve(repoRoot, path)
 const forbiddenPaths = [
   'api/cron',
   'frontend/src/routes/api/cron',
-  'supabase/functions',
+  'frontend/src/routes/api/support/guest/+server.ts',
+  'supabase/functions/available-slots',
+  'supabase/functions/complete-bookings',
+  'supabase/functions/process-booking-jobs',
   'frontend/src/routes/(app)/admin/manage-users/+page.svelte',
   'frontend/src/lib/api.ts'
 ]
@@ -37,7 +40,8 @@ const expectedMigrationVersions = [
   '20260818050020',
   '20260818061400',
   '20260818065000',
-  '20260818070000'
+  '20260818070000',
+  '20260827202500'
 ]
 
 const failures = []
@@ -105,6 +109,8 @@ if (!existsSync(atRepo(migrationsDir))) {
 const requiredPaths = [
   'supabase/v2/schema.sql',
   'supabase/v2/024_advisor_hardening.sql',
+  'supabase/migrations/20260827202500_025_free_project_advisor_followup.sql',
+  'supabase/functions/guest-support/index.ts',
   'supabase/v2/tests/concurrency_contract.ps1',
   'frontend/tests/e2e/public-launch-smoke.spec.ts',
   'docs/v2/release-checklist.md'
