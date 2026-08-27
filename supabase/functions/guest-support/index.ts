@@ -3,16 +3,19 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 const MAX_REQUEST_BYTES = 32 * 1024
 const GENERIC_ERROR = 'Support is temporarily unavailable. Please try again.'
 const RATE_LIMIT_ERROR = 'You have sent several requests recently. Try again a little later.'
+const PRODUCTION_ORIGINS = new Set(['https://www.uneem.site', 'https://uneem.site'])
+const FALLBACK_ORIGIN = 'https://www.uneem.site'
 
 function corsHeaders(origin: string | null) {
   const allowed =
+    Boolean(origin && PRODUCTION_ORIGINS.has(origin)) ||
     origin === 'https://uneem.vercel.app' ||
     origin === 'http://localhost:5173' ||
     origin === 'http://127.0.0.1:5173' ||
     Boolean(origin && /^https:\/\/uneem(?:-[a-z0-9-]+)?\.vercel\.app$/i.test(origin))
 
   return {
-    'access-control-allow-origin': allowed && origin ? origin : 'https://uneem.vercel.app',
+    'access-control-allow-origin': allowed && origin ? origin : FALLBACK_ORIGIN,
     'access-control-allow-methods': 'POST, OPTIONS',
     'access-control-allow-headers': 'authorization, apikey, content-type, x-client-info',
     'access-control-max-age': '86400',
