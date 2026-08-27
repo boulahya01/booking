@@ -19,6 +19,10 @@
   export let required = false
   export let icon = ''
   export let autocomplete: HTMLInputAttributes['autocomplete'] = undefined
+  export let inputmode: HTMLInputAttributes['inputmode'] = undefined
+  export let autocapitalize: HTMLInputAttributes['autocapitalize'] = undefined
+  export let spellcheck: HTMLInputAttributes['spellcheck'] = undefined
+  export let maxlength: number | undefined = undefined
   export let className = ''
 
   const dispatch = createEventDispatcher()
@@ -40,6 +44,10 @@
   function handleBlur() {
     focused = false
     dispatch('blur')
+  }
+
+  function handleInput(event: Event) {
+    dispatch('input', event)
   }
 
   function togglePasswordVisibility() {
@@ -71,9 +79,14 @@
       {disabled}
       {required}
       {autocomplete}
+      {inputmode}
+      {autocapitalize}
+      {spellcheck}
+      {maxlength}
       aria-invalid={state === 'invalid' ? 'true' : undefined}
       on:focus={handleFocus}
       on:blur={handleBlur}
+      on:input={handleInput}
       class={cn(
         'min-h-[56px] w-full rounded-[18px] border bg-surface px-4 py-3.5 text-[15px] text-text outline-none',
         'shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] placeholder:text-text-muted transition-[border-color,background-color,box-shadow] duration-150',
@@ -104,7 +117,7 @@
   </div>
 
   {#if message}
-    <div class={cn('mt-1.5 flex min-h-5 items-start gap-1.5 px-1 text-xs font-medium leading-5', messageTone)}>
+    <div class={cn('mt-1.5 flex min-h-5 items-start gap-1.5 px-1 text-xs font-medium leading-5', messageTone)} aria-live="polite">
       {#if state !== 'idle'}
         <Icon name={state === 'valid' ? 'check' : 'x'} size={13} className="mt-[3px] shrink-0" strokeWidth={2.4} />
       {/if}
