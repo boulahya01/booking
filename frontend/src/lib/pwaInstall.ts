@@ -70,6 +70,7 @@ export function initPwaInstall(): () => void {
     window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
     window.removeEventListener('appinstalled', handleInstalled)
     displayMode.removeEventListener('change', syncEnvironment)
+    deferredPrompt = null
     initialized = false
     cleanupRuntime = null
   }
@@ -84,9 +85,16 @@ export async function promptPwaInstall(): Promise<InstallOutcome> {
 
   const prompt = deferredPrompt
   deferredPrompt = null
-  await prompt.prompt()
-  const choice = await prompt.userChoice
 
-  pwaInstallState.update((current) => ({ ...current, available: false }))
-  return choice.outcome
+  try {
+    await prompt.prompt()
+    const choice = await prompt.userChoice
+    pwaInstallState.update((current) => ({ ...current, available: false }))
+    return choice.outcome
+  } catch {
+    // beforeinstallprompt events are single-use. If the browser rejects the
+    // prompt, keep the UI truthful instead of leaving a dead install button.
+    pwaInstallState.update((current) => ({ ...current, available: false }))
+    return 'unavailable'
+  }
 }
