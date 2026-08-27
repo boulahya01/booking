@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
   import { onMount } from 'svelte'
-  import { register, isAcademicEmail, mapAuthError } from '$lib/auth'
+  import { register, isAcademicEmail, mapAuthError } from '$lib/registrationApi'
   import { language } from '$lib/stores/ui'
   import TextField from '$lib/components/TextField.svelte'
   import Button from '$lib/components/Button.svelte'

@@ -33,8 +33,10 @@ file_size_limit = 52428800
 
 [auth]
 enabled = true
-site_url = "https://uneem.site"
+site_url = "https://www.uneem.site"
 additional_redirect_urls = [
+  "https://www.uneem.site/verify-email",
+  "https://www.uneem.site/reset-password",
   "https://uneem.site/verify-email",
   "https://uneem.site/reset-password",
   "https://*-marwaneboulahya-5125s-projects.vercel.app/**",
