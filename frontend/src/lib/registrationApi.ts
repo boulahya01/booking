@@ -21,6 +21,11 @@ export type RegistrationResult = {
   error?: RegistrationFailure
 }
 
+export type UsernameAvailabilityResult = {
+  available: boolean
+  error?: RegistrationFailure
+}
+
 export function isAcademicEmail(email: string): boolean {
   return email.trim().toLowerCase().endsWith('@usmba.ac.ma')
 }
@@ -58,9 +63,10 @@ function fromAuthError(error: AuthError): RegistrationFailure {
   }
 }
 
-async function usernameAvailable(username: string): Promise<{ available: boolean; error?: RegistrationFailure }> {
+export async function checkUsernameAvailability(username: string): Promise<UsernameAvailabilityResult> {
+  const normalizedUsername = username.trim().toLowerCase()
   const { data, error } = await supabase.rpc('registration_username_available', {
-    p_username: username
+    p_username: normalizedUsername
   })
 
   if (error) {
@@ -91,7 +97,7 @@ export async function registerAccount(input: {
   const studentId = input.studentId?.replace(/\s+/g, '').toUpperCase() || undefined
 
   try {
-    const preflight = await usernameAvailable(username)
+    const preflight = await checkUsernameAvailability(username)
     if (preflight.error) return { error: preflight.error }
     if (!preflight.available) {
       return { error: { kind: 'username_taken', message: userMessage('username_taken') } }
@@ -116,7 +122,7 @@ export async function registerAccount(input: {
       // A concurrent username claim can still race the availability preflight.
       // Recheck after a DB-side signup failure so the user gets a precise action.
       if (failure.kind === 'service_unavailable' || failure.kind === 'unknown') {
-        const recheck = await usernameAvailable(username)
+        const recheck = await checkUsernameAvailability(username)
         if (!recheck.error && !recheck.available) {
           return { error: { kind: 'username_taken', message: userMessage('username_taken') } }
         }
