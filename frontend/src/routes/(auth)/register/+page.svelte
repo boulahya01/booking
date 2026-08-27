@@ -54,9 +54,11 @@
   $: nameState = fieldState(fullName.length > 0 || detailsAttempted, fullNameValid)
   $: usernameState = usernameAvailability === 'available'
     ? 'valid'
-    : usernameAvailability === 'taken' || usernameAvailability === 'error'
+    : usernameAvailability === 'taken'
       ? 'invalid'
-      : fieldState((username.length > 0 || detailsAttempted) && !usernameValid, false)
+      : usernameValid
+        ? 'idle'
+        : fieldState(username.length > 0 || detailsAttempted, false)
   $: studentIdState = fieldState(studentId.length > 0 || detailsAttempted, studentIdValid)
   $: passwordState = passwordFieldError ? 'invalid' : fieldState(password.length > 0 || passwordAttempted, passwordValid)
   $: confirmState = fieldState(confirmPassword.length > 0 || passwordAttempted, confirmValid)
@@ -68,7 +70,7 @@
         email: 'البريد الإلكتروني', emailPlaceholder: 'mehdi@usmba.ac.ma', academicEmailValid: 'بريد جامعي · دخول أسرع', personalEmailValid: 'بريد شخصي · البطاقة مطلوبة', invalidEmail: 'أدخل بريداً صحيحاً.',
         universityEmail: 'بريد جامعي', universityAccess: 'يمكنك الحجز بعد تأكيد البريد', personalEmail: 'بريد شخصي', personalAccess: 'بطاقة الطالب مطلوبة قبل الحجز',
         continue: 'متابعة', back: 'رجوع', fullName: 'الاسم الكامل', fullNamePlaceholder: 'Mehdi El Amrani', fullNameValid: 'الاسم واضح', invalidName: 'اكتب اسماً من 2 إلى 100 حرف.',
-        username: 'اسم المستخدم', usernamePlaceholder: 'mehdi01', invalidUsername: '3–24 حرفاً صغيراً أو رقماً أو _', usernameChecking: 'جارٍ التحقق من توفر الاسم…', usernameAvailable: 'متاح', usernameTaken: 'اسم المستخدم مستعمل بالفعل. اختر اسماً آخر.', usernameCheckFailed: 'تعذر التحقق من الاسم الآن. حاول مجدداً.',
+        username: 'اسم المستخدم', usernamePlaceholder: 'mehdi01', invalidUsername: '3–24 حرفاً أو رقماً أو _', usernameChecking: 'جارٍ التحقق من توفر الاسم…', usernameAvailable: 'متاح', usernameTaken: 'اسم المستخدم مستعمل بالفعل. اختر اسماً آخر.', usernameCheckFailed: 'تعذر التحقق من الاسم الآن. حاول مجدداً.',
         studentId: 'رقم الطالب', studentIdPlaceholder: 'S123456789', studentIdValid: 'الصيغة صحيحة · الملكية تُراجع مع بطاقة الطالب', invalidStudentId: 'حرف واحد + 9 أرقام فقط',
         password: 'كلمة المرور', passwordPlaceholder: '8 أحرف أو أكثر', confirmPassword: 'تأكيد كلمة المرور', confirmPlaceholder: 'أعد كتابة كلمة المرور',
         passwordReady: 'جاهزة', passwordRequired: 'أنشئ كلمة مرور.', match: 'متطابقة', mismatch: 'غير متطابقة',
@@ -80,7 +82,7 @@
         email: 'Email address', emailPlaceholder: 'mehdi@usmba.ac.ma', academicEmailValid: 'USMBA email · faster access', personalEmailValid: 'Personal email · card approval required', invalidEmail: 'Enter a valid email.',
         universityEmail: 'University email', universityAccess: 'Book after confirming your email', personalEmail: 'Personal email', personalAccess: 'Student card required before booking',
         continue: 'Continue', back: 'Back', fullName: 'Full name', fullNamePlaceholder: 'Mehdi El Amrani', fullNameValid: 'Looks good', invalidName: 'Use 2–100 characters for your name.',
-        username: 'Username', usernamePlaceholder: 'mehdi01', invalidUsername: '3–24 lowercase letters, numbers or _', usernameChecking: 'Checking availability…', usernameAvailable: 'Available', usernameTaken: 'That username is already taken. Choose another one.', usernameCheckFailed: 'Could not check that username right now. Try again.',
+        username: 'Username', usernamePlaceholder: 'mehdi01', invalidUsername: '3–24 letters, numbers or _', usernameChecking: 'Checking availability…', usernameAvailable: 'Available', usernameTaken: 'That username is already taken. Choose another one.', usernameCheckFailed: 'Could not check that username right now. Try again.',
         studentId: 'Student ID', studentIdPlaceholder: 'S123456789', studentIdValid: 'Format valid · ownership is checked with your student card', invalidStudentId: 'Use exactly 1 letter + 9 digits',
         password: 'Password', passwordPlaceholder: '8+ characters', confirmPassword: 'Confirm password', confirmPlaceholder: 'Repeat password',
         passwordReady: 'Ready', passwordRequired: 'Create a password.', match: 'Passwords match', mismatch: 'Doesn’t match',
@@ -133,6 +135,11 @@
     usernameAvailabilityError = ''
     usernameAvailability = result.available ? 'available' : 'taken'
     return result.available
+  }
+
+  function handleEmailInput() {
+    emailFieldError = ''
+    submitError = ''
   }
 
   function handleUsernameInput() {
@@ -275,7 +282,7 @@
 
     {#if step === 'email'}
       <form on:submit|preventDefault={continueFromEmail} class="space-y-5">
-        <TextField ariaLabel={copy.email} type="email" placeholder={copy.emailPlaceholder} icon="mail" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck={false} maxlength={254} bind:value={email} validation={emailState} error={emailFieldError} hint={emailHint} disabled={loading} />
+        <TextField ariaLabel={copy.email} type="email" placeholder={copy.emailPlaceholder} icon="mail" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck={false} maxlength={254} bind:value={email} validation={emailState} error={emailFieldError} hint={emailHint} disabled={loading} on:input={handleEmailInput} />
         <Button type="submit" variant="primary" size="lg" className="w-full" disabled={loading}>{copy.continue}</Button>
       </form>
     {:else if step === 'details'}
