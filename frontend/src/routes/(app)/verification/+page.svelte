@@ -4,14 +4,17 @@
   import { getMyAccountState } from '$lib/auth'
   import {
     getLatestVerificationAttempt,
+    identityErrorCode,
     uploadAndSubmitStudentCard,
     validateStudentCard,
+    type IdentityFailureCode,
     type VerificationAttempt,
     type VerificationReason
   } from '$lib/identityApi'
   import type { AccountState } from '$lib/types'
   import { language } from '$lib/stores/ui'
   import { isValidStudentId } from '$lib/utils/cn'
+  import { sanitizeStudentId } from '$lib/validation'
   import AuthShell from '$lib/components/AuthShell.svelte'
   import ActionLink from '$lib/components/ActionLink.svelte'
   import TextField from '$lib/components/TextField.svelte'
@@ -33,16 +36,21 @@
 
   $: copy = $language === 'ar'
     ? {
-        pageTitle: 'التحقق من الطالب', back: 'حالة الحساب', loadError: 'تعذر تحميل حالة التحقق.',
+        pageTitle: 'التحقق من الطالب', back: 'حالة الحساب', loadError: 'تعذر تحميل حالة التحقق. حاول مجدداً.',
         verifiedTitle: 'تم تأكيد هويتك', verifiedBody: 'رقم الطالب مرتبط الآن بهذا الحساب.',
         pendingTitle: 'المراجعة جارية', pendingBody: 'تم إرسال بطاقتك. لا ترسلها مرة أخرى إلا إذا طلبنا تصحيحاً.',
         conflictTitle: 'نحتاج لتأكيد الملكية', conflictBody: 'لا تنشئ حساباً آخر ولا تغيّر رقم الطالب. استخدم المساعدة لحل المشكلة بأمان.',
         requiredTitle: 'أكد هويتك الطلابية', requiredBody: 'أرسل رقم الطالب وصورة واضحة من بطاقتك الجامعية.',
-        studentId: 'رقم الطالب', studentIdPlaceholder: 'S123456789', studentIdValid: 'الصيغة صحيحة', studentIdInvalid: 'حرف واحد + 9 أرقام',
+        studentId: 'رقم الطالب', studentIdPlaceholder: 'S123456789', studentIdValid: 'الصيغة صحيحة · الملكية تُراجع مع البطاقة', studentIdInvalid: 'استخدم حرفاً واحداً + 9 أرقام فقط.',
         card: 'صورة بطاقة الطالب', addCard: 'أضف صورة واضحة للبطاقة', replaceCard: 'اختيار صورة أخرى', cardHint: 'JPG أو PNG أو WebP · أقل من 5 MB', cardReady: 'الصورة جاهزة', cardRequired: 'اختر صورة البطاقة.', invalidType: 'استخدم JPG أو PNG أو WebP.', tooLarge: 'يجب أن تكون الصورة أقل من 5 MB.', invalidImage: 'اختر صورة صالحة.',
         submittedId: 'رقم الطالب المرسل', pending: 'قيد المراجعة', noResubmit: 'لا تحتاج لإعادة الإرسال الآن.',
         submit: 'إرسال للمراجعة', resubmit: 'إعادة الإرسال للمراجعة', submitting: 'جاري الإرسال…',
         profile: 'العودة للملف الشخصي', accountHelp: 'مساعدة الحساب', help: 'المساعدة', accountStatus: 'حالة الحساب', private: 'بطاقتك خاصة ولا تظهر إلا للمراجعين المصرح لهم.',
+        sessionRequired: 'انتهت جلسة تسجيل الدخول. سجّل الدخول من جديد ثم أعد المحاولة.',
+        claimUnavailable: 'رقم الطالب مرتبط بهوية مؤكدة أخرى. لا تنشئ حساباً جديداً؛ استخدم المساعدة لتأكيد الملكية.',
+        uploadFailed: 'تعذر رفع صورة البطاقة. اختر الصورة من جديد وحاول مرة أخرى.',
+        networkError: 'تعذر الاتصال بالخدمة. تحقق من الإنترنت وحاول مجدداً.',
+        submitFailed: 'تعذر إرسال طلب التحقق الآن. حاول مجدداً بعد قليل.',
         reasonStudentIdTitle: 'تحقق من رقم الطالب', reasonStudentIdBody: 'رقم الطالب لا يطابق البطاقة. صححه وأرسل البطاقة من جديد.',
         reasonCardTitle: 'استخدم صورة أوضح', reasonCardBody: 'تعذر قراءة البطاقة بوضوح. احتفظ برقم الطالب وغيّر الصورة فقط.',
         reasonNameTitle: 'بياناتك تحتاج مراجعة', reasonNameBody: 'الاسم في الحساب لا يطابق البطاقة. حدّث البيانات المسموح بها ثم أعد الإرسال.',
@@ -51,16 +59,21 @@
         reasonExpiredTitle: 'استخدم بطاقة حالية', reasonExpiredBody: 'البطاقة لم تؤكد وضعك الطلابي الحالي. ارفع بطاقة حالية أو تواصل مع المساعدة.'
       }
     : {
-        pageTitle: 'Student verification', back: 'Account status', loadError: 'Couldn’t load verification status.',
+        pageTitle: 'Student verification', back: 'Account status', loadError: 'Couldn’t load verification status. Try again.',
         verifiedTitle: 'Identity verified', verifiedBody: 'Your Student ID is now linked to this account.',
         pendingTitle: 'Review in progress', pendingBody: 'Your card was submitted. Don’t submit again unless we ask for a correction.',
         conflictTitle: 'We need to verify ownership', conflictBody: 'Don’t create another account or change Student ID. Use Help so ownership can be resolved safely.',
         requiredTitle: 'Verify your student identity', requiredBody: 'Submit your Student ID and a clear photo of your university card.',
-        studentId: 'Student ID', studentIdPlaceholder: 'S123456789', studentIdValid: 'Valid format', studentIdInvalid: '1 letter + 9 digits',
+        studentId: 'Student ID', studentIdPlaceholder: 'S123456789', studentIdValid: 'Format valid · ownership is checked with your card', studentIdInvalid: 'Use exactly 1 letter + 9 digits.',
         card: 'Student card photo', addCard: 'Add a clear card photo', replaceCard: 'Choose a different photo', cardHint: 'JPG, PNG or WebP · under 5 MB', cardReady: 'Photo ready', cardRequired: 'Choose your student card photo.', invalidType: 'Use a JPG, PNG, or WebP image.', tooLarge: 'The image must be smaller than 5 MB.', invalidImage: 'Choose a valid image.',
         submittedId: 'Submitted Student ID', pending: 'Pending', noResubmit: 'You don’t need to submit again right now.',
         submit: 'Submit for review', resubmit: 'Resubmit for review', submitting: 'Submitting…',
         profile: 'Back to profile', accountHelp: 'Account help', help: 'Help', accountStatus: 'Account status', private: 'Your card is private and visible only to authorized reviewers.',
+        sessionRequired: 'Your sign-in session expired. Sign in again, then retry verification.',
+        claimUnavailable: 'That Student ID is linked to another verified identity. Don’t create another account; use Help to resolve ownership.',
+        uploadFailed: 'We couldn’t upload the card photo. Choose the image again and retry.',
+        networkError: 'UNEEM can’t reach the service. Check your connection and try again.',
+        submitFailed: 'We couldn’t submit verification right now. Try again in a moment.',
         reasonStudentIdTitle: 'Check your Student ID', reasonStudentIdBody: 'The Student ID did not match the card. Correct it and submit the card again.',
         reasonCardTitle: 'Upload a clearer card photo', reasonCardBody: 'The card could not be read clearly. Keep your Student ID and replace only the photo.',
         reasonNameTitle: 'Your details need attention', reasonNameBody: 'The name on the account and student card did not match. Update permitted profile details, then resubmit.',
@@ -80,7 +93,7 @@
 
   $: rejectedReason = state?.restriction_reason as VerificationReason | null
   $: remediation = rejectedReason ? reasonCopy[rejectedReason] : null
-  $: normalizedStudentId = studentId.trim().toUpperCase()
+  $: normalizedStudentId = sanitizeStudentId(studentId)
   $: studentIdValid = isValidStudentId(normalizedStudentId)
   $: studentIdState = fieldState(studentId.length > 0 || submitAttempted, studentIdValid)
   $: fileState = fieldState(!!card || !!fileError || submitAttempted, !!card && !fileError)
@@ -91,6 +104,16 @@
   function fieldState(active: boolean, valid: boolean): FieldState {
     if (!active) return 'idle'
     return valid ? 'valid' : 'invalid'
+  }
+
+  function verificationMessage(code: IdentityFailureCode): string {
+    if (code === 'session_required') return copy.sessionRequired
+    if (code === 'invalid_student_id') return copy.studentIdInvalid
+    if (code === 'identity_claim_unavailable') return copy.claimUnavailable
+    if (code === 'upload_failed') return copy.uploadFailed
+    if (code === 'network') return copy.networkError
+    if (code === 'status_load_failed') return copy.loadError
+    return copy.submitFailed
   }
 
   async function load() {
@@ -104,17 +127,17 @@
       }
       state = account
       attempt = latest
-      studentId = account.student_id || latest?.claimed_student_id || ''
-    } catch (e: any) {
-      error = e.message || copy.loadError
+      studentId = sanitizeStudentId(account.student_id || latest?.claimed_student_id || '')
+    } catch {
+      error = copy.loadError
     } finally {
       loading = false
     }
   }
 
-  function localFileMessage(raw: string) {
-    if (raw.includes('JPG')) return copy.invalidType
-    if (raw.includes('5 MB')) return copy.tooLarge
+  function localFileMessage(code: string) {
+    if (code === 'invalid_type') return copy.invalidType
+    if (code === 'too_large') return copy.tooLarge
     return copy.invalidImage
   }
 
@@ -142,6 +165,7 @@
   async function submit() {
     submitAttempted = true
     error = ''
+    studentId = normalizedStudentId
     if (!studentIdValid) return
     if (!card) {
       fileError = copy.cardRequired
@@ -158,8 +182,12 @@
       submitAttempted = false
       if (previewUrl) URL.revokeObjectURL(previewUrl)
       previewUrl = ''
-    } catch (e: any) {
-      error = e.message || copy.loadError
+    } catch (caught) {
+      const code = identityErrorCode(caught)
+      error = verificationMessage(code)
+      if (code === 'session_required') {
+        await goto('/login')
+      }
     } finally {
       submitting = false
     }
@@ -229,7 +257,7 @@
         </div>
       {:else}
         <div class="space-y-4">
-          <TextField label={copy.studentId} placeholder={copy.studentIdPlaceholder} icon="id-card" bind:value={studentId} validation={studentIdState} hint={studentIdState === 'invalid' ? copy.studentIdInvalid : ''} validHint={copy.studentIdValid} disabled={state.identity_status === 'rejected' && !!remediation && !remediation.editId} />
+          <TextField label={copy.studentId} placeholder={copy.studentIdPlaceholder} icon="id-card" autocapitalize="characters" spellcheck={false} maxlength={20} bind:value={studentId} validation={studentIdState} hint={studentIdState === 'invalid' ? copy.studentIdInvalid : ''} validHint={copy.studentIdValid} disabled={state.identity_status === 'rejected' && !!remediation && !remediation.editId} />
 
           <div>
             <span class="mb-1.5 block text-sm font-semibold text-text">{copy.card}</span>
@@ -246,13 +274,13 @@
                 </div>
               {/if}
             </label>
-            <div class={`mt-1.5 flex min-h-5 items-center gap-1.5 px-1 text-xs font-medium ${fileState === 'valid' ? 'text-success' : fileState === 'invalid' ? 'text-danger' : 'text-text-muted'}`}>
+            <div class={`mt-1.5 flex min-h-5 items-center gap-1.5 px-1 text-xs font-medium ${fileState === 'valid' ? 'text-success' : fileState === 'invalid' ? 'text-danger' : 'text-text-muted'}`} aria-live="polite">
               {#if fileState !== 'idle'}<Icon name={fileState === 'valid' ? 'check' : 'x'} size={13} />{/if}
               <span>{fileState === 'valid' ? copy.cardReady : fileError}</span>
             </div>
           </div>
 
-          {#if error}<div class="rounded-2xl bg-danger-light p-4 text-sm font-medium leading-6 text-danger" role="alert">{error}</div>{/if}
+          {#if error}<div class="rounded-2xl border border-danger/15 bg-danger-light p-4 text-sm font-medium leading-6 text-danger" role="alert">{error}</div>{/if}
 
           <Button on:click={submit} variant="primary" size="lg" loading={submitting} disabled={submitting} className="w-full">{submitting ? copy.submitting : state.identity_status === 'rejected' ? copy.resubmit : copy.submit}</Button>
           <p class="text-center text-xs leading-5 text-text-muted">{copy.private}</p>
