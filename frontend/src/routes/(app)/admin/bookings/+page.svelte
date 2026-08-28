@@ -31,6 +31,7 @@
 
   $: ar = $language === 'ar'
   $: totalPages = Math.max(1, Math.ceil(total / pageSize))
+  $: facilityTimezones = new Map(facilities.map((facility) => [facility.id, facility.timezone]))
   $: copy = ar ? {
     eyebrow: 'عمليات UNEEM', title: 'الحجوزات', subtitle: 'راجع الحجوزات وألغِها بأسباب مسجلة.',
     search: 'بحث باسم الطالب، البريد، الرقم أو المرفق', allFacilities: 'كل المرافق', allStates: 'كل الحالات',
@@ -110,8 +111,15 @@
     finally { cancelling = false }
   }
 
-  function when(value: string) {
-    return new Date(value).toLocaleString(ar ? 'ar-MA' : 'en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
+  function when(value: string, bookingPitchId: string) {
+    return new Date(value).toLocaleString(ar ? 'ar-MA' : 'en', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: facilityTimezones.get(bookingPitchId) || 'Africa/Casablanca'
+    })
   }
 
   function statusLabel(value: AdminBookingLifecycle) {
@@ -173,7 +181,7 @@
             <div class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary-light text-sm font-extrabold text-primary">{booking.full_name?.charAt(0)?.toUpperCase() || '?'}</div>
             <div class="min-w-0 flex-1">
               <div class="flex flex-wrap items-center gap-2"><p class="truncate font-bold text-text">{booking.full_name}</p><span class={`uneem-chip ${booking.lifecycle_status === 'cancelled' ? 'text-danger' : booking.lifecycle_status === 'upcoming' ? 'text-primary' : 'text-text-secondary'}`}>{statusLabel(booking.lifecycle_status)}</span></div>
-              <p class="mt-1 truncate text-sm text-text-secondary">{booking.pitch_name} · {when(booking.starts_at)}</p>
+              <p class="mt-1 truncate text-sm text-text-secondary">{booking.pitch_name} · {when(booking.starts_at, booking.pitch_id)}</p>
               <p class="mt-1 truncate text-xs text-text-muted">{booking.student_id || '—'} · {booking.email || '—'}</p>
             </div>
             <Icon name={ar ? 'chevron-left' : 'chevron-right'} size={18} className="mt-2 shrink-0 text-text-muted" />
@@ -199,7 +207,7 @@
       <dl class="mt-5 divide-y divide-border-light rounded-2xl bg-surface-level-1 px-4">
         <div class="flex justify-between gap-4 py-3"><dt class="text-sm text-text-muted">{copy.student}</dt><dd class="max-w-[65%] text-end text-sm font-bold text-text">{selected.student_id || '—'}<br><span class="font-medium text-text-secondary">{selected.email || '—'}</span></dd></div>
         <div class="flex justify-between gap-4 py-3"><dt class="text-sm text-text-muted">{copy.facility}</dt><dd class="text-end text-sm font-bold text-text">{selected.pitch_name}<br><span class="font-medium text-text-secondary">{selected.pitch_location}</span></dd></div>
-        <div class="flex justify-between gap-4 py-3"><dt class="text-sm text-text-muted">{copy.time}</dt><dd class="text-end text-sm font-bold text-text">{when(selected.starts_at)} – {when(selected.ends_at)}</dd></div>
+        <div class="flex justify-between gap-4 py-3"><dt class="text-sm text-text-muted">{copy.time}</dt><dd class="text-end text-sm font-bold text-text">{when(selected.starts_at, selected.pitch_id)} – {when(selected.ends_at, selected.pitch_id)}</dd></div>
       </dl>
       {#if selected.lifecycle_status === 'upcoming' || selected.lifecycle_status === 'in_progress'}<button on:click={() => { cancelTarget = selected; cancelReason = 'maintenance' }} class="mt-5 min-h-12 w-full rounded-2xl bg-danger-light px-4 font-bold text-danger">{copy.cancel}</button>{/if}
     </section>
