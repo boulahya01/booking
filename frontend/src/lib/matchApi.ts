@@ -54,6 +54,7 @@ export type MyMatch = {
   booking_id: string
   pitch_name: string
   location: string
+  timezone: string
   sport_type: string | null
   starts_at: string
   ends_at: string
