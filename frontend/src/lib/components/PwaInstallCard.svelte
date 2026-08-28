@@ -4,17 +4,19 @@
   import Button from './Button.svelte'
   import Icon from './Icon.svelte'
 
+  export let alwaysVisible = false
+
   let showingIosHelp = false
   let showingManualHelp = false
   let installing = false
 
   $: isArabic = ($locale || 'en').startsWith('ar')
-  $: visible = !$pwaInstallState.standalone && ($pwaInstallState.available || $pwaInstallState.ios || showingManualHelp)
+  $: visible = !$pwaInstallState.standalone && (alwaysVisible || $pwaInstallState.available || $pwaInstallState.ios || showingManualHelp)
   $: title = isArabic ? 'ثبّت UNEEM' : 'Install UNEEM'
   $: body = isArabic ? 'افتح الحجوزات والمباريات بسرعة من شاشتك الرئيسية.' : 'Open bookings and matches faster from your home screen.'
   $: cta = isArabic ? 'تثبيت التطبيق' : 'Install app'
-  $: iosHelp = isArabic ? 'في Safari: اضغط مشاركة، ثم «إضافة إلى الشاشة الرئيسية».' : 'In Safari: tap Share, then “Add to Home Screen”.'
-  $: manualHelp = isArabic ? 'تعذر فتح نافذة التثبيت. افتح قائمة المتصفح واختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».' : 'The install prompt isn’t available right now. Open your browser menu and choose “Install app” or “Add to Home Screen”.'
+  $: iosHelp = isArabic ? 'افتح UNEEM في Safari، واضغط مشاركة، ثم «إضافة إلى الشاشة الرئيسية».' : 'Open UNEEM in Safari, tap Share, then “Add to Home Screen”.'
+  $: manualHelp = isArabic ? 'افتح قائمة المتصفح واختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية». على iPhone استخدم Safari.' : 'Open your browser menu and choose “Install app” or “Add to Home Screen”. On iPhone, use Safari.'
 
   async function install() {
     installing = true

@@ -32,12 +32,12 @@
   $: ar = $language === 'ar'
   $: visible = showInactive ? facilities : facilities.filter((f) => f.is_active)
   $: copy = ar ? {
-    eyebrow:'عمليات UNEEM', title:'المرافق', subtitle:'تحكم في أوقات الحجز والسعة والقواعد من مكان واحد.', add:'إضافة مرفق', active:'النشطة', all:'الكل', empty:'لا توجد مرافق هنا.',
+    eyebrow:'عمليات UNEEM', title:'المرافق', subtitle:'تحكم في أوقات الحجز والسعة والقواعد من مكان واحد.', add:'إضافة مرفق', active:'النشطة', all:'الكل', empty:'لم يتم إعداد أي مرفق بعد.', emptyAction:'إعداد أول مرفق',
     retry:'إعادة المحاولة', edit:'تعديل', archive:'إيقاف المرفق', inactive:'غير نشط', capacity:'السعة', duration:'مدة الحجز', window:'نافذة الحجز', cutoff:'آخر وقت للإلغاء', frequency:'تكرار الحجز', days:'أيام',
     createTitle:'مرفق جديد', editTitle:'إعدادات المرفق', name:'الاسم', location:'الموقع', sport:'الرياضة', open:'الفتح', close:'الإغلاق', sort:'الترتيب', enabled:'نشط للطلاب', save:'حفظ', cancel:'إلغاء', saving:'جارٍ الحفظ…',
     archiveTitle:'إيقاف هذا المرفق؟', archiveHint:'لن يُحذف التاريخ. سيختفي المرفق من الحجز الجديد ويمكن إعادة تفعيله لاحقاً.', reason:'السبب', keep:'إبقاءه نشطاً', confirmArchive:'إيقاف المرفق'
   } : {
-    eyebrow:'UNEEM operations', title:'Facilities', subtitle:'Control availability, capacity and booking rules from one place.', add:'Add facility', active:'Active', all:'All', empty:'No facilities here.',
+    eyebrow:'UNEEM operations', title:'Facilities', subtitle:'Control availability, capacity and booking rules from one place.', add:'Add facility', active:'Active', all:'All', empty:'No facilities have been configured.', emptyAction:'Set up first facility',
     retry:'Retry', edit:'Edit', archive:'Archive facility', inactive:'Inactive', capacity:'Capacity', duration:'Slot duration', window:'Booking window', cutoff:'Cancellation cutoff', frequency:'Booking frequency', days:'days',
     createTitle:'New facility', editTitle:'Facility settings', name:'Name', location:'Location', sport:'Sport', open:'Opens', close:'Closes', sort:'Display order', enabled:'Available to students', save:'Save facility', cancel:'Cancel', saving:'Saving…',
     archiveTitle:'Archive this facility?', archiveHint:'History is preserved. The facility disappears from new bookings and can be reactivated later.', reason:'Reason', keep:'Keep active', confirmArchive:'Archive facility'
@@ -121,7 +121,7 @@
   {:else if loading && facilities.length === 0}
     <div class="grid gap-3 sm:grid-cols-2" aria-busy="true">{#each [1,2,3,4] as _}<div class="h-40 animate-pulse rounded-[22px] bg-surface-level-1"></div>{/each}</div>
   {:else if visible.length === 0}
-    <section class="uneem-card py-12 text-center"><Icon name="map-pin" size={26} className="mx-auto text-text-muted"/><p class="mt-3 font-bold text-text">{copy.empty}</p></section>
+    <section class="uneem-card py-12 text-center"><Icon name="map-pin" size={26} className="mx-auto text-text-muted"/><p class="mt-3 font-bold text-text">{copy.empty}</p><button on:click={openCreate} class="uneem-primary-action mx-auto mt-5"><Icon name="plus" size={17}/>{copy.emptyAction}</button></section>
   {:else}
     <div class="grid gap-3 sm:grid-cols-2">
       {#each visible as facility (facility.id)}
@@ -144,8 +144,9 @@
 </div>
 
 {#if showForm}
-  <div class="fixed inset-0 z-50 flex items-end bg-black/50 sm:items-center sm:justify-center sm:p-5" role="presentation" on:click={() => !saving && (showForm = false)}>
-    <section class="max-h-[94vh] w-full overflow-y-auto rounded-t-[28px] bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-2xl sm:rounded-[28px]" role="dialog" aria-modal="true" on:click|stopPropagation>
+  <div class="fixed inset-0 z-50 flex items-end bg-black/50 sm:items-center sm:justify-center sm:p-5" role="presentation">
+    <button type="button" tabindex="-1" aria-label="Close facility form" class="absolute inset-0 cursor-default" disabled={saving} on:click={() => showForm = false}></button>
+    <section class="relative z-10 max-h-[94vh] w-full overflow-y-auto rounded-t-[28px] bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-2xl sm:rounded-[28px]" role="dialog" aria-modal="true" tabindex="-1">
       <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-extrabold uppercase tracking-[0.1em] text-primary">UNEEM</p><h2 class="mt-1 text-xl font-extrabold text-text">{editing ? copy.editTitle : copy.createTitle}</h2></div><button disabled={saving} on:click={() => showForm = false} class="grid h-10 w-10 place-items-center rounded-full bg-surface-level-1"><Icon name="x" size={18}/></button></div>
       <div class="mt-5 grid gap-4 sm:grid-cols-2">
         <label class="sm:col-span-2"><span class="text-sm font-bold text-text">{copy.name}</span><input bind:value={form.name} class="uneem-field mt-2" /></label>
@@ -168,8 +169,9 @@
 {/if}
 
 {#if archiveTarget}
-  <div class="fixed inset-0 z-[60] flex items-end bg-black/55 sm:items-center sm:justify-center sm:p-5" role="presentation" on:click={() => !saving && (archiveTarget = null)}>
-    <section class="w-full rounded-t-[28px] bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-[28px]" role="dialog" aria-modal="true" on:click|stopPropagation>
+  <div class="fixed inset-0 z-[60] flex items-end bg-black/55 sm:items-center sm:justify-center sm:p-5" role="presentation">
+    <button type="button" tabindex="-1" aria-label="Close archive dialog" class="absolute inset-0 cursor-default" disabled={saving} on:click={() => archiveTarget = null}></button>
+    <section class="relative z-10 w-full rounded-t-[28px] bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-[28px]" role="dialog" aria-modal="true" tabindex="-1">
       <h2 class="text-xl font-extrabold text-text">{copy.archiveTitle}</h2><p class="mt-2 text-sm leading-6 text-text-secondary">{copy.archiveHint}</p>
       <label class="mt-5 block text-sm font-bold text-text">{copy.reason}<select bind:value={archiveReason} class="uneem-field mt-2">{#each archiveReasons as item}<option value={item.value}>{ar ? item.ar : item.en}</option>{/each}</select></label>
       <div class="mt-5 flex gap-3"><button disabled={saving} on:click={() => archiveTarget = null} class="uneem-secondary-action flex-1">{copy.keep}</button><button disabled={saving} on:click={archive} class="min-h-12 flex-1 rounded-2xl bg-danger px-4 font-bold text-white disabled:opacity-50">{copy.confirmArchive}</button></div>
