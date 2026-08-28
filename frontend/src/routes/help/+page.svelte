@@ -55,6 +55,11 @@
     guestHint:'You can get help without signing in.'
   }
 
+  function actionableError(cause: unknown) {
+    if (cause instanceof Error && cause.message.trim()) return cause.message
+    return copy.genericError
+  }
+
   onMount(async () => {
     initialized = true
     if (signedIn) return
@@ -130,8 +135,8 @@
         message = ''
         subject = ''
       }
-    } catch {
-      error = copy.genericError
+    } catch (cause) {
+      error = actionableError(cause)
     } finally { submitting = false }
   }
 
@@ -151,8 +156,8 @@
         message = ''
         thread = await getGuestSupportThread(guestToken)
       }
-    } catch {
-      error = copy.genericError
+    } catch (cause) {
+      error = actionableError(cause)
     } finally { submitting = false }
   }
 
