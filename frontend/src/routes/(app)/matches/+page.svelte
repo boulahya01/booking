@@ -77,12 +77,12 @@
     finally { loadingRoster = false }
   }
 
-  function dateText(value: string) {
-    return new Date(value).toLocaleDateString(ar ? 'ar-MA' : 'en', { weekday:'short', month:'short', day:'numeric' })
+  function dateText(value: string, timezone: string) {
+    return new Date(value).toLocaleDateString(ar ? 'ar-MA' : 'en', { weekday:'short', month:'short', day:'numeric', timeZone: timezone })
   }
 
-  function timeText(value: string) {
-    return new Date(value).toLocaleTimeString(ar ? 'ar-MA' : 'en', { hour:'2-digit', minute:'2-digit', hour12:false })
+  function timeText(value: string, timezone: string) {
+    return new Date(value).toLocaleTimeString(ar ? 'ar-MA' : 'en', { hour:'2-digit', minute:'2-digit', hour12:false, timeZone: timezone })
   }
 
   function sportLabel(value: string | null) {
@@ -133,8 +133,8 @@
               <p class="mt-1 flex items-center gap-1.5 text-sm text-text-secondary"><Icon name="map-pin" size={14} />{match.location}</p>
             </div>
             <div class="shrink-0 text-end">
-              <p class="text-sm font-bold text-text">{dateText(match.starts_at)}</p>
-              <p class="mt-0.5 text-sm text-text-muted">{timeText(match.starts_at)}</p>
+              <p class="text-sm font-bold text-text">{dateText(match.starts_at, match.timezone)}</p>
+              <p class="mt-0.5 text-sm text-text-muted">{timeText(match.starts_at, match.timezone)}</p>
             </div>
           </div>
 
