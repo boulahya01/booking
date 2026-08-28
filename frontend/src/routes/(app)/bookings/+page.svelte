@@ -54,14 +54,15 @@
   $: history = bookings.filter((booking) => !upcoming(booking) || booking.status === 'cancelled')
   $: maxReservedSpots = Math.max(0, (openTarget?.pitches?.capacity ?? 1) - 1)
 
-  function dateParts(value: string) {
+  function dateParts(value: string, timezone?: string | null) {
     const d = new Date(value)
     const lang = $locale || 'en'
+    const zone = timezone ? { timeZone: timezone } : {}
     return {
-      day: d.getDate(),
-      month: d.toLocaleString(lang,{month:'short'}),
-      weekday: d.toLocaleString(lang,{weekday:'short'}),
-      time: d.toLocaleTimeString(lang,{hour:'2-digit',minute:'2-digit',hour12:false})
+      day: d.toLocaleString(lang,{day:'numeric', ...zone}),
+      month: d.toLocaleString(lang,{month:'short', ...zone}),
+      weekday: d.toLocaleString(lang,{weekday:'short', ...zone}),
+      time: d.toLocaleTimeString(lang,{hour:'2-digit',minute:'2-digit',hour12:false, ...zone})
     }
   }
 
@@ -133,7 +134,7 @@
       {:else}
         <div class="space-y-3">
           {#each upcomingBookings as booking (booking.id)}
-            {@const date = dateParts(booking.starts_at)}
+            {@const date = dateParts(booking.starts_at, booking.pitches?.timezone)}
             {@const match = matchFor(booking.id)}
             <article class="uneem-card">
               <div class="flex gap-3.5">
@@ -186,7 +187,7 @@
         <h2 class="mb-3 text-lg font-bold text-text">{copy.recent}</h2>
         <div class="uneem-panel px-4">
           {#each history.slice(0,6) as booking (booking.id)}
-            {@const date=dateParts(booking.starts_at)}
+            {@const date=dateParts(booking.starts_at, booking.pitches?.timezone)}
             <div class="uneem-list-row">
               <div class="min-w-0 flex-1"><p class="truncate font-semibold text-text">{booking.pitches?.name || 'Facility'}</p><p class="mt-0.5 text-sm text-text-muted">{date.month} {date.day} · {date.time}</p></div>
               <span class="text-xs font-semibold text-text-muted">{booking.lifecycle_status}</span>
