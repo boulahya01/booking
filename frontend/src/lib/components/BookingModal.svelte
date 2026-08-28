@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import { _, locale } from 'svelte-i18n'
   import { USE_MOCK, mockDelay } from '$lib/mock'
   import { uiState } from '$lib/stores/ui'
@@ -14,6 +15,14 @@
   $: ar = ($locale || 'en').startsWith('ar')
   let loading = false
   let error: string | null = null
+  let dialog: HTMLDivElement
+
+  onMount(() => {
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    dialog?.focus()
+
+    return () => previousFocus?.focus()
+  })
 
   function formatDate(value: string) {
     return new Intl.DateTimeFormat($locale || 'en', {
@@ -27,6 +36,12 @@
       timeZone: slot.timezone || 'Africa/Casablanca',
       hour: '2-digit', minute: '2-digit', hour12: false
     }).format(new Date(value))
+  }
+
+  function handleDialogKeydown(event: KeyboardEvent) {
+    if (event.key !== 'Escape' || loading) return
+    event.stopPropagation()
+    onClose()
   }
 
   async function confirmBooking() {
@@ -52,13 +67,14 @@
   on:click={() => !loading && onClose()}
 >
   <div
+    bind:this={dialog}
     class="uneem-mobile-sheet sm:max-w-md"
     role="dialog"
     aria-modal="true"
     aria-labelledby="booking-title"
     tabindex="-1"
     on:click|stopPropagation
-    on:keydown|stopPropagation
+    on:keydown={handleDialogKeydown}
   >
     <div class="flex items-start justify-between gap-4">
       <div class="min-w-0">
