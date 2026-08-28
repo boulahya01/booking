@@ -171,7 +171,7 @@
       {:else}
         <div class="uneem-panel px-4">
           {#each joinedMatches as match (match.match_id)}
-            {@const date=dateParts(match.starts_at)}
+            {@const date=dateParts(match.starts_at, match.timezone)}
             <a href="/matches" class="uneem-list-row group">
               <div class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary-light text-primary"><Icon name="users" size={18}/></div>
               <div class="min-w-0 flex-1"><p class="truncate font-bold text-text">{match.pitch_name}</p><p class="mt-0.5 text-sm text-text-muted">{date.weekday} · {date.time} · {match.organizer_name}</p></div>
