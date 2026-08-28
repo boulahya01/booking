@@ -113,6 +113,35 @@ function normalizeAuthoritativeBooking(row: any): MyBooking {
   }
 }
 
+async function hydrateBookingTimezones(bookings: MyBooking[]): Promise<MyBooking[]> {
+  const pitchIds = [...new Set(bookings.filter((booking) => booking.pitches).map((booking) => booking.pitch_id))]
+  if (pitchIds.length === 0) return bookings
+
+  const { data, error } = await supabase
+    .from('pitches')
+    .select('id, timezone')
+    .in('id', pitchIds)
+
+  if (error) throwApiError(error)
+
+  const timezoneByPitch = new Map(
+    (Array.isArray(data) ? data : []).map((pitch: any) => [pitch.id, pitch.timezone || 'Africa/Casablanca'])
+  )
+
+  return bookings.map((booking) => {
+    if (!booking.pitches) return booking
+    const timezone = timezoneByPitch.get(booking.pitch_id)
+    if (!timezone) throw new BookingApiError('pitch_not_found')
+    return {
+      ...booking,
+      pitches: {
+        ...booking.pitches,
+        timezone
+      }
+    }
+  })
+}
+
 export async function getPitchAvailability(pitchId: string): Promise<AvailabilitySlot[]> {
   const [availabilityResult, pitchResult] = await Promise.all([
     supabase.rpc('get_pitch_availability', { p_pitch_id: pitchId }),
@@ -166,7 +195,8 @@ export async function getMyBookings(_userId?: string): Promise<MyBooking[]> {
   })
 
   if (error) throwApiError(error)
-  return (Array.isArray(data) ? data : []).map(normalizeAuthoritativeBooking)
+  const bookings = (Array.isArray(data) ? data : []).map(normalizeAuthoritativeBooking)
+  return hydrateBookingTimezones(bookings)
 }
 
 export async function getNextBooking(_userId?: string): Promise<MyBooking | null> {
@@ -179,23 +209,6 @@ export async function getNextBooking(_userId?: string): Promise<MyBooking | null
   const booking = normalizeAuthoritativeBooking(row)
   if (!booking.pitches) return booking
 
-  // The authoritative booking RPC intentionally scopes the booking through auth.uid(),
-  // while facility timezone lives on the public pitch read model. Fetch that timezone
-  // explicitly so the Home card never falls back to the viewer's device timezone.
-  const { data: pitch, error: pitchError } = await supabase
-    .from('pitches')
-    .select('timezone')
-    .eq('id', booking.pitch_id)
-    .maybeSingle()
-
-  if (pitchError) throwApiError(pitchError)
-  if (!pitch) throw new BookingApiError('pitch_not_found')
-
-  return {
-    ...booking,
-    pitches: {
-      ...booking.pitches,
-      timezone: pitch.timezone || 'Africa/Casablanca'
-    }
-  }
+  const [hydrated] = await hydrateBookingTimezones([booking])
+  return hydrated
 }
