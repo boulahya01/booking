@@ -47,7 +47,8 @@ const expectedMigrationVersions = [
   '20260828042700',
   '20260828123500',
   '20260828162600',
-  '20260828173500'
+  '20260828173500',
+  '20260828183000'
 ]
 
 const failures = []
@@ -122,6 +123,7 @@ const requiredPaths = [
   'supabase/migrations/20260828123500_030_remove_username_availability_oracle.sql',
   'supabase/migrations/20260828162600_031_booking_timezone_read_model.sql',
   'supabase/migrations/20260828173500_032_report_target_integrity.sql',
+  'supabase/migrations/20260828183000_033_availability_timezone_read_model.sql',
   'supabase/functions/guest-support/index.ts',
   'supabase/v2/tests/concurrency_contract.ps1',
   'frontend/tests/e2e/public-launch-smoke.spec.ts',
