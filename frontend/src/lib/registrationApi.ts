@@ -25,6 +25,14 @@ export function isAcademicEmail(email: string): boolean {
   return email.trim().toLowerCase().endsWith('@usmba.ac.ma')
 }
 
+function normalizeRegistrationFailureKind(kind: AuthFailureKind): AuthFailureKind {
+  // Registration must not disclose whether an email is already registered.
+  // Supabase confirmation mode intentionally obscures repeated signups, and
+  // any provider-specific duplicate-account error must converge on the same
+  // generic registration conflict path.
+  return kind === 'account_exists' ? 'registration_conflict' : kind
+}
+
 function userMessage(kind: AuthFailureKind, rawMessage = ''): string {
   const ar = get(language) === 'ar'
   const retry = authRetryAfterSeconds(rawMessage)
@@ -51,7 +59,7 @@ function userMessage(kind: AuthFailureKind, rawMessage = ''): string {
 }
 
 function fromAuthError(error: AuthError): RegistrationFailure {
-  const kind = classifyAuthFailure(error.message, error.status, error.code)
+  const kind = normalizeRegistrationFailureKind(classifyAuthFailure(error.message, error.status, error.code))
   return {
     kind,
     message: userMessage(kind, error.message),
@@ -89,15 +97,12 @@ export async function registerAccount(input: {
       return { error: fromAuthError(error) }
     }
 
-    // With email confirmation enabled Supabase returns an obfuscated user for a
-    // repeat signup. Empty identities is the client-visible duplicate signal.
-    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-      return { error: { kind: 'account_exists', message: userMessage('account_exists') } }
-    }
-
+    // With email confirmation enabled Supabase deliberately obscures repeated
+    // signups behind the same successful response shape. Do not inspect the
+    // returned identities array to turn that privacy boundary into an oracle.
     return { data }
   } catch (error: any) {
-    const kind = classifyAuthFailure(error?.message, error?.status, error?.code)
+    const kind = normalizeRegistrationFailureKind(classifyAuthFailure(error?.message, error?.status, error?.code))
     const normalizedKind = kind === 'unknown' ? 'service_unavailable' : kind
     return {
       error: {
@@ -121,6 +126,6 @@ export async function register(
 }
 
 export function mapAuthError(message: string, status?: number): string {
-  const kind = classifyAuthFailure(message, status)
+  const kind = normalizeRegistrationFailureKind(classifyAuthFailure(message, status))
   return userMessage(kind === 'unknown' ? 'service_unavailable' : kind, message)
 }
