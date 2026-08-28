@@ -12,6 +12,8 @@
     type AdminFacility
   } from '$lib/adminApi'
 
+  const DEFAULT_FACILITY_TIMEZONE = 'Africa/Casablanca'
+
   let bookings: AdminBooking[] = []
   let facilities: AdminFacility[] = []
   let loading = true
@@ -62,11 +64,41 @@
     await load()
   })
 
-  function upperBound(date: string) {
+  function dateBoundary(date: string, dayOffset = 0) {
     if (!date) return undefined
-    const d = new Date(`${date}T00:00:00`)
-    d.setDate(d.getDate() + 1)
-    return d.toISOString()
+    const [year, month, day] = date.split('-').map(Number)
+    const targetWallClock = Date.UTC(year, month - 1, day + dayOffset)
+    const timeZone = facilityTimezones.get(pitchId) || DEFAULT_FACILITY_TIMEZONE
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23'
+    })
+
+    let instant = targetWallClock
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const parts = Object.fromEntries(
+        formatter.formatToParts(new Date(instant))
+          .filter((part) => part.type !== 'literal')
+          .map((part) => [part.type, part.value])
+      )
+      const renderedWallClock = Date.UTC(
+        Number(parts.year),
+        Number(parts.month) - 1,
+        Number(parts.day),
+        Number(parts.hour),
+        Number(parts.minute),
+        Number(parts.second)
+      )
+      instant += targetWallClock - renderedWallClock
+    }
+
+    return new Date(instant).toISOString()
   }
 
   async function load() {
@@ -76,8 +108,8 @@
         query,
         pitchId: pitchId || undefined,
         lifecycle: (lifecycle || undefined) as AdminBookingLifecycle | undefined,
-        from: dateFrom ? new Date(`${dateFrom}T00:00:00`).toISOString() : undefined,
-        to: upperBound(dateTo),
+        from: dateBoundary(dateFrom),
+        to: dateBoundary(dateTo, 1),
         limit: pageSize,
         offset: (page - 1) * pageSize
       })
@@ -118,7 +150,7 @@
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
-      timeZone: facilityTimezones.get(bookingPitchId) || 'Africa/Casablanca'
+      timeZone: facilityTimezones.get(bookingPitchId) || DEFAULT_FACILITY_TIMEZONE
     })
   }
 
