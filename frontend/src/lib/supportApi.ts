@@ -179,7 +179,7 @@ export async function createGuestSupportThread(input: {
       try {
         const payload = await response.clone().json()
         if (typeof payload?.error === 'string' && payload.error.trim()) {
-          throw new Error(payload.error)
+          throw normalizeError(new Error(payload.error))
         }
       } catch (cause) {
         if (cause instanceof Error && cause.message !== 'Unexpected end of JSON input') throw cause
