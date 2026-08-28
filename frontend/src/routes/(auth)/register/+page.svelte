@@ -55,24 +55,24 @@
     ? {
         emailTitle: 'إنشاء حساب', detailsTitle: 'معلوماتك', passwordTitle: 'اختر كلمة مرور',
         email: 'البريد الإلكتروني', emailPlaceholder: 'mehdi@usmba.ac.ma', invalidEmail: 'أدخل بريداً صحيحاً.',
-        universityEmail: 'بريد جامعي', universityAccess: 'يمكنك الحجز بعد تأكيد البريد', personalEmail: 'بريد شخصي', personalAccess: 'بطاقة الطالب مطلوبة قبل الحجز',
+        universityAccess: 'بريد جامعي · أكّد البريد للحجز', personalAccess: 'بريد شخصي · بطاقة الطالب مطلوبة',
         continue: 'متابعة', back: 'رجوع', fullName: 'الاسم الكامل', fullNamePlaceholder: 'Mehdi El Amrani', invalidName: 'اكتب اسماً من 2 إلى 100 حرف.',
         username: 'اسم المستخدم', usernamePlaceholder: 'mehdi01', invalidUsername: '3–24 حرفاً أو رقماً أو _',
         studentId: 'رقم الطالب', studentIdPlaceholder: 'S123456789', invalidStudentId: 'حرف واحد + 9 أرقام فقط',
         password: 'كلمة المرور', passwordPlaceholder: '8 أحرف أو أكثر', confirmPassword: 'تأكيد كلمة المرور', confirmPlaceholder: 'أعد كتابة كلمة المرور',
         passwordRequired: 'أنشئ كلمة مرور.', mismatch: 'غير متطابقة',
-        ruleLength: '8+ أحرف', ruleNumber: 'رقم', ruleSymbol: 'رمز', create: 'إنشاء الحساب', haveAccount: 'لديك حساب؟', signIn: 'تسجيل الدخول', help: 'تحتاج مساعدة؟'
+        ruleLength: '8+ أحرف', ruleNumber: 'رقم', ruleSymbol: 'رمز', create: 'إنشاء الحساب', haveAccount: 'لديك حساب؟', signIn: 'تسجيل الدخول'
       }
     : {
         emailTitle: 'Create account', detailsTitle: 'Your details', passwordTitle: 'Set password',
         email: 'Email address', emailPlaceholder: 'mehdi@usmba.ac.ma', invalidEmail: 'Enter a valid email.',
-        universityEmail: 'University email', universityAccess: 'Book after confirming your email', personalEmail: 'Personal email', personalAccess: 'Student card required before booking',
+        universityAccess: 'University email · confirm to book', personalAccess: 'Personal email · student card required',
         continue: 'Continue', back: 'Back', fullName: 'Full name', fullNamePlaceholder: 'Mehdi El Amrani', invalidName: 'Use 2–100 characters for your name.',
         username: 'Username', usernamePlaceholder: 'mehdi01', invalidUsername: '3–24 letters, numbers or _',
         studentId: 'Student ID', studentIdPlaceholder: 'S123456789', invalidStudentId: 'Use exactly 1 letter + 9 digits',
         password: 'Password', passwordPlaceholder: '8+ characters', confirmPassword: 'Confirm password', confirmPlaceholder: 'Repeat password',
         passwordRequired: 'Create a password.', mismatch: 'Doesn’t match',
-        ruleLength: '8+ chars', ruleNumber: '1 number', ruleSymbol: '1 symbol', create: 'Create account', haveAccount: 'Already have an account?', signIn: 'Sign in', help: 'Need help?'
+        ruleLength: '8+ chars', ruleNumber: '1 number', ruleSymbol: '1 symbol', create: 'Create account', haveAccount: 'Already have an account?', signIn: 'Sign in'
       }
 
   $: title = step === 'email' ? copy.emailTitle : step === 'details' ? copy.detailsTitle : copy.passwordTitle
@@ -212,9 +212,9 @@
         <Button type="submit" variant="primary" size="lg" className="w-full" disabled={loading}>{copy.continue}</Button>
       </form>
     {:else if step === 'details'}
-      <div class="mb-5 flex items-center gap-3 rounded-[18px] border border-border/70 bg-surface-level-1 px-4 py-3.5">
+      <div class="mb-5 flex min-h-12 items-center gap-3 rounded-[18px] bg-surface-level-1 px-4 py-3">
         <span class={`h-2.5 w-2.5 shrink-0 rounded-full ${academic ? 'bg-success' : 'bg-warning'}`}></span>
-        <div class="min-w-0"><p class="text-sm font-semibold text-text">{academic ? copy.universityEmail : copy.personalEmail}</p><p class="mt-0.5 text-xs text-text-muted">{academic ? copy.universityAccess : copy.personalAccess}</p></div>
+        <p class="min-w-0 text-sm font-medium text-text-secondary">{academic ? copy.universityAccess : copy.personalAccess}</p>
       </div>
       <form on:submit|preventDefault={continueFromDetails} class="space-y-4">
         <TextField ariaLabel={copy.fullName} placeholder={copy.fullNamePlaceholder} icon="user" autocomplete="name" maxlength={100} bind:value={fullName} validation={nameState} hint={nameState === 'invalid' ? copy.invalidName : ''} disabled={loading} />
@@ -247,7 +247,4 @@
     </p>
   </section>
 
-  <div slot="footer" class="text-center">
-    <a href="/help" class="inline-flex min-h-11 items-center justify-center gap-2 px-3 text-sm text-text-muted transition-colors hover:text-text"><Icon name="info" size={17} /><span>{copy.help}</span></a>
-  </div>
 </AuthShell>
