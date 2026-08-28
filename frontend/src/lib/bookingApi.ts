@@ -114,25 +114,18 @@ function normalizeAuthoritativeBooking(row: any): MyBooking {
 }
 
 export async function getPitchAvailability(pitchId: string): Promise<AvailabilitySlot[]> {
-  const [availabilityResult, pitchResult] = await Promise.all([
-    supabase.rpc('get_pitch_availability', { p_pitch_id: pitchId }),
-    supabase.from('pitches').select('timezone').eq('id', pitchId).maybeSingle()
-  ])
+  const { data, error } = await supabase.rpc('get_pitch_availability', { p_pitch_id: pitchId })
 
-  if (availabilityResult.error) throwApiError(availabilityResult.error)
-  if (pitchResult.error) throwApiError(pitchResult.error)
-  if (!pitchResult.data) throw new BookingApiError('pitch_not_found')
-  if (!Array.isArray(availabilityResult.data)) return []
+  if (error) throwApiError(error)
+  if (!Array.isArray(data)) return []
 
-  const timezone = pitchResult.data.timezone || 'Africa/Casablanca'
-
-  return availabilityResult.data.map((row: any) => ({
+  return data.map((row: any) => ({
     id: row.booking_id || `${pitchId}:${row.starts_at}`,
     booking_id: row.booking_id || null,
     pitch_id: pitchId,
     datetime_start: row.starts_at,
     datetime_end: row.ends_at,
-    timezone,
+    timezone: row.timezone || 'Africa/Casablanca',
     is_available: Boolean(row.is_available),
     booked_by_me: Boolean(row.booked_by_me),
     booker_name: row.booker_name || null
