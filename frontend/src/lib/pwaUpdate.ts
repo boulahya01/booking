@@ -38,6 +38,20 @@ function watchInstalling(worker: ServiceWorker | null) {
   })
 }
 
+function waitForInstallingWorker(worker: ServiceWorker): Promise<void> {
+  if (worker.state === 'installed' || worker.state === 'redundant') return Promise.resolve()
+
+  return new Promise((resolve) => {
+    const handleStateChange = () => {
+      if (worker.state !== 'installed' && worker.state !== 'redundant') return
+      worker.removeEventListener('statechange', handleStateChange)
+      resolve()
+    }
+
+    worker.addEventListener('statechange', handleStateChange)
+  })
+}
+
 export function initPwaUpdates(): () => void {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return () => undefined
   if (initialized) return () => undefined
@@ -79,7 +93,10 @@ export async function applyPwaUpdate(): Promise<void> {
   try {
     if (!registration.waiting) {
       await registration.update()
-      markWaitingWorker()
+
+      if (registration.installing) {
+        await waitForInstallingWorker(registration.installing)
+      }
     }
 
     if (registration.waiting) {
