@@ -31,6 +31,7 @@ function userMessage(kind: AuthFailureKind, rawMessage = ''): string {
 
   if (ar) {
     if (kind === 'account_exists') return 'هذا البريد مرتبط بحساب موجود. سجّل الدخول، أو استرجع كلمة المرور إذا نسيتها.'
+    if (kind === 'registration_conflict') return 'تعذر إنشاء الحساب بهذه المعلومات. راجعها وحاول مجدداً، أو سجّل الدخول إذا كان لديك حساب.'
     if (kind === 'username_taken') return 'اسم المستخدم مستعمل بالفعل. اختر اسماً آخر.'
     if (kind === 'weak_password') return 'استخدم 8 أحرف على الأقل مع رقم ورمز.'
     if (kind === 'rate_limited') return retry ? `طلبات كثيرة. انتظر ${retry} ثانية ثم حاول مجدداً.` : 'طلبات كثيرة. انتظر قليلاً ثم حاول مجدداً.'
@@ -40,6 +41,7 @@ function userMessage(kind: AuthFailureKind, rawMessage = ''): string {
   }
 
   if (kind === 'account_exists') return 'An account already uses this email. Sign in instead, or reset your password if you forgot it.'
+  if (kind === 'registration_conflict') return 'We could not create an account with these details. Review them and try again, or sign in if you already have an account.'
   if (kind === 'username_taken') return 'That username is already taken. Choose another one.'
   if (kind === 'weak_password') return 'Use at least 8 characters with a number and a symbol.'
   if (kind === 'rate_limited') return retry ? `Too many attempts. Wait ${retry} seconds and try again.` : 'Too many attempts. Wait a moment and try again.'
