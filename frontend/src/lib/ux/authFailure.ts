@@ -2,6 +2,7 @@ export type AuthFailureKind =
   | 'invalid_credentials'
   | 'email_unconfirmed'
   | 'account_exists'
+  | 'registration_conflict'
   | 'username_taken'
   | 'weak_password'
   | 'same_password'
@@ -61,9 +62,12 @@ export function classifyAuthFailure(message?: string, status?: number, code?: st
     return 'account_exists'
   }
 
+  if (text.includes('registration_conflict')) {
+    return 'registration_conflict'
+  }
+
   if (
     text.includes('username_taken') ||
-    text.includes('registration_conflict') ||
     text.includes('profiles_username')
   ) {
     return 'username_taken'
