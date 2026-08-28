@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { onDestroy, onMount } from 'svelte'
   import { resetPasswordForEmail } from '$lib/auth'
   import { language } from '$lib/stores/ui'
   import { isValidEmail } from '$lib/utils/cn'
+  import { authRetryAfterSeconds, classifyAuthFailure } from '$lib/ux/authFailure'
   import TextField from '$lib/components/TextField.svelte'
   import Button from '$lib/components/Button.svelte'
   import AuthShell from '$lib/components/AuthShell.svelte'
@@ -15,17 +16,19 @@
   let loading = false
   let emailSent = false
   let attempted = false
+  let retrySeconds = 0
+  let retryTimer: ReturnType<typeof setInterval> | null = null
 
   $: copy = $language === 'ar'
     ? {
         title: 'نسيت كلمة المرور؟', subtitle: 'أدخل بريدك وسنرسل رابطاً جديداً.', email: 'البريد الإلكتروني', placeholder: 'mehdi@usmba.ac.ma',
         send: 'إرسال رابط الاسترجاع', sentTitle: 'تحقق من بريدك', sentBody: 'إذا كان البريد مرتبطاً بحساب، ستصلك التعليمات بعد قليل.',
-        another: 'استخدام بريد آخر', invalid: 'أدخل بريداً صحيحاً.', generic: 'تعذر إرسال الطلب. حاول بعد قليل.', rateLimited: 'طلبات كثيرة الآن. انتظر قليلاً ثم حاول مجدداً.', signIn: 'العودة لتسجيل الدخول', help: 'تحتاج مساعدة؟'
+        another: 'استخدام بريد آخر', invalid: 'أدخل بريداً صحيحاً.', generic: 'تعذر إرسال الطلب. حاول بعد قليل.', rateLimited: 'طلبات كثيرة الآن. حاول مجدداً بعد', signIn: 'العودة لتسجيل الدخول', help: 'تحتاج مساعدة؟'
       }
     : {
         title: 'Forgot password?', subtitle: 'Enter your email to reset your password.', email: 'Email address', placeholder: 'mehdi@usmba.ac.ma',
         send: 'Send reset link', sentTitle: 'Check your email', sentBody: 'If the email is linked to an account, recovery instructions will arrive shortly.',
-        another: 'Use another email', invalid: 'Enter a valid email.', generic: 'Couldn’t send the request. Try again shortly.', rateLimited: 'Too many recovery requests. Wait a moment and try again.', signIn: 'Back to sign in', help: 'Need help?'
+        another: 'Use another email', invalid: 'Enter a valid email.', generic: 'Couldn’t send the request. Try again shortly.', rateLimited: 'Too many recovery requests. Try again in', signIn: 'Back to sign in', help: 'Need help?'
       }
 
   $: normalizedEmail = email.trim().toLowerCase()
@@ -33,10 +36,40 @@
   $: emailState = fieldState(email.length > 0 || attempted, emailValid)
   $: emailHint = emailState === 'invalid' ? copy.invalid : ''
   $: loginHref = emailValid ? `/login?email=${encodeURIComponent(normalizedEmail)}` : '/login'
+  $: retryLabel = retrySeconds > 0 ? formatCountdown(retrySeconds) : ''
 
   function fieldState(active: boolean, valid: boolean): FieldState {
     if (!active) return 'idle'
     return valid ? 'valid' : 'invalid'
+  }
+
+  function formatCountdown(totalSeconds: number) {
+    const minutes = Math.floor(totalSeconds / 60)
+    const seconds = totalSeconds % 60
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+  }
+
+  function clearRetryTimer() {
+    if (retryTimer) {
+      clearInterval(retryTimer)
+      retryTimer = null
+    }
+  }
+
+  function startRetryCooldown(rawMessage: string) {
+    clearRetryTimer()
+    retrySeconds = authRetryAfterSeconds(rawMessage) ?? 60
+    error = `${copy.rateLimited} ${formatCountdown(retrySeconds)}.`
+
+    retryTimer = setInterval(() => {
+      retrySeconds = Math.max(0, retrySeconds - 1)
+      if (retrySeconds === 0) {
+        clearRetryTimer()
+        error = ''
+        return
+      }
+      error = `${copy.rateLimited} ${formatCountdown(retrySeconds)}.`
+    }, 1000)
   }
 
   onMount(() => {
@@ -44,18 +77,20 @@
     if (isValidEmail(hintedEmail)) email = hintedEmail
   })
 
+  onDestroy(clearRetryTimer)
+
   async function handleSubmit() {
     error = ''
     attempted = true
-    if (!emailValid) return
+    if (!emailValid || retrySeconds > 0) return
 
     loading = true
     try {
       const result = await resetPasswordForEmail(normalizedEmail)
       if (result.error) {
-        const lower = result.error.message.toLowerCase()
-        if (lower.includes('rate') || lower.includes('too many') || lower.includes('429')) {
-          error = copy.rateLimited
+        const kind = classifyAuthFailure(result.error.message)
+        if (kind === 'rate_limited') {
+          startRetryCooldown(result.error.message)
         } else {
           error = copy.generic
         }
@@ -89,7 +124,7 @@
     </div>
 
     {#if error}
-      <div class="mb-5 rounded-[18px] bg-danger-light p-4 text-sm font-medium leading-6 text-danger" role="alert">{error}</div>
+      <div class="mb-5 rounded-[18px] bg-danger-light p-4 text-sm font-medium leading-6 text-danger" role="alert" aria-live="polite">{error}</div>
     {/if}
 
     {#if emailSent}
@@ -102,8 +137,10 @@
       </div>
     {:else}
       <form on:submit|preventDefault={handleSubmit} class="space-y-5">
-        <TextField ariaLabel={copy.email} type="email" placeholder={copy.placeholder} icon="mail" autocomplete="email" bind:value={email} validation={emailState} hint={emailHint} disabled={loading} />
-        <Button type="submit" variant="primary" size="lg" {loading} className="w-full">{copy.send}</Button>
+        <TextField ariaLabel={copy.email} type="email" placeholder={copy.placeholder} icon="mail" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck={false} maxlength={254} bind:value={email} validation={emailState} hint={emailHint} disabled={loading || retrySeconds > 0} />
+        <Button type="submit" variant="primary" size="lg" {loading} disabled={loading || retrySeconds > 0} className="w-full">
+          {retrySeconds > 0 ? `${copy.send} · ${retryLabel}` : copy.send}
+        </Button>
       </form>
     {/if}
 
