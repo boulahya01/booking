@@ -50,7 +50,7 @@ export type MyBooking = {
   lifecycle_status: BookingLifecycle
   cancelled_at: string | null
   created_at: string
-  pitches: { name: string; location: string; capacity: number } | null
+  pitches: { name: string; location: string; capacity: number; timezone: string | null } | null
 }
 
 function classifyError(error: any): BookingFailureCode {
@@ -106,7 +106,8 @@ function normalizeAuthoritativeBooking(row: any): MyBooking {
       ? {
           name: row.pitch_name,
           location: row.pitch_location,
-          capacity: Number(row.pitch_capacity || 0)
+          capacity: Number(row.pitch_capacity || 0),
+          timezone: row.pitch_timezone || null
         }
       : null
   }
@@ -173,5 +174,28 @@ export async function getNextBooking(_userId?: string): Promise<MyBooking | null
 
   if (error) throwApiError(error)
   const row = Array.isArray(data) ? data[0] : data
-  return row ? normalizeAuthoritativeBooking(row) : null
+  if (!row) return null
+
+  const booking = normalizeAuthoritativeBooking(row)
+  if (!booking.pitches) return booking
+
+  // The authoritative booking RPC intentionally scopes the booking through auth.uid(),
+  // while facility timezone lives on the public pitch read model. Fetch that timezone
+  // explicitly so the Home card never falls back to the viewer's device timezone.
+  const { data: pitch, error: pitchError } = await supabase
+    .from('pitches')
+    .select('timezone')
+    .eq('id', booking.pitch_id)
+    .maybeSingle()
+
+  if (pitchError) throwApiError(pitchError)
+  if (!pitch) throw new BookingApiError('pitch_not_found')
+
+  return {
+    ...booking,
+    pitches: {
+      ...booking.pitches,
+      timezone: pitch.timezone || 'Africa/Casablanca'
+    }
+  }
 }

@@ -66,14 +66,14 @@
     }
   }
 
-  function formatBookingTime(dateString: string) {
+  function formatBookingTime(dateString: string, timezone: string) {
     const date = new Date(dateString)
     const currentLocale = $locale || 'en'
     return {
-      day: date.getDate(),
-      month: date.toLocaleDateString(currentLocale, { month: 'short' }),
-      weekday: date.toLocaleDateString(currentLocale, { weekday: 'short' }),
-      time: date.toLocaleTimeString(currentLocale, { hour: '2-digit', minute: '2-digit', hour12: false })
+      day: date.toLocaleDateString(currentLocale, { day: 'numeric', timeZone: timezone }),
+      month: date.toLocaleDateString(currentLocale, { month: 'short', timeZone: timezone }),
+      weekday: date.toLocaleDateString(currentLocale, { weekday: 'short', timeZone: timezone }),
+      time: date.toLocaleTimeString(currentLocale, { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: timezone })
     }
   }
 </script>
@@ -96,7 +96,7 @@
       </div>
     </div>
   {:else if booking}
-    {@const time = formatBookingTime(booking.starts_at)}
+    {@const time = formatBookingTime(booking.starts_at, booking.pitches?.timezone || 'Africa/Casablanca')}
     <a href="/bookings" class="group flex items-center gap-3.5">
       <div class="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-primary-light text-primary">
         <span class="text-[10px] font-extrabold uppercase tracking-wide">{time.month}</span>
