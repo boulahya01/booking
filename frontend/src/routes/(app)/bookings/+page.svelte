@@ -33,6 +33,23 @@
 
   onMount(loadSports)
 
+  function modalFocus(node: HTMLElement) {
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    node.focus()
+
+    return {
+      destroy() {
+        previousFocus?.focus()
+      }
+    }
+  }
+
+  function dismissOnEscape(event: KeyboardEvent, close: () => void) {
+    if (event.key !== 'Escape' || working) return
+    event.stopPropagation()
+    close()
+  }
+
   async function loadSports() {
     const user = $authState.user
     if (!user?.id) { await goto('/login'); return }
@@ -202,7 +219,7 @@
 {#if openTarget}
   <div class="fixed inset-0 z-50 flex items-end bg-black/55 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-4" role="presentation">
     <button type="button" tabindex="-1" aria-label="Close match dialog" class="absolute inset-0 cursor-default" disabled={working} on:click={() => openTarget = null}></button>
-    <div class="uneem-mobile-sheet relative z-10" role="dialog" aria-modal="true" tabindex="-1">
+    <div class="uneem-mobile-sheet relative z-10" role="dialog" aria-modal="true" tabindex="-1" use:modalFocus on:keydown={(event) => dismissOnEscape(event, () => openTarget = null)}>
       <h2 class="text-xl font-bold text-text">{copy.openTitle}</h2>
       <p class="mt-2 text-sm leading-6 text-text-secondary">{copy.openBody}</p>
       <div class="mt-5 flex items-end justify-between gap-4">
@@ -221,7 +238,7 @@
 {#if cancelTarget}
   <div class="fixed inset-0 z-50 flex items-end bg-black/55 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-4" role="presentation">
     <button type="button" tabindex="-1" aria-label="Close cancellation dialog" class="absolute inset-0 cursor-default" disabled={working} on:click={() => cancelTarget = null}></button>
-    <div class="uneem-mobile-sheet relative z-10" role="dialog" aria-modal="true" tabindex="-1">
+    <div class="uneem-mobile-sheet relative z-10" role="dialog" aria-modal="true" tabindex="-1" use:modalFocus on:keydown={(event) => dismissOnEscape(event, () => cancelTarget = null)}>
       <h2 class="text-xl font-bold text-text">{copy.cancelTitle}</h2>
       <p class="mt-2 text-sm leading-6 text-text-secondary">{copy.cancelBody}{matchFor(cancelTarget.id) ? copy.cancelMatch : ''}</p>
       <div class="mt-6 flex gap-3"><button class="uneem-secondary-action flex-1" disabled={working} on:click={() => cancelTarget=null}>{copy.keep}</button><button class="flex min-h-[50px] flex-1 items-center justify-center rounded-[18px] bg-danger px-4 font-bold text-white disabled:opacity-60" disabled={working} on:click={confirmCancel}>{working ? copy.cancelling : copy.cancel}</button></div>
