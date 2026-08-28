@@ -21,11 +21,6 @@ export type RegistrationResult = {
   error?: RegistrationFailure
 }
 
-export type UsernameAvailabilityResult = {
-  available: boolean
-  error?: RegistrationFailure
-}
-
 export function isAcademicEmail(email: string): boolean {
   return email.trim().toLowerCase().endsWith('@usmba.ac.ma')
 }
@@ -63,28 +58,6 @@ function fromAuthError(error: AuthError): RegistrationFailure {
   }
 }
 
-export async function checkUsernameAvailability(username: string): Promise<UsernameAvailabilityResult> {
-  const normalizedUsername = username.trim().toLowerCase()
-  const { data, error } = await supabase.rpc('registration_username_available', {
-    p_username: normalizedUsername
-  })
-
-  if (error) {
-    const kind = classifyAuthFailure(error.message, undefined, error.code)
-    const normalizedKind = kind === 'unknown' ? 'service_unavailable' : kind
-    return {
-      available: false,
-      error: {
-        kind: normalizedKind,
-        message: userMessage(normalizedKind, error.message),
-        code: error.code
-      }
-    }
-  }
-
-  return { available: data === true }
-}
-
 export async function registerAccount(input: {
   email: string
   password: string
@@ -97,12 +70,6 @@ export async function registerAccount(input: {
   const studentId = input.studentId?.replace(/\s+/g, '').toUpperCase() || undefined
 
   try {
-    const preflight = await checkUsernameAvailability(username)
-    if (preflight.error) return { error: preflight.error }
-    if (!preflight.available) {
-      return { error: { kind: 'username_taken', message: userMessage('username_taken') } }
-    }
-
     const { data, error } = await supabase.auth.signUp({
       email,
       password: input.password,
@@ -117,18 +84,7 @@ export async function registerAccount(input: {
     })
 
     if (error) {
-      const failure = fromAuthError(error)
-
-      // A concurrent username claim can still race the availability preflight.
-      // Recheck after a DB-side signup failure so the user gets a precise action.
-      if (failure.kind === 'service_unavailable' || failure.kind === 'unknown') {
-        const recheck = await checkUsernameAvailability(username)
-        if (!recheck.error && !recheck.available) {
-          return { error: { kind: 'username_taken', message: userMessage('username_taken') } }
-        }
-      }
-
-      return { error: failure }
+      return { error: fromAuthError(error) }
     }
 
     // With email confirmation enabled Supabase returns an obfuscated user for a
