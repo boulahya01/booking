@@ -273,8 +273,9 @@
 {#if showModal && selectedSlot}<BookingModal slotData={selectedSlot} onClose={onModalClose} onBooked={onBookingCompleted}/>{/if}
 
 {#if cancelSlot}
-  <div class="fixed inset-0 z-50 flex items-end bg-black/55 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-4" role="presentation" on:click={() => !canceling && (cancelSlot=null)}>
-    <section class="uneem-mobile-sheet sm:max-w-md" role="dialog" aria-modal="true" on:click|stopPropagation>
+  <div class="fixed inset-0 z-50 flex items-end bg-black/55 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-4" role="presentation">
+    <button type="button" tabindex="-1" aria-label="Close cancellation dialog" class="absolute inset-0 cursor-default" disabled={canceling} on:click={() => cancelSlot=null}></button>
+    <section class="uneem-mobile-sheet relative z-10 sm:max-w-md" role="dialog" aria-modal="true" tabindex="-1">
       <h2 class="text-xl font-extrabold text-text">{ar ? 'إلغاء الحجز؟' : 'Cancel booking?'}</h2>
       <p class="mt-2 text-sm leading-6 text-text-secondary">{ar ? 'غادي يتحرر هاد الوقت باش يقدر طالب آخر يحجزو.' : 'This time will become available to another student.'}</p>
       <div class="mt-6 flex gap-3">

@@ -8,6 +8,7 @@
   import Button from '$lib/components/Button.svelte'
   import TextField from '$lib/components/TextField.svelte'
   import Icon from '$lib/components/Icon.svelte'
+  import PwaInstallCard from '$lib/components/PwaInstallCard.svelte'
   import { USE_MOCK, mockProfile, mockDelay } from '$lib/mock'
   import { sanitizeInput, sanitizeName } from '$lib/validation'
   import { isValidPassword } from '$lib/utils/cn'
@@ -292,6 +293,10 @@
         </div>
       {/if}
     </section>
+
+    <div class="mt-4">
+      <PwaInstallCard alwaysVisible />
+    </div>
 
     <div class="mt-5 grid gap-2.5 sm:grid-cols-2">
       <a href="/help" class="uneem-secondary-action"><Icon name="mail" size={17}/>{ar ? 'المساعدة' : 'Help & support'}</a>

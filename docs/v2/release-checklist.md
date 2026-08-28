@@ -92,7 +92,7 @@ Run `frontend/tests/e2e/public-launch-smoke.spec.ts` against the exact release d
 - [x] Legacy `Vercel – booking` remains non-authoritative.
 - [x] V2 release branch is being consolidated into the final PR against `dev`.
 - [ ] Promote `dev` and verify the final production deployment.
-- [ ] Create the first real user, then bootstrap exactly one first admin through the database-owner-only bootstrap function.
+- [x] Create the first real user, then bootstrap exactly one first admin through the database-owner-only bootstrap function.
 - [ ] Create real facilities through the admin UI; do not seed guessed production facilities.
 
 ## Stop conditions

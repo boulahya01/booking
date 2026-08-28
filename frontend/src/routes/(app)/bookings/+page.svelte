@@ -200,12 +200,13 @@
 </main>
 
 {#if openTarget}
-  <div class="fixed inset-0 z-50 flex items-end bg-black/55 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-4" role="presentation" on:click={() => !working && (openTarget = null)}>
-    <div class="uneem-mobile-sheet" role="dialog" aria-modal="true" on:click|stopPropagation>
+  <div class="fixed inset-0 z-50 flex items-end bg-black/55 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-4" role="presentation">
+    <button type="button" tabindex="-1" aria-label="Close match dialog" class="absolute inset-0 cursor-default" disabled={working} on:click={() => openTarget = null}></button>
+    <div class="uneem-mobile-sheet relative z-10" role="dialog" aria-modal="true" tabindex="-1">
       <h2 class="text-xl font-bold text-text">{copy.openTitle}</h2>
       <p class="mt-2 text-sm leading-6 text-text-secondary">{copy.openBody}</p>
       <div class="mt-5 flex items-end justify-between gap-4">
-        <div><label class="block text-sm font-bold text-text">{copy.reserved}</label><p class="mt-1 text-xs text-text-muted">{copy.upTo} {maxReservedSpots} {copy.total} {openTarget.pitches?.capacity || 1}.</p></div>
+        <div><span class="block text-sm font-bold text-text">{copy.reserved}</span><p class="mt-1 text-xs text-text-muted">{copy.upTo} {maxReservedSpots} {copy.total} {openTarget.pitches?.capacity || 1}.</p></div>
         <div class="flex items-center gap-2">
           <button class="grid h-12 w-12 place-items-center rounded-2xl bg-surface-level-1 text-xl font-bold text-text disabled:opacity-40" disabled={reservedSpots === 0 || working} on:click={() => reservedSpots = Math.max(0,reservedSpots-1)} aria-label="Remove reserved friend">−</button>
           <span class="min-w-10 text-center text-xl font-extrabold text-text">{reservedSpots}</span>
@@ -218,8 +219,9 @@
 {/if}
 
 {#if cancelTarget}
-  <div class="fixed inset-0 z-50 flex items-end bg-black/55 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-4" role="presentation" on:click={() => !working && (cancelTarget = null)}>
-    <div class="uneem-mobile-sheet" role="dialog" aria-modal="true" on:click|stopPropagation>
+  <div class="fixed inset-0 z-50 flex items-end bg-black/55 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-4" role="presentation">
+    <button type="button" tabindex="-1" aria-label="Close cancellation dialog" class="absolute inset-0 cursor-default" disabled={working} on:click={() => cancelTarget = null}></button>
+    <div class="uneem-mobile-sheet relative z-10" role="dialog" aria-modal="true" tabindex="-1">
       <h2 class="text-xl font-bold text-text">{copy.cancelTitle}</h2>
       <p class="mt-2 text-sm leading-6 text-text-secondary">{copy.cancelBody}{matchFor(cancelTarget.id) ? copy.cancelMatch : ''}</p>
       <div class="mt-6 flex gap-3"><button class="uneem-secondary-action flex-1" disabled={working} on:click={() => cancelTarget=null}>{copy.keep}</button><button class="flex min-h-[50px] flex-1 items-center justify-center rounded-[18px] bg-danger px-4 font-bold text-white disabled:opacity-60" disabled={working} on:click={confirmCancel}>{working ? copy.cancelling : copy.cancel}</button></div>

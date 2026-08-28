@@ -119,6 +119,43 @@ test.describe('public auth authority negatives', () => {
   });
 });
 
+test('registration stays concise and returns wrapped database conflicts to editable details', async ({ page }) => {
+  await seedUi(page, 'en');
+  await page.route('**/auth/v1/signup**', async (route) => {
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 'unexpected_failure',
+        message: 'Database error saving new user',
+      }),
+    });
+  });
+
+  await page.goto('/register', { waitUntil: 'domcontentloaded' });
+  await page.getByLabel('Email address', { exact: true }).fill('release-check@example.com');
+  await expect(page.getByText('Personal email · card approval required')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Continue' }).click();
+
+  await expect(page.getByText('Student card required before booking')).toBeVisible();
+  await page.getByLabel('Full name', { exact: true }).fill('Release Check');
+  await page.getByLabel('Username', { exact: true }).fill('releasecheck');
+  await page.getByLabel('Student ID', { exact: true }).fill('S987654321');
+  await expect(page.getByText('Looks good')).toHaveCount(0);
+  await expect(page.getByText(/Format valid/)).toHaveCount(0);
+  await page.getByRole('button', { name: 'Continue' }).click();
+
+  await page.getByLabel('Password', { exact: true }).fill('Secure123!');
+  await page.getByLabel('Confirm password', { exact: true }).fill('Secure123!');
+  await expect(page.getByText('Ready')).toHaveCount(0);
+  await expect(page.getByText('Passwords match')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Create account' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Your details' })).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveText('These details can’t be used. Review them or sign in.');
+  await expect(page.getByText(/could not create your account right now/i)).toHaveCount(0);
+});
+
 test('PWA install metadata is reachable', async ({ page }) => {
   const manifestResponse = await page.request.get('/app.webmanifest');
   expect(manifestResponse.ok()).toBe(true);

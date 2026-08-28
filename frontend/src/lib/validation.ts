@@ -1,8 +1,33 @@
 import DOMPurify from 'dompurify'
 import { z } from 'zod'
 
+type Purifier = {
+  sanitize: (value: string, options: { ALLOWED_TAGS: string[]; ALLOWED_ATTR: string[] }) => string
+}
+
+function browserPurifier(): Purifier | null {
+  if (typeof window === 'undefined') return null
+
+  const candidate = DOMPurify as unknown as Purifier | ((hostWindow: Window) => Purifier)
+  if (typeof (candidate as Purifier).sanitize === 'function') return candidate as Purifier
+  if (typeof candidate === 'function') return candidate(window)
+  return null
+}
+
+function plainTextFallback(value: string): string {
+  // Server-rendered form values are escaped by Svelte and are sanitized again
+  // in the browser before submission. Strip markup here so SSR validation has
+  // the same plain-text intent without requiring a synthetic browser window.
+  return value.replace(/<[^>]*>/g, '')
+}
+
 export const sanitizeInput = (s = ''): string => {
-  return DOMPurify.sanitize(String(s || ''), { ALLOWED_TAGS: [], ALLOWED_ATTR: [] }).trim()
+  const value = String(s || '')
+  const purifier = browserPurifier()
+  return (purifier
+    ? purifier.sanitize(value, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] })
+    : plainTextFallback(value)
+  ).trim()
 }
 
 export const sanitizeName = (s = ''): string => sanitizeInput(s).replace(/\s+/g, ' ').slice(0, 100)
@@ -14,10 +39,14 @@ export const sanitizeName = (s = ''): string => sanitizeInput(s).replace(/\s+/g,
 export const sanitizeStudentId = (s = ''): string => String(s || '').replace(/\s+/g, '').toUpperCase().slice(0, 50)
 
 export const sanitizeDescription = (s = ''): string => {
-  return DOMPurify.sanitize(String(s || ''), {
-    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'p', 'ul', 'ol', 'li'],
-    ALLOWED_ATTR: [],
-  })
+  const value = String(s || '')
+  const purifier = browserPurifier()
+  return purifier
+    ? purifier.sanitize(value, {
+        ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'p', 'ul', 'ol', 'li'],
+        ALLOWED_ATTR: [],
+      })
+    : plainTextFallback(value)
 }
 
 export const sanitizeBody = (obj: any): any => {
