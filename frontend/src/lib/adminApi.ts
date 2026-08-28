@@ -82,6 +82,16 @@ function message(error: any, fallback: string) {
   return String(error?.message || fallback)
 }
 
+function adminBookingCancelMessage(error: any) {
+  const code = String(error?.message || '').toLowerCase()
+  if (code.includes('admin_required')) return 'Your admin session no longer has permission for this action. Refresh or sign in again.'
+  if (code.includes('booking_not_found')) return 'This booking no longer exists. Refresh the booking list.'
+  if (code.includes('booking_already_cancelled')) return 'This booking has already been cancelled. Refresh the booking list.'
+  if (code.includes('booking_already_finished')) return 'This booking has already finished and can no longer be cancelled.'
+  if (code.includes('invalid_admin_booking_cancel_reason')) return 'Choose a valid cancellation reason and try again.'
+  return 'Unable to cancel this booking right now. Please try again.'
+}
+
 export async function listAdminBookings(filters: AdminBookingFilters = {}): Promise<{ rows: AdminBooking[]; total: number }> {
   const { data, error } = await supabase.rpc('admin_list_bookings', {
     p_query: filters.query?.trim() || null,
@@ -102,7 +112,7 @@ export async function adminCancelBooking(bookingId: string, reason: AdminBooking
     p_booking_id: bookingId,
     p_reason_code: reason
   })
-  if (error) throw new Error(message(error, 'Unable to cancel booking'))
+  if (error) throw new Error(adminBookingCancelMessage(error))
   return Array.isArray(data) ? data[0] : data
 }
 
