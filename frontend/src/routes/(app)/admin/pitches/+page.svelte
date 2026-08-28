@@ -144,8 +144,8 @@
 </div>
 
 {#if showForm}
-  <div class="fixed inset-0 z-50 flex items-end bg-black/50 sm:items-center sm:justify-center sm:p-5" role="presentation" on:click={() => !saving && (showForm = false)}>
-    <section class="max-h-[94vh] w-full overflow-y-auto rounded-t-[28px] bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-2xl sm:rounded-[28px]" role="dialog" aria-modal="true" on:click|stopPropagation>
+  <div class="fixed inset-0 z-50 flex items-end bg-black/50 sm:items-center sm:justify-center sm:p-5" role="presentation" tabindex="-1" on:keydown={() => {}} on:click={() => !saving && (showForm = false)}>
+    <section class="max-h-[94vh] w-full overflow-y-auto rounded-t-[28px] bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-2xl sm:rounded-[28px]" role="dialog" aria-modal="true" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
       <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-extrabold uppercase tracking-[0.1em] text-primary">UNEEM</p><h2 class="mt-1 text-xl font-extrabold text-text">{editing ? copy.editTitle : copy.createTitle}</h2></div><button disabled={saving} on:click={() => showForm = false} class="grid h-10 w-10 place-items-center rounded-full bg-surface-level-1"><Icon name="x" size={18}/></button></div>
       <div class="mt-5 grid gap-4 sm:grid-cols-2">
         <label class="sm:col-span-2"><span class="text-sm font-bold text-text">{copy.name}</span><input bind:value={form.name} class="uneem-field mt-2" /></label>
@@ -168,8 +168,8 @@
 {/if}
 
 {#if archiveTarget}
-  <div class="fixed inset-0 z-[60] flex items-end bg-black/55 sm:items-center sm:justify-center sm:p-5" role="presentation" on:click={() => !saving && (archiveTarget = null)}>
-    <section class="w-full rounded-t-[28px] bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-[28px]" role="dialog" aria-modal="true" on:click|stopPropagation>
+  <div class="fixed inset-0 z-[60] flex items-end bg-black/55 sm:items-center sm:justify-center sm:p-5" role="presentation" tabindex="-1" on:keydown={() => {}} on:click={() => !saving && (archiveTarget = null)}>
+    <section class="w-full rounded-t-[28px] bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-[28px]" role="dialog" aria-modal="true" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
       <h2 class="text-xl font-extrabold text-text">{copy.archiveTitle}</h2><p class="mt-2 text-sm leading-6 text-text-secondary">{copy.archiveHint}</p>
       <label class="mt-5 block text-sm font-bold text-text">{copy.reason}<select bind:value={archiveReason} class="uneem-field mt-2">{#each archiveReasons as item}<option value={item.value}>{ar ? item.ar : item.en}</option>{/each}</select></label>
       <div class="mt-5 flex gap-3"><button disabled={saving} on:click={() => archiveTarget = null} class="uneem-secondary-action flex-1">{copy.keep}</button><button disabled={saving} on:click={archive} class="min-h-12 flex-1 rounded-2xl bg-danger px-4 font-bold text-white disabled:opacity-50">{copy.confirmArchive}</button></div>

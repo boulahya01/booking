@@ -24,7 +24,7 @@
 {#if open}
   <div class="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]" on:click={handleBackdropClick} role="presentation"></div>
   <div class="pointer-events-none fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
-    <section class={cn('pointer-events-auto max-h-[90vh] w-full overflow-y-auto rounded-t-[28px] border border-border-light bg-surface-raised shadow-xl sm:rounded-[26px]', sizes[size])} role="dialog" aria-modal="true">
+    <section class={cn('pointer-events-auto max-h-[90vh] w-full overflow-y-auto rounded-t-[28px] border border-border-light bg-surface-raised shadow-xl sm:rounded-[26px]', sizes[size])} role="dialog" aria-modal="true" tabindex="-1">
       <div class="mx-auto mt-2 h-1 w-10 rounded-full bg-border sm:hidden"></div>
       <header class="flex min-h-16 items-center justify-between gap-4 border-b border-border-light px-5">
         <div class="min-w-0 flex-1">

@@ -233,8 +233,8 @@
 </div>
 
 {#if selected}
-  <div class="fixed inset-0 z-50 flex items-end bg-black/50 sm:items-center sm:justify-center sm:p-5" role="presentation" on:click={() => selected = null}>
-    <section class="w-full rounded-t-[28px] bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-lg sm:rounded-[28px]" role="dialog" aria-modal="true" on:click|stopPropagation>
+  <div class="fixed inset-0 z-50 flex items-end bg-black/50 sm:items-center sm:justify-center sm:p-5" role="presentation" tabindex="-1" on:keydown={() => {}} on:click={() => selected = null}>
+    <section class="w-full rounded-t-[28px] bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-lg sm:rounded-[28px]" role="dialog" aria-modal="true" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
       <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-extrabold uppercase tracking-[0.1em] text-primary">{copy.details}</p><h2 class="mt-1 text-xl font-extrabold text-text">{selected.full_name}</h2></div><button on:click={() => selected = null} class="grid h-10 w-10 place-items-center rounded-full bg-surface-level-1"><Icon name="x" size={18}/></button></div>
       <dl class="mt-5 divide-y divide-border-light rounded-2xl bg-surface-level-1 px-4">
         <div class="flex justify-between gap-4 py-3"><dt class="text-sm text-text-muted">{copy.student}</dt><dd class="max-w-[65%] text-end text-sm font-bold text-text">{selected.student_id || '—'}<br><span class="font-medium text-text-secondary">{selected.email || '—'}</span></dd></div>
@@ -247,8 +247,8 @@
 {/if}
 
 {#if cancelTarget}
-  <div class="fixed inset-0 z-[60] flex items-end bg-black/55 sm:items-center sm:justify-center sm:p-5" role="presentation" on:click={() => !cancelling && (cancelTarget = null)}>
-    <section class="w-full rounded-t-[28px] bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-[28px]" role="dialog" aria-modal="true" on:click|stopPropagation>
+  <div class="fixed inset-0 z-[60] flex items-end bg-black/55 sm:items-center sm:justify-center sm:p-5" role="presentation" tabindex="-1" on:keydown={() => {}} on:click={() => !cancelling && (cancelTarget = null)}>
+    <section class="w-full rounded-t-[28px] bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-[28px]" role="dialog" aria-modal="true" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
       <h2 class="text-xl font-extrabold text-text">{copy.cancelTitle}</h2><p class="mt-2 text-sm leading-6 text-text-secondary">{copy.cancelHint}</p>
       <label class="mt-5 block text-sm font-bold text-text">{copy.reason}<select bind:value={cancelReason} class="uneem-field mt-2">{#each cancelReasons as item}<option value={item.value}>{ar ? item.ar : item.en}</option>{/each}</select></label>
       <div class="mt-5 flex gap-3"><button disabled={cancelling} on:click={() => cancelTarget = null} class="uneem-secondary-action flex-1">{copy.keep}</button><button disabled={cancelling} on:click={confirmCancel} class="min-h-12 flex-1 rounded-2xl bg-danger px-4 font-bold text-white disabled:opacity-50">{cancelling ? copy.saving : copy.confirm}</button></div>

@@ -221,8 +221,8 @@
 </main>
 
 {#if moderationTarget}
-  <div class="fixed inset-0 z-50 flex items-end bg-black/55 sm:items-center sm:justify-center sm:p-5" role="presentation" on:click={closeModeration}>
-    <section class="w-full rounded-t-[28px] bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-[28px]" role="dialog" aria-modal="true" on:click|stopPropagation>
+  <div class="fixed inset-0 z-50 flex items-end bg-black/55 sm:items-center sm:justify-center sm:p-5" role="presentation" tabindex="-1" on:keydown={() => {}} on:click={closeModeration}>
+    <section class="w-full rounded-t-[28px] bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-[28px]" role="dialog" aria-modal="true" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
       <div class="flex items-start justify-between gap-4">
         <div>
           <p class={`text-xs font-extrabold uppercase tracking-[0.1em] ${nextStatus === 'suspended' ? 'text-danger' : 'text-primary'}`}>{moderationTarget.full_name}</p>

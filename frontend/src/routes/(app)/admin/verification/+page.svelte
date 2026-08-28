@@ -117,8 +117,8 @@
 </main>
 
 {#if selected}
-  <div class="fixed inset-0 z-50 flex items-end bg-black/55 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-4" role="presentation" on:click={() => !reviewingId && (selected=null)}>
-    <section class="uneem-mobile-sheet max-h-[92vh] overflow-y-auto sm:max-w-2xl" role="dialog" aria-modal="true" on:click|stopPropagation>
+  <div class="fixed inset-0 z-50 flex items-end bg-black/55 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-4" role="presentation" tabindex="-1" on:keydown={() => {}} on:click={() => !reviewingId && (selected=null)}>
+    <section class="uneem-mobile-sheet max-h-[92vh] overflow-y-auto sm:max-w-2xl" role="dialog" aria-modal="true" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
       <div class="flex items-start justify-between gap-4">
         <div class="min-w-0"><p class="uneem-kicker">{copy.review}</p><h2 class="mt-1 truncate text-xl font-bold text-text">{selected.full_name}</h2><p class="mt-1 text-sm text-text-muted">{copy.studentId}: <span class="font-bold text-text">{selected.claimed_student_id}</span></p></div>
         <button on:click={() => {selected=null;evidenceUrl=''}} class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-surface-level-1 text-text-secondary" aria-label="Close"><Icon name="x" size={18}/></button>
