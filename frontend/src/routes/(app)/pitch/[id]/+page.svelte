@@ -334,7 +334,7 @@
 {#if cancelSlot}
   <div class="fixed inset-0 z-50 flex items-end bg-black/55 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-4" role="presentation">
     <button type="button" tabindex="-1" aria-label="Close cancellation dialog" class="absolute inset-0 cursor-default" disabled={canceling} on:click={dismissCancellation}></button>
-    <section
+    <div
       bind:this={cancellationDialog}
       class="uneem-mobile-sheet relative z-10 sm:max-w-md"
       role="dialog"
@@ -349,6 +349,6 @@
         <button on:click={dismissCancellation} disabled={canceling} class="uneem-secondary-action flex-1">{ar ? 'خليه' : 'Keep booking'}</button>
         <button on:click={confirmCancellation} disabled={canceling} class="flex min-h-[50px] flex-1 items-center justify-center rounded-[18px] bg-danger px-4 font-bold text-white">{canceling ? (ar ? 'جاري الإلغاء…' : 'Cancelling…') : $_('pitch.cancel_booking')}</button>
       </div>
-    </section>
+    </div>
   </div>
 {/if}

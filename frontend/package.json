@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node ../scripts/release-hygiene.mjs && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && vite build",
+    "build": "node ../scripts/clean-vercel-output.mjs && node ../scripts/release-hygiene.mjs && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings && vite build",
     "preview": "vite preview",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
