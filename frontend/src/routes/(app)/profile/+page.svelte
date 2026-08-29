@@ -34,7 +34,7 @@
   $: account = $authState.account
   $: normalizedName = sanitizeInput(fullName).replace(/\s+/g, ' ')
   $: cleanName = sanitizeName(fullName)
-  $: nameValid = normalizedName.length >= 2 && normalizedName.length <= 100
+  $: nameValid = normalizedName.length >= 2 && normalizedName.length <= 120
   $: nameState = fieldState(fullName.length > 0 || profileAttempted, nameValid)
   $: passwordLength = newPassword.length >= 8
   $: passwordNumber = /\d/.test(newPassword)
@@ -46,7 +46,7 @@
 
   $: copy = ar ? {
     title:'حسابي', edit:'تعديل', done:'تم', profile:'الملف', security:'الأمان', account:'الحساب',
-    fullName:'الاسم الكامل', namePlaceholder:'Mehdi El Amrani', invalidName:'استخدم من حرفين إلى 100 حرف.', nameReady:'الاسم جاهز',
+    fullName:'الاسم الكامل', namePlaceholder:'Mehdi El Amrani', invalidName:'استخدم من حرفين إلى 120 حرفاً.', nameReady:'الاسم جاهز',
     email:'البريد', username:'اسم المستخدم', studentId:'رقم الطالب', role:'الدور', student:'طالب', admin:'مشرف',
     status:'الحالة', approved:'مسموح', pending:'قيد المراجعة', suspended:'موقوف',
     identity:'توثيق الطالب', verified:'موثّق', required:'مطلوب', reviewing:'قيد المراجعة', rejected:'يحتاج تصحيح', conflict:'يحتاج مراجعة', verify:'أكمل التوثيق', statusAction:'شوف حالة الحساب',
@@ -57,7 +57,7 @@
     profileError:'تعذر تحميل الحساب.', saveError:'تعذر حفظ التغييرات.', passwordError:'تعذر تحديث كلمة المرور.', saved:'تم حفظ التغييرات.', passwordSaved:'تم تحديث كلمة المرور.'
   } : {
     title:'Profile', edit:'Edit', done:'Done', profile:'Profile', security:'Security', account:'Account',
-    fullName:'Full name', namePlaceholder:'Mehdi El Amrani', invalidName:'Use 2–100 characters for your name.', nameReady:'Looks good',
+    fullName:'Full name', namePlaceholder:'Mehdi El Amrani', invalidName:'Use 2–120 characters for your name.', nameReady:'Looks good',
     email:'Email', username:'Username', studentId:'Student ID', role:'Role', student:'Student', admin:'Admin',
     status:'Status', approved:'Active', pending:'Pending', suspended:'Suspended',
     identity:'Student verification', verified:'Verified', required:'Required', reviewing:'In review', rejected:'Needs correction', conflict:'Needs review', verify:'Finish verification', statusAction:'Account status',
@@ -259,7 +259,7 @@
 
       {#if editing}
         <div class="space-y-4 p-4">
-          <TextField label={copy.fullName} placeholder={copy.namePlaceholder} icon="user" autocomplete="name" maxlength={100} bind:value={fullName} validation={nameState} hint={nameState === 'invalid' ? copy.invalidName : ''} validHint={copy.nameReady} disabled={saving}/>
+          <TextField label={copy.fullName} placeholder={copy.namePlaceholder} icon="user" autocomplete="name" maxlength={120} bind:value={fullName} validation={nameState} hint={nameState === 'invalid' ? copy.invalidName : ''} validHint={copy.nameReady} disabled={saving}/>
           <div class="flex gap-3"><Button size="lg" className="flex-1" loading={saving} on:click={saveProfile}>{copy.save}</Button><Button variant="secondary" size="lg" className="flex-1" disabled={saving} on:click={() => { editing = false; fullName = profile.full_name; error = ''; profileAttempted = false }}>{copy.cancel}</Button></div>
         </div>
       {:else}
