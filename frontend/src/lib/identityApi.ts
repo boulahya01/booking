@@ -174,11 +174,16 @@ export async function reviewVerification(
   decision: 'approved' | 'rejected',
   reasonCode: VerificationReason | null = null
 ): Promise<void> {
-  const { error } = await supabase.rpc('review_identity_verification', {
+  const { data, error } = await supabase.rpc('review_identity_verification', {
     p_attempt_id: attemptId,
     p_decision: decision,
     p_reason_code: reasonCode
   })
 
   if (error) throw new IdentityError(looksLikeNetworkFailure(error.message) ? 'network' : 'review_failed')
+
+  const row: any = Array.isArray(data) ? data[0] : data
+  if (decision === 'approved' && row?.status === 'rejected' && row?.reason_code === 'duplicate_student_identity') {
+    throw new IdentityError('identity_claim_unavailable')
+  }
 }
