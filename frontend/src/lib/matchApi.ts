@@ -8,8 +8,10 @@ export type MatchFailureCode =
   | 'booking_not_matchable'
   | 'match_not_found'
   | 'match_not_open'
+  | 'match_not_active'
   | 'match_started'
   | 'match_full'
+  | 'match_capacity_too_small'
   | 'already_joined'
   | 'not_joined'
   | 'organizer_required'
@@ -77,7 +79,7 @@ export type MatchRosterMember = {
 
 const knownCodes: MatchFailureCode[] = [
   'authentication_required','account_not_approved','booking_not_found','booking_not_owned','booking_not_matchable',
-  'match_not_found','match_not_open','match_started','match_full','already_joined','not_joined','organizer_required',
+  'match_not_found','match_not_open','match_not_active','match_started','match_full','match_capacity_too_small','already_joined','not_joined','organizer_required',
   'organizer_already_in_match','match_has_public_players','invalid_reserved_spots','reserved_spots_exceed_capacity'
 ]
 
@@ -143,7 +145,9 @@ export function matchErrorCopy(code: MatchFailureCode, language: string | null |
     booking_not_found: ['Booking not found.','لم نجد الحجز.'], booking_not_owned: ['This booking is not yours.','هذا الحجز ليس لك.'],
     booking_not_matchable: ['This booking cannot become a match.','لا يمكن تحويل هذا الحجز إلى مباراة.'],
     match_not_found: ['Match not found.','لم نجد المباراة.'], match_not_open: ['This match is not open.','هذه المباراة ليست مفتوحة.'],
+    match_not_active: ['This match is no longer active.','هذه المباراة لم تعد نشطة.'],
     match_started: ['This match has already started.','بدأت هذه المباراة بالفعل.'], match_full: ['This match is full.','المباراة ممتلئة.'],
+    match_capacity_too_small: ['This facility does not have enough capacity for an open match.','سعة هذا الملعب غير كافية لإنشاء مباراة مفتوحة.'],
     already_joined: ["You're already in.",'أنت منضم بالفعل.'], not_joined: ["You're not in this match.",'أنت غير منضم لهذه المباراة.'],
     organizer_required: ['Only the organizer can do that.','هذا الإجراء للمنظم فقط.'],
     organizer_already_in_match: ["You're the organizer.",'أنت منظم المباراة.'],
