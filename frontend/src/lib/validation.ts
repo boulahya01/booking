@@ -30,7 +30,7 @@ export const sanitizeInput = (s = ''): string => {
   ).trim()
 }
 
-export const sanitizeName = (s = ''): string => sanitizeInput(s).replace(/\s+/g, ' ').slice(0, 100)
+export const sanitizeName = (s = ''): string => sanitizeInput(s).replace(/\s+/g, ' ').slice(0, 120)
 
 // Match the Postgres identity contract exactly: Student IDs are case-insensitive
 // only through canonical uppercasing, and whitespace is ignored. Punctuation is
@@ -72,7 +72,7 @@ export const LoginStudentSchema = z.object({
   student_id: z.string().min(3).max(50),
 })
 
-export const NameSchema = z.string().min(1).max(100)
+export const NameSchema = z.string().min(1).max(120)
 
 export const validate = <T>(schema: z.ZodSchema<T>, data: unknown): T => schema.parse(data)
 

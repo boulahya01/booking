@@ -33,7 +33,7 @@
   $: academic = isAcademicEmail(cleanEmail)
   $: emailValid = isValidEmail(cleanEmail)
   $: cleanName = sanitizeName(fullName)
-  $: fullNameValid = cleanName.length >= 2 && cleanName.length <= 100
+  $: fullNameValid = cleanName.length >= 2 && cleanName.length <= 120
   $: cleanUsername = username.trim().toLowerCase()
   $: usernameValid = isValidUsername(cleanUsername)
   $: cleanStudentId = sanitizeStudentId(studentId)
@@ -56,7 +56,7 @@
         emailTitle: 'إنشاء حساب', detailsTitle: 'معلوماتك', passwordTitle: 'اختر كلمة مرور',
         email: 'البريد الإلكتروني', emailPlaceholder: 'mehdi@usmba.ac.ma', invalidEmail: 'أدخل بريداً صحيحاً.',
         universityEmail: 'بريد جامعي', universityAccess: 'يمكنك الحجز بعد تأكيد البريد', personalEmail: 'بريد شخصي', personalAccess: 'بطاقة الطالب مطلوبة قبل الحجز',
-        continue: 'متابعة', back: 'رجوع', fullName: 'الاسم الكامل', fullNamePlaceholder: 'Mehdi El Amrani', invalidName: 'اكتب اسماً من 2 إلى 100 حرف.',
+        continue: 'متابعة', back: 'رجوع', fullName: 'الاسم الكامل', fullNamePlaceholder: 'Mehdi El Amrani', invalidName: 'اكتب اسماً من 2 إلى 120 حرفاً.',
         username: 'اسم المستخدم', usernamePlaceholder: 'mehdi01', invalidUsername: '3–24 حرفاً أو رقماً أو _',
         studentId: 'رقم الطالب', studentIdPlaceholder: 'S123456789', invalidStudentId: 'حرف واحد + 9 أرقام فقط',
         password: 'كلمة المرور', passwordPlaceholder: '8 أحرف أو أكثر', confirmPassword: 'تأكيد كلمة المرور', confirmPlaceholder: 'أعد كتابة كلمة المرور',
@@ -67,7 +67,7 @@
         emailTitle: 'Create account', detailsTitle: 'Your details', passwordTitle: 'Set password',
         email: 'Email address', emailPlaceholder: 'mehdi@usmba.ac.ma', invalidEmail: 'Enter a valid email.',
         universityEmail: 'University email', universityAccess: 'Book after confirming your email', personalEmail: 'Personal email', personalAccess: 'Student card required before booking',
-        continue: 'Continue', back: 'Back', fullName: 'Full name', fullNamePlaceholder: 'Mehdi El Amrani', invalidName: 'Use 2–100 characters for your name.',
+        continue: 'Continue', back: 'Back', fullName: 'Full name', fullNamePlaceholder: 'Mehdi El Amrani', invalidName: 'Use 2–120 characters for your name.',
         username: 'Username', usernamePlaceholder: 'mehdi01', invalidUsername: '3–24 letters, numbers or _',
         studentId: 'Student ID', studentIdPlaceholder: 'S123456789', invalidStudentId: 'Use exactly 1 letter + 9 digits',
         password: 'Password', passwordPlaceholder: '8+ characters', confirmPassword: 'Confirm password', confirmPlaceholder: 'Repeat password',
@@ -217,7 +217,7 @@
         <div class="min-w-0"><p class="text-sm font-semibold text-text">{academic ? copy.universityEmail : copy.personalEmail}</p><p class="mt-0.5 text-xs text-text-muted">{academic ? copy.universityAccess : copy.personalAccess}</p></div>
       </div>
       <form on:submit|preventDefault={continueFromDetails} class="space-y-4">
-        <TextField ariaLabel={copy.fullName} placeholder={copy.fullNamePlaceholder} icon="user" autocomplete="name" maxlength={100} bind:value={fullName} validation={nameState} hint={nameState === 'invalid' ? copy.invalidName : ''} disabled={loading} />
+        <TextField ariaLabel={copy.fullName} placeholder={copy.fullNamePlaceholder} icon="user" autocomplete="name" maxlength={120} bind:value={fullName} validation={nameState} hint={nameState === 'invalid' ? copy.invalidName : ''} disabled={loading} />
         <TextField ariaLabel={copy.username} placeholder={copy.usernamePlaceholder} icon="users" autocomplete="username" autocapitalize="none" spellcheck={false} maxlength={24} bind:value={username} validation={usernameState} hint={usernameHint} disabled={loading} on:input={handleUsernameInput} />
         {#if !academic}
           <TextField ariaLabel={copy.studentId} placeholder={copy.studentIdPlaceholder} icon="id-card" autocapitalize="characters" spellcheck={false} maxlength={20} bind:value={studentId} validation={studentIdState} hint={studentIdState === 'invalid' ? copy.invalidStudentId : ''} disabled={loading} />
