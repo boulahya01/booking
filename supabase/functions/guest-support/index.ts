@@ -6,16 +6,20 @@ const RATE_LIMIT_ERROR = 'You have sent several requests recently. Try again a l
 const PRODUCTION_ORIGINS = new Set(['https://www.uneem.site', 'https://uneem.site'])
 const FALLBACK_ORIGIN = 'https://www.uneem.site'
 
-function corsHeaders(origin: string | null) {
-  const allowed =
-    Boolean(origin && PRODUCTION_ORIGINS.has(origin)) ||
+function isAllowedOrigin(origin: string | null) {
+  return (
+    !origin ||
+    PRODUCTION_ORIGINS.has(origin) ||
     origin === 'https://uneem.vercel.app' ||
     origin === 'http://localhost:5173' ||
     origin === 'http://127.0.0.1:5173' ||
-    Boolean(origin && /^https:\/\/uneem(?:-[a-z0-9-]+)?\.vercel\.app$/i.test(origin))
+    /^https:\/\/uneem(?:-[a-z0-9-]+)?\.vercel\.app$/i.test(origin)
+  )
+}
 
+function corsHeaders(origin: string | null) {
   return {
-    'access-control-allow-origin': allowed && origin ? origin : FALLBACK_ORIGIN,
+    'access-control-allow-origin': origin && isAllowedOrigin(origin) ? origin : FALLBACK_ORIGIN,
     'access-control-allow-methods': 'POST, OPTIONS',
     'access-control-allow-headers': 'authorization, apikey, content-type, x-client-info',
     'access-control-max-age': '86400',
@@ -64,6 +68,7 @@ async function hmacSha256(value: string, secret: string) {
 Deno.serve(async (req) => {
   const origin = req.headers.get('origin')
 
+  if (!isAllowedOrigin(origin)) return json({ error: 'Forbidden.' }, 403, origin)
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin) })
   if (req.method !== 'POST') return json({ error: 'Method not allowed.' }, 405, origin)
 
