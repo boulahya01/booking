@@ -53,7 +53,8 @@ const expectedMigrationVersions = [
   '20260829043000',
   '20260829052600',
   '20260829062500',
-  '20260829133000'
+  '20260829133000',
+  '20260829143000'
 ]
 
 const failures = []
@@ -134,6 +135,7 @@ const requiredPaths = [
   'supabase/migrations/20260829052600_036_identity_review_conflict_state.sql',
   'supabase/migrations/20260829062500_037_match_reserved_spots_lifecycle.sql',
   'supabase/migrations/20260829133000_038_support_rate_limit_concurrency.sql',
+  'supabase/migrations/20260829143000_039_match_visibility_lifecycle.sql',
   'supabase/functions/guest-support/index.ts',
   'supabase/v2/tests/concurrency_contract.ps1',
   'frontend/tests/e2e/public-launch-smoke.spec.ts',
