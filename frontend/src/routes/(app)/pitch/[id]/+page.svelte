@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { onMount, tick } from 'svelte'
   import { browser } from '$app/environment'
   import { page } from '$app/stores'
   import { supabase } from '$lib/supabaseClient'
@@ -25,6 +25,8 @@
   let cancelSlot: any = null
   let canceling = false
   let currentTime = new Date()
+  let cancellationDialog: HTMLElement | null = null
+  let cancellationTrigger: HTMLElement | null = null
 
   $: pitchId = $page.params.id
   $: ar = ($locale || 'en').startsWith('ar')
@@ -120,6 +122,7 @@
     slots = []
     selectedDate = null
     cancelSlot = null
+    cancellationTrigger = null
     stopAutoRefresh()
     void fetchPitch()
     void fetchSlots()
@@ -138,7 +141,63 @@
 
   function onModalClose() { showModal = false; selectedSlot = null }
   async function onBookingCompleted() { await fetchSlots() }
-  function requestCancellation(slot: any) { if (slot.booking_id) cancelSlot = slot }
+
+  async function requestCancellation(slot: any) {
+    if (!slot.booking_id) return
+    cancellationTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    cancelSlot = slot
+    await tick()
+    cancellationDialog?.focus()
+  }
+
+  function clearCancellation() {
+    const trigger = cancellationTrigger
+    cancelSlot = null
+    cancellationTrigger = null
+    void tick().then(() => {
+      if (trigger?.isConnected) trigger.focus()
+    })
+  }
+
+  function dismissCancellation() {
+    if (!canceling) clearCancellation()
+  }
+
+  function handleCancellationKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      if (!canceling) {
+        event.preventDefault()
+        clearCancellation()
+      }
+      return
+    }
+
+    if (event.key !== 'Tab' || !cancellationDialog) return
+
+    const focusable = Array.from(
+      cancellationDialog.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    ).filter((element) => !element.hasAttribute('hidden') && element.getAttribute('aria-hidden') !== 'true')
+
+    if (focusable.length === 0) {
+      event.preventDefault()
+      cancellationDialog.focus()
+      return
+    }
+
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    const active = document.activeElement
+
+    if (event.shiftKey && (active === first || active === cancellationDialog)) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
 
   async function confirmCancellation() {
     if (!cancelSlot?.booking_id || canceling) return
@@ -146,7 +205,7 @@
     try {
       await cancelBookingRpc(cancelSlot.booking_id)
       uiState.addToast(ar ? 'تم إلغاء الحجز' : 'Booking cancelled', 'success')
-      cancelSlot = null
+      clearCancellation()
       await fetchSlots()
     } catch (cancelError) {
       const code = cancelError instanceof BookingApiError ? cancelError.code : 'unknown'
@@ -274,12 +333,20 @@
 
 {#if cancelSlot}
   <div class="fixed inset-0 z-50 flex items-end bg-black/55 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-4" role="presentation">
-    <button type="button" tabindex="-1" aria-label="Close cancellation dialog" class="absolute inset-0 cursor-default" disabled={canceling} on:click={() => cancelSlot=null}></button>
-    <section class="uneem-mobile-sheet relative z-10 sm:max-w-md" role="dialog" aria-modal="true" tabindex="-1">
-      <h2 class="text-xl font-extrabold text-text">{ar ? 'إلغاء الحجز؟' : 'Cancel booking?'}</h2>
+    <button type="button" tabindex="-1" aria-label="Close cancellation dialog" class="absolute inset-0 cursor-default" disabled={canceling} on:click={dismissCancellation}></button>
+    <section
+      bind:this={cancellationDialog}
+      class="uneem-mobile-sheet relative z-10 sm:max-w-md"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="cancel-booking-title"
+      tabindex="-1"
+      on:keydown={handleCancellationKeydown}
+    >
+      <h2 id="cancel-booking-title" class="text-xl font-extrabold text-text">{ar ? 'إلغاء الحجز؟' : 'Cancel booking?'}</h2>
       <p class="mt-2 text-sm leading-6 text-text-secondary">{ar ? 'غادي يتحرر هاد الوقت باش يقدر طالب آخر يحجزو.' : 'This time will become available to another student.'}</p>
       <div class="mt-6 flex gap-3">
-        <button on:click={() => cancelSlot=null} disabled={canceling} class="uneem-secondary-action flex-1">{ar ? 'خليه' : 'Keep booking'}</button>
+        <button on:click={dismissCancellation} disabled={canceling} class="uneem-secondary-action flex-1">{ar ? 'خليه' : 'Keep booking'}</button>
         <button on:click={confirmCancellation} disabled={canceling} class="flex min-h-[50px] flex-1 items-center justify-center rounded-[18px] bg-danger px-4 font-bold text-white">{canceling ? (ar ? 'جاري الإلغاء…' : 'Cancelling…') : $_('pitch.cancel_booking')}</button>
       </div>
     </section>
