@@ -3,6 +3,7 @@
   import { language } from '$lib/stores/ui'
   import {
     createVerificationEvidenceUrl,
+    identityErrorCode,
     listVerificationQueue,
     reviewVerification,
     type VerificationQueueItem,
@@ -22,11 +23,11 @@
   $: copy = ar ? {
     title:'التحقق من الطلبة', subtitle:'راجع البطاقة ورقم الطالب.', refresh:'تحديث', clear:'ما كاين حتى طلب', clearHint:'جميع الطلبات تمت مراجعتها.',
     studentId:'رقم الطالب', academic:'بريد جامعي', personal:'بريد شخصي', attempt:'محاولة', previous:'المشكل السابق', review:'مراجعة', private:'وثيقة خاصة. استعملها فقط للتحقق.',
-    rejectLabel:'سبب الرفض', reject:'رفض مع تصحيح', approve:'موافقة', saving:'جاري الحفظ…', loadError:'تعذر تحميل الطلبات.', cardError:'تعذر فتح البطاقة.', saveError:'تعذر حفظ القرار.'
+    rejectLabel:'سبب الرفض', reject:'رفض مع تصحيح', approve:'موافقة', saving:'جاري الحفظ…', loadError:'تعذر تحميل الطلبات.', cardError:'تعذر فتح البطاقة.', saveError:'تعذر حفظ القرار.', conflictError:'رقم الطالب مرتبط بالفعل بهوية موثقة أخرى. تم تسجيل الطلب كتعارض.'
   } : {
     title:'Student verification', subtitle:'Review the card and Student ID.', refresh:'Refresh', clear:'Queue is clear', clearHint:'No submissions are waiting.',
     studentId:'Student ID', academic:'Academic email', personal:'Personal email', attempt:'Attempt', previous:'Previous issue', review:'Review', private:'Private evidence. Use it only for verification.',
-    rejectLabel:'Reason for rejection', reject:'Reject with fix', approve:'Approve', saving:'Saving…', loadError:'Couldn’t load the queue.', cardError:'Couldn’t open the card.', saveError:'Couldn’t save the review.'
+    rejectLabel:'Reason for rejection', reject:'Reject with fix', approve:'Approve', saving:'Saving…', loadError:'Couldn’t load the queue.', cardError:'Couldn’t open the card.', saveError:'Couldn’t save the review.', conflictError:'This Student ID already belongs to another verified identity. The submission was recorded as a conflict.'
   }
 
   const reasons: VerificationReason[] = [
@@ -78,8 +79,16 @@
       selected = null
       evidenceUrl = ''
       queue = queue.filter((item) => item.attempt_id !== reviewingId)
-    } catch { error = copy.saveError }
-    finally { reviewingId = '' }
+    } catch (cause) {
+      if (identityErrorCode(cause) === 'identity_claim_unavailable') {
+        selected = null
+        evidenceUrl = ''
+        queue = queue.filter((item) => item.attempt_id !== reviewingId)
+        error = copy.conflictError
+      } else {
+        error = copy.saveError
+      }
+    } finally { reviewingId = '' }
   }
 </script>
 
