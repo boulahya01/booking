@@ -92,6 +92,22 @@ function adminBookingCancelMessage(error: any) {
   return 'Unable to cancel this booking right now. Please try again.'
 }
 
+function adminFacilitySaveMessage(error: any) {
+  const code = String(error?.message || '').toLowerCase()
+  if (code.includes('admin_required')) return 'Your admin session no longer has permission for this action. Refresh or sign in again.'
+  if (code.includes('facility_not_found')) return 'This facility no longer exists. Refresh the facility list.'
+  if (code.includes('invalid_facility_name')) return 'Enter a facility name between 1 and 120 characters.'
+  if (code.includes('invalid_facility_location')) return 'Enter a facility location between 1 and 180 characters.'
+  if (code.includes('invalid_facility_capacity')) return 'Capacity must be between 1 and 200.'
+  if (code.includes('invalid_facility_hours')) return 'Closing time must be later than opening time.'
+  if (code.includes('invalid_slot_duration')) return 'Slot duration must be between 15 and 240 minutes.'
+  if (code.includes('invalid_booking_window')) return 'Booking window must be between 1 and 720 hours.'
+  if (code.includes('invalid_booking_frequency')) return 'Booking frequency must be between 1 and 365 days.'
+  if (code.includes('invalid_cancellation_cutoff')) return 'Cancellation cutoff must be between 0 and 1,440 minutes.'
+  if (code.includes('invalid_timezone')) return 'Choose a valid facility timezone.'
+  return 'Unable to save this facility right now. Please try again.'
+}
+
 export async function listAdminBookings(filters: AdminBookingFilters = {}): Promise<{ rows: AdminBooking[]; total: number }> {
   const { data, error } = await supabase.rpc('admin_list_bookings', {
     p_query: filters.query?.trim() || null,
@@ -172,7 +188,7 @@ export async function adminSaveFacility(input: AdminFacilityInput): Promise<Admi
     p_sort_order: Number(input.sort_order),
     p_timezone: input.timezone || 'Africa/Casablanca'
   })
-  if (error) throw new Error(message(error, 'Unable to save facility'))
+  if (error) throw new Error(adminFacilitySaveMessage(error))
   const row = Array.isArray(data) ? data[0] : data
   if (!row) throw new Error('Facility save returned no data')
   return row as AdminFacility
