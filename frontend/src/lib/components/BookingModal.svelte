@@ -39,9 +39,37 @@
   }
 
   function handleDialogKeydown(event: KeyboardEvent) {
-    if (event.key !== 'Escape' || loading) return
-    event.stopPropagation()
-    onClose()
+    if (event.key === 'Escape') {
+      if (loading) return
+      event.stopPropagation()
+      onClose()
+      return
+    }
+
+    if (event.key !== 'Tab') return
+
+    const focusable = Array.from(
+      dialog.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    )
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    const active = document.activeElement
+
+    if (!first || !last) {
+      event.preventDefault()
+      dialog.focus()
+      return
+    }
+
+    if (event.shiftKey && (active === dialog || active === first || !(active instanceof Node) || !dialog.contains(active))) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault()
+      first.focus()
+    }
   }
 
   async function confirmBooking() {
