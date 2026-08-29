@@ -88,35 +88,10 @@ function throwMatchError(error: any): never {
   throw new MatchApiError(code, error?.message)
 }
 
-async function hydrateOpenMatchTimezones(matches: Omit<OpenMatch, 'timezone'>[]): Promise<OpenMatch[]> {
-  if (matches.length === 0) return []
-
-  const pitchIds = [...new Set(matches.map((match) => match.pitch_id).filter(Boolean))]
-  const { data, error } = await supabase
-    .from('pitches')
-    .select('id, timezone')
-    .in('id', pitchIds)
-
-  if (error) throwMatchError(error)
-
-  const timezoneByPitch = new Map(
-    (Array.isArray(data) ? data : [])
-      .filter((pitch) => pitch?.id && pitch?.timezone)
-      .map((pitch) => [pitch.id, pitch.timezone])
-  )
-
-  return matches.map((match) => {
-    const timezone = timezoneByPitch.get(match.pitch_id)
-    if (!timezone) throw new MatchApiError('unknown', 'facility_timezone_missing')
-    return { ...match, timezone }
-  })
-}
-
 export async function listOpenMatches(): Promise<OpenMatch[]> {
   const { data, error } = await supabase.rpc('list_open_matches')
   if (error) throwMatchError(error)
-  const matches = Array.isArray(data) ? data : []
-  return hydrateOpenMatchTimezones(matches)
+  return (Array.isArray(data) ? data : []) as OpenMatch[]
 }
 
 export async function listMyMatches(): Promise<MyMatch[]> {
