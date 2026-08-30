@@ -100,6 +100,7 @@ function adminFacilitySaveMessage(error: any) {
   if (code.includes('invalid_facility_location')) return 'Enter a facility location between 1 and 180 characters.'
   if (code.includes('invalid_facility_capacity')) return 'Capacity must be between 1 and 200.'
   if (code.includes('facility_capacity_below_active_match')) return 'Capacity cannot be lower than the spots already needed by an active future match.'
+  if (code.includes('facility_hours_conflict_with_scheduled_booking')) return 'These hours would put an existing scheduled booking outside the facility opening hours. Cancel or finish that booking before changing the schedule.'
   if (code.includes('invalid_facility_hours')) return 'Closing time must be later than opening time.'
   if (code.includes('invalid_slot_duration')) return 'Slot duration must be between 15 and 240 minutes.'
   if (code.includes('invalid_booking_window')) return 'Booking window must be between 1 and 720 hours.'
