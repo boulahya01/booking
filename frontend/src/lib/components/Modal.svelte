@@ -77,7 +77,7 @@
 {#if open}
   <div class="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]" on:click={handleBackdropClick} role="presentation"></div>
   <div class="pointer-events-none fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
-    <section
+    <div
       bind:this={dialogElement}
       class={cn('pointer-events-auto max-h-[90vh] w-full overflow-y-auto rounded-t-[28px] border border-border-light bg-surface-raised shadow-xl sm:rounded-[26px]', sizes[size])}
       role="dialog"
@@ -101,6 +101,6 @@
       <div class="p-5"><slot /></div>
       {#if $$slots.body}<div class="p-5"><slot name="body" /></div>{/if}
       {#if $$slots.footer}<footer class="flex flex-wrap justify-end gap-3 border-t border-border-light p-5"><slot name="footer" /></footer>{/if}
-    </section>
+    </div>
   </div>
 {/if}
