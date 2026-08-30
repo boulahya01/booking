@@ -109,6 +109,16 @@ function adminFacilitySaveMessage(error: any) {
   return 'Unable to save this facility right now. Please try again.'
 }
 
+function adminFacilityArchiveMessage(error: any) {
+  const code = String(error?.message || '').toLowerCase()
+  if (code.includes('admin_required')) return 'Your admin session no longer has permission for this action. Refresh or sign in again.'
+  if (code.includes('facility_not_found')) return 'This facility no longer exists. Refresh the facility list.'
+  if (code.includes('facility_already_inactive')) return 'This facility is already inactive. Refresh the facility list.'
+  if (code.includes('invalid_facility_archive_reason')) return 'Choose a valid archive reason and try again.'
+  if (code.includes('facility_has_scheduled_bookings')) return 'Cancel or finish all scheduled bookings before archiving this facility.'
+  return 'Unable to archive this facility right now. Please try again.'
+}
+
 export async function listAdminBookings(filters: AdminBookingFilters = {}): Promise<{ rows: AdminBooking[]; total: number }> {
   const { data, error } = await supabase.rpc('admin_list_bookings', {
     p_query: filters.query?.trim() || null,
@@ -200,7 +210,7 @@ export async function adminArchiveFacility(id: string, reason: FacilityArchiveRe
     p_pitch_id: id,
     p_reason_code: reason
   })
-  if (error) throw new Error(message(error, 'Unable to archive facility'))
+  if (error) throw new Error(adminFacilityArchiveMessage(error))
   const row = Array.isArray(data) ? data[0] : data
   if (!row) throw new Error('Facility archive returned no data')
   return row as AdminFacility
