@@ -60,7 +60,8 @@ const expectedMigrationVersions = [
   '20260829183000',
   '20260829202800',
   '20260830054500',
-  '20260830063000'
+  '20260830063000',
+  '20260830073500'
 ]
 
 const failures = []
@@ -132,7 +133,7 @@ const requiredPaths = [
   'supabase/migrations/20260827204617_026_auth_signup_conflict_ux.sql',
   'supabase/migrations/20260827213000_027_identity_canonicalization.sql',
   'supabase/migrations/20260828042700_029_match_timezone_read_contract.sql',
-  'supabase/migrations/20260828123500_030_remove_username_availability_oracle.sql',
+  'supabase/migrations/20260828123500_030_booking_timezone_read_model.sql',
   'supabase/migrations/20260828162600_031_booking_timezone_read_model.sql',
   'supabase/migrations/20260828173500_032_report_target_integrity.sql',
   'supabase/migrations/20260828183000_033_availability_timezone_read_model.sql',
@@ -148,6 +149,7 @@ const requiredPaths = [
   'supabase/migrations/20260829202800_043_leave_match_cancellation_race.sql',
   'supabase/migrations/20260830054500_044_facility_capacity_match_integrity.sql',
   'supabase/migrations/20260830063000_045_support_thread_reply_serialization.sql',
+  'supabase/migrations/20260830073500_046_booking_facility_config_serialization.sql',
   'supabase/functions/guest-support/index.ts',
   'supabase/v2/tests/concurrency_contract.ps1',
   'frontend/tests/e2e/public-launch-smoke.spec.ts',
