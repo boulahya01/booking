@@ -133,7 +133,6 @@ const requiredPaths = [
   'supabase/migrations/20260827204617_026_auth_signup_conflict_ux.sql',
   'supabase/migrations/20260827213000_027_identity_canonicalization.sql',
   'supabase/migrations/20260828042700_029_match_timezone_read_contract.sql',
-  'supabase/migrations/20260828123500_030_booking_timezone_read_model.sql',
   'supabase/migrations/20260828162600_031_booking_timezone_read_model.sql',
   'supabase/migrations/20260828173500_032_report_target_integrity.sql',
   'supabase/migrations/20260828183000_033_availability_timezone_read_model.sql',
