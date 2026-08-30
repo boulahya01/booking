@@ -63,7 +63,8 @@ const expectedMigrationVersions = [
   '20260830063000',
   '20260830073500',
   '20260830084000',
-  '20260830093000'
+  '20260830093000',
+  '20260830103000'
 ]
 
 const failures = []
@@ -153,6 +154,7 @@ const requiredPaths = [
   'supabase/migrations/20260830073500_046_booking_facility_config_serialization.sql',
   'supabase/migrations/20260830084000_047_verified_identity_immutability.sql',
   'supabase/migrations/20260830093000_048_facility_archive_authority.sql',
+  'supabase/migrations/20260830103000_049_booking_cancel_authority.sql',
   'supabase/functions/guest-support/index.ts',
   'supabase/v2/tests/concurrency_contract.ps1',
   'frontend/tests/e2e/public-launch-smoke.spec.ts',
