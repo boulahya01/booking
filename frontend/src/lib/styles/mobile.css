@@ -16,6 +16,8 @@ body,
 
 html {
   overscroll-behavior-y: none;
+  scroll-padding-top: calc(58px + var(--app-safe-top));
+  scroll-padding-bottom: calc(var(--mobile-nav-height) + var(--app-safe-bottom));
 }
 
 body {
@@ -28,6 +30,11 @@ body {
 .app-content-plain {
   min-height: 100vh;
   min-height: 100dvh;
+}
+
+.app-content,
+.app-content-plain {
+  min-width: 0;
 }
 
 /* Every student screen uses one mobile gutter and always clears device cutouts. */
@@ -67,10 +74,25 @@ body {
   padding-bottom: var(--app-safe-bottom);
 }
 
-/* Keep transient UI clear of both navigation bars and gesture areas. */
-.uneem-toast-stack {
+.uneem-mobile-sheet {
+  padding-inline-start: max(1.15rem, calc(var(--app-safe-left) + 0.75rem));
+  padding-inline-end: max(1.15rem, calc(var(--app-safe-right) + 0.75rem));
+  padding-bottom: max(1.15rem, calc(var(--app-safe-bottom) + 1rem));
+}
+
+/* Existing toast stack: keep it above nav and away from gesture/cutout areas. */
+.app-shell > .fixed.bottom-20 {
+  right: auto;
   inset-inline-end: max(1rem, calc(var(--app-safe-right) + 0.75rem));
   bottom: calc(var(--mobile-nav-height) + max(1rem, var(--app-safe-bottom)) + 0.75rem);
+}
+
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
 
 @media (display-mode: standalone) {
@@ -98,7 +120,7 @@ body {
     padding-bottom: 2.5rem;
   }
 
-  .uneem-toast-stack {
+  .app-shell > .fixed.bottom-20 {
     bottom: max(1rem, var(--app-safe-bottom));
   }
 }
