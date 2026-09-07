@@ -35,6 +35,7 @@
   $: state = error ? 'invalid' : validation
   $: message = error || (state === 'valid' ? (validHint || hint) : hint)
   $: messageTone = state === 'valid' ? 'text-success' : state === 'invalid' ? 'text-danger' : 'text-text-muted'
+  $: showStateIcon = state !== 'idle' && !isPassword
 
   function handleFocus() {
     focused = true
@@ -91,7 +92,7 @@
         'min-h-[56px] w-full rounded-[18px] border bg-surface px-4 py-3.5 text-[15px] text-text outline-none',
         'shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] placeholder:text-text-muted transition-[border-color,background-color,box-shadow] duration-150',
         icon && 'ps-12',
-        isPassword && state !== 'idle' ? 'pe-20' : isPassword ? 'pe-12' : state !== 'idle' ? 'pe-11' : '',
+        isPassword ? 'pe-12' : showStateIcon ? 'pe-11' : '',
         state === 'invalid'
           ? 'border-danger/75 focus:ring-2 focus:ring-danger/15'
           : state === 'valid'
@@ -103,8 +104,8 @@
       )}
     />
 
-    {#if state !== 'idle'}
-      <span class={cn('pointer-events-none absolute top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center', isPassword ? 'end-11' : 'end-3', state === 'valid' ? 'text-success' : 'text-danger')} aria-hidden="true">
+    {#if showStateIcon}
+      <span class={cn('pointer-events-none absolute end-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center', state === 'valid' ? 'text-success' : 'text-danger')} aria-hidden="true">
         <Icon name={state === 'valid' ? 'check' : 'x'} size={16} strokeWidth={2.4} />
       </span>
     {/if}
