@@ -21,6 +21,11 @@ export type MatchFailureCode =
   | 'invalid_match_visibility'
   | 'invalid_reserved_spots'
   | 'reserved_spots_exceed_capacity'
+  | 'invalid_reserved_name'
+  | 'reserved_user_not_found'
+  | 'reserved_user_already_in_match'
+  | 'reserved_user_already_reserved'
+  | 'reservation_not_found'
   | 'network'
   | 'unknown'
 
@@ -40,6 +45,15 @@ export type MatchRecord = {
   visibility: 'private' | 'open'
   reserved_spots: number
   status: 'active' | 'cancelled' | 'completed'
+}
+
+export type MatchReservation = {
+  id: string
+  match_id: string
+  profile_id: string | null
+  guest_name: string | null
+  created_by: string
+  created_at: string
 }
 
 export type OpenMatch = {
@@ -76,7 +90,7 @@ export type MyMatch = {
   capacity: number
   reserved_spots: number
   joined_count: number
-  member_role: 'organizer' | 'player'
+  member_role: 'organizer' | 'player' | 'reserved'
   visibility: 'private' | 'open'
 }
 
@@ -91,7 +105,8 @@ export type MatchRosterMember = {
 const knownCodes: MatchFailureCode[] = [
   'authentication_required','account_not_approved','booking_not_found','booking_not_owned','booking_not_matchable',
   'match_not_found','match_not_visible','match_not_open','match_not_active','match_started','match_full','match_capacity_too_small','already_joined','not_joined','organizer_required',
-  'organizer_already_in_match','match_has_public_players','invalid_match_visibility','invalid_reserved_spots','reserved_spots_exceed_capacity'
+  'organizer_already_in_match','match_has_public_players','invalid_match_visibility','invalid_reserved_spots','reserved_spots_exceed_capacity',
+  'invalid_reserved_name','reserved_user_not_found','reserved_user_already_in_match','reserved_user_already_reserved','reservation_not_found'
 ]
 
 function throwMatchError(error: any): never {
@@ -148,6 +163,26 @@ export async function updateReservedSpots(matchId: string, reservedSpots: number
   return (Array.isArray(data) ? data[0] : data) as MatchRecord
 }
 
+export async function addMatchReservation(matchId: string, value: string): Promise<MatchReservation> {
+  const clean = value.trim()
+  const isUsername = clean.startsWith('@')
+  const { data, error } = await supabase.rpc('add_match_reservation', {
+    p_match_id: matchId,
+    p_username: isUsername ? clean.slice(1) : null,
+    p_guest_name: isUsername ? null : clean
+  })
+  if (error) throwMatchError(error)
+  return (Array.isArray(data) ? data[0] : data) as MatchReservation
+}
+
+export async function removeMatchReservation(matchId: string, reservationId: string) {
+  const { error } = await supabase.rpc('remove_match_reservation', {
+    p_match_id: matchId,
+    p_reservation_id: reservationId
+  })
+  if (error) throwMatchError(error)
+}
+
 export async function setMatchVisibility(matchId: string, visibility: 'private' | 'open'): Promise<MatchRecord> {
   const { data, error } = await supabase.rpc('set_match_visibility', {
     p_match_id: matchId,
@@ -164,22 +199,27 @@ export function matchErrorCopy(code: MatchFailureCode, language: string | null |
     account_not_approved: ['Your account cannot join matches yet.','حسابك غير مؤهل للمباريات بعد.'],
     booking_not_found: ['Booking not found.','لم نجد الحجز.'],
     booking_not_owned: ['This booking is not yours.','هذا الحجز ليس لك.'],
-    booking_not_matchable: ['This booking cannot become a match.','لا يمكن تحويل هذا الحجز إلى مباراة.'],
+    booking_not_matchable: ['This booking cannot become a match.','لا يمكن فتح هذا الحجز للاعبين.'],
     match_not_found: ['Match not found.','لم نجد المباراة.'],
     match_not_visible: ['This match is not available to you.','هذه المباراة غير متاحة لك.'],
-    match_not_open: ['This match is not open.','هذه المباراة ليست مفتوحة.'],
+    match_not_open: ['This booking is closed.','هذا الحجز مغلق.'],
     match_not_active: ['This match is no longer active.','هذه المباراة لم تعد نشطة.'],
     match_started: ['This match has already started.','بدأت هذه المباراة بالفعل.'],
     match_full: ['This match is full.','المباراة ممتلئة.'],
-    match_capacity_too_small: ['This facility does not have enough capacity for an open match.','سعة هذا الملعب غير كافية لإنشاء مباراة مفتوحة.'],
-    already_joined: ["You're already in.",'أنت منضم بالفعل.'],
+    match_capacity_too_small: ['This facility does not have enough capacity for an open match.','سعة هذا الملعب غير كافية لفتح الحجز للاعبين.'],
+    already_joined: ["You're already in.",'أنت موجود بالفعل.'],
     not_joined: ["You're not in this match.",'أنت غير منضم لهذه المباراة.'],
     organizer_required: ['Only the organizer can do that.','هذا الإجراء للمنظم فقط.'],
     organizer_already_in_match: ["You're the organizer.",'أنت منظم المباراة.'],
-    match_has_public_players: ['Players already joined this match.','انضم لاعبون بالفعل إلى هذه المباراة.'],
-    invalid_match_visibility: ['That match visibility is not valid.','حالة المباراة غير صالحة.'],
+    match_has_public_players: ['Players already joined, so it cannot be closed yet.','انضم لاعبون بالفعل، لذلك لا يمكن إغلاق الحجز الآن.'],
+    invalid_match_visibility: ['That visibility is not valid.','حالة الحجز غير صالحة.'],
     invalid_reserved_spots: ['Check the reserved spots.','تحقق من الأماكن المحجوزة.'],
     reserved_spots_exceed_capacity: ['Not enough spots left for that change.','لا توجد أماكن كافية لهذا التغيير.'],
+    invalid_reserved_name: ['Enter an @username or a guest name.','أدخل @اسم_المستخدم أو اسم الضيف.'],
+    reserved_user_not_found: ['That username was not found.','اسم المستخدم غير موجود.'],
+    reserved_user_already_in_match: ['That user already joined.','هذا المستخدم منضم بالفعل.'],
+    reserved_user_already_reserved: ['That player is already reserved.','هذا اللاعب محجوز بالفعل.'],
+    reservation_not_found: ['Reserved player not found.','لم نجد اللاعب المحجوز.'],
     network: ['Connection problem. Try again.','مشكلة في الاتصال. حاول مجدداً.'],
     unknown: ['Something went wrong. Try again.','حدث خطأ. حاول مجدداً.']
   }

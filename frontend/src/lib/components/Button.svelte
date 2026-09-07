@@ -31,10 +31,18 @@
     lg: 'min-h-[50px] px-5 text-[15px]'
   }
 
+  $: isDisabled = disabled || loading
   $: buttonClass = cn(baseClass, variants[variant], sizes[size], 'touch-target-min', className)
 </script>
 
-<button {type} {disabled} class={buttonClass} on:click {...$$restProps}>
+<button
+  {type}
+  disabled={isDisabled}
+  aria-busy={loading}
+  class={buttonClass}
+  on:click
+  {...$$restProps}
+>
   {#if loading}
     <span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent opacity-80" aria-hidden="true"></span>
   {/if}

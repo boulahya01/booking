@@ -2,158 +2,187 @@
   import { onMount } from 'svelte'
   import { goto } from '$app/navigation'
   import Icon from '$lib/components/Icon.svelte'
-  import OpenMatchSheet from '$lib/components/OpenMatchSheet.svelte'
   import { locale } from 'svelte-i18n'
   import { authState } from '$lib/stores/auth'
-  import { uiState } from '$lib/stores/ui'
-  import { getMyBookings, cancelBooking as cancelBookingRpc, BookingApiError, type MyBooking } from '$lib/bookingApi'
-  import { listMyMatches, MatchApiError, matchErrorCopy, type MyMatch } from '$lib/matchApi'
+  import {
+    getMyBookings,
+    BookingApiError,
+    type MyBooking
+  } from '$lib/bookingApi'
+  import {
+    listMyMatches,
+    MatchApiError,
+    matchErrorCopy,
+    type MyMatch
+  } from '$lib/matchApi'
   import { bookingFailureMessage } from '$lib/ux/bookingFailure'
 
   let bookings: MyBooking[] = []
   let matches: MyMatch[] = []
   let loading = true
   let error: string | null = null
-  let cancelTarget: MyBooking | null = null
-  let openTarget: MyBooking | null = null
-  let working = false
 
   $: ar = ($locale || 'en').startsWith('ar')
   $: copy = ar ? {
-    title:'رياضتي', upcoming:'الحجوزات القادمة', book:'احجز وقت', none:'لا توجد لديك حجوزات قادمة.', open:'فتح للاعبين', manage:'إدارة المباراة', cancel:'إلغاء الحجز', recent:'السجل', spotsOpen:'أماكن متاحة',
-    cancelTitle:'هل تريد إلغاء الحجز؟', keep:'الاحتفاظ بالحجز', cancelling:'جارٍ الإلغاء…', retry:'إعادة المحاولة', cancelledToast:'تم إلغاء الحجز'
+    title:'رياضتي',
+    book:'احجز وقتاً',
+    upcoming:'القادمة',
+    none:'لا توجد حجوزات قادمة.',
+    open:'مفتوح',
+    closed:'مغلق',
+    view:'عرض',
+    history:'السجل',
+    cancelled:'ملغى',
+    completed:'مكتمل',
+    retry:'إعادة المحاولة'
   } : {
-    title:'My Sports', upcoming:'Upcoming', book:'Book a slot', none:'No upcoming bookings.', open:'Open to players', manage:'Manage match', cancel:'Cancel booking', recent:'History', spotsOpen:'spots open',
-    cancelTitle:'Cancel booking?', keep:'Keep booking', cancelling:'Cancelling…', retry:'Try again', cancelledToast:'Booking cancelled'
+    title:'My Sports',
+    book:'Book a slot',
+    upcoming:'Upcoming',
+    none:'No upcoming bookings.',
+    open:'Open',
+    closed:'Closed',
+    view:'View',
+    history:'History',
+    cancelled:'Cancelled',
+    completed:'Completed',
+    retry:'Try again'
   }
 
   onMount(loadSports)
 
-  function modalFocus(node: HTMLElement) {
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    node.focus()
-    return { destroy() { previousFocus?.focus() } }
-  }
-
-  function dismissOnEscape(event: KeyboardEvent, close: () => void) {
-    if (event.key !== 'Escape' || working) return
-    event.stopPropagation()
-    close()
-  }
-
   async function loadSports() {
     const user = $authState.user
-    if (!user?.id) { await goto('/login'); return }
+    if (!user?.id) {
+      await goto('/login')
+      return
+    }
+
     loading = true
     error = null
+
     try {
-      const [bookingRows, matchRows] = await Promise.all([getMyBookings(user.id), listMyMatches()])
+      const [bookingRows, matchRows] = await Promise.all([
+        getMyBookings(user.id),
+        listMyMatches()
+      ])
       bookings = bookingRows
       matches = matchRows
     } catch (e) {
-      error = e instanceof MatchApiError ? matchErrorCopy(e.code, $locale) : bookingFailureMessage(e instanceof BookingApiError ? e.code : 'unknown', $locale)
-    } finally { loading = false }
-  }
-
-  const openMatchFor = (bookingId: string) => matches.find((match) => match.booking_id === bookingId && match.visibility === 'open')
-  const upcoming = (booking: MyBooking) => booking.lifecycle_status === 'upcoming'
-  $: upcomingBookings = bookings.filter((booking) => upcoming(booking) && booking.status !== 'cancelled')
-  $: history = bookings.filter((booking) => !upcoming(booking) || booking.status === 'cancelled')
-
-  function dateParts(value: string, timezone?: string | null) {
-    const d = new Date(value)
-    const lang = $locale || 'en'
-    const zone = timezone ? { timeZone: timezone } : {}
-    return {
-      day: d.toLocaleString(lang,{day:'numeric', ...zone}),
-      month: d.toLocaleString(lang,{month:'short', ...zone}),
-      weekday: d.toLocaleString(lang,{weekday:'short', ...zone}),
-      time: d.toLocaleTimeString(lang,{hour:'2-digit',minute:'2-digit',hour12:false, ...zone})
+      error = e instanceof MatchApiError
+        ? matchErrorCopy(e.code, $locale)
+        : bookingFailureMessage(e instanceof BookingApiError ? e.code : 'unknown', $locale)
+    } finally {
+      loading = false
     }
   }
 
-  function openMatchSheet(booking: MyBooking) {
-    if ((booking.pitches?.capacity ?? 1) < 2) {
-      uiState.addToast(matchErrorCopy('match_capacity_too_small', $locale), 'error')
-      return
-    }
-    openTarget = booking
+  const matchFor = (bookingId: string) =>
+    matches.find((match) => match.booking_id === bookingId) || null
+
+  const upcoming = (booking: MyBooking) =>
+    booking.lifecycle_status === 'upcoming' && booking.status === 'scheduled'
+
+  $: upcomingBookings = bookings.filter(upcoming)
+  $: history = bookings.filter((booking) => !upcoming(booking))
+
+  function timeText(value: string, timezone?: string | null) {
+    return new Date(value).toLocaleTimeString($locale || 'en', {
+      hour:'2-digit',
+      minute:'2-digit',
+      hour12:false,
+      ...(timezone ? { timeZone: timezone } : {})
+    })
   }
 
-  async function handleOpened(matchId: string) {
-    openTarget = null
-    if (matchId) await goto(`/matches/${matchId}`)
-    else await loadSports()
-  }
-
-  async function confirmCancel() {
-    if (!cancelTarget) return
-    const bookingId = cancelTarget.id
-    working = true
-    try {
-      await cancelBookingRpc(bookingId)
-      bookings = bookings.map((b) => b.id === bookingId ? {...b,status:'cancelled',lifecycle_status:'cancelled',cancelled_at:new Date().toISOString()} : b)
-      matches = matches.filter((match) => match.booking_id !== bookingId)
-      cancelTarget = null
-      uiState.addToast(copy.cancelledToast, 'success')
-    } catch (e) {
-      uiState.addToast(bookingFailureMessage(e instanceof BookingApiError ? e.code : 'unknown', $locale), 'error')
-    } finally { working = false }
+  function dateText(value: string, timezone?: string | null) {
+    return new Date(value).toLocaleDateString($locale || 'en', {
+      month:'short',
+      day:'numeric',
+      weekday:'short',
+      ...(timezone ? { timeZone: timezone } : {})
+    })
   }
 </script>
 
-<svelte:head><title>{copy.title} · UNEEM</title></svelte:head>
+<svelte:head>
+  <title>{copy.title} · UNEEM</title>
+</svelte:head>
 
 <main class="uneem-page-narrow">
-  <header class="mb-6"><h1 class="uneem-title">{copy.title}</h1></header>
+  <header class="mb-5">
+    <h1 class="uneem-title">{copy.title}</h1>
+  </header>
+
+  <a href="/home" class="uneem-primary-action mb-7 min-h-[50px] w-full text-base">
+    <Icon name="calendar-plus" size={19}/>
+    {copy.book}
+  </a>
 
   {#if loading}
-    <div class="space-y-2" aria-label="Loading My Sports">{#each Array(3) as _}<div class="h-24 animate-pulse rounded-[18px] bg-surface-level-1"></div>{/each}</div>
+    <div class="space-y-2" aria-busy="true">
+      {#each [1,2,3] as _}
+        <div class="h-28 animate-pulse rounded-[18px] bg-surface-level-1"></div>
+      {/each}
+    </div>
   {:else if error}
     <div class="flex items-center justify-between gap-3 py-4">
       <p class="text-sm font-semibold text-danger">{error}</p>
-      <button class="min-h-10 text-sm font-bold text-primary" on:click={loadSports}>{copy.retry}</button>
+      <button class="min-h-10 text-sm font-bold text-primary" on:click={loadSports}>
+        {copy.retry}
+      </button>
     </div>
   {:else}
     <section>
-      <div class="mb-3 flex items-center justify-between gap-3">
-        <h2 class="text-lg font-bold text-text">{copy.upcoming}</h2>
-        {#if upcomingBookings.length > 0}<a href="/home" class="min-h-10 text-sm font-bold text-primary">{copy.book}</a>{/if}
-      </div>
+      <h2 class="mb-3 text-lg font-bold text-text">{copy.upcoming}</h2>
 
       {#if upcomingBookings.length === 0}
         <div class="uneem-empty py-8">
-          <div class="mx-auto grid h-12 w-12 place-items-center rounded-full bg-surface-level-1 text-text-muted"><Icon name="calendar-days" size={21}/></div>
-          <p class="mt-3 font-bold text-text">{copy.none}</p>
-          <a href="/home" class="uneem-primary-action mt-5 min-w-[150px]">{copy.book}</a>
+          <p class="font-bold text-text">{copy.none}</p>
         </div>
       {:else}
         <div class="space-y-2">
           {#each upcomingBookings as booking (booking.id)}
-            {@const date = dateParts(booking.starts_at, booking.pitches?.timezone)}
-            {@const match = openMatchFor(booking.id)}
-            {@const spotsLeft = match ? Math.max(0, match.capacity - 1 - match.reserved_spots - match.joined_count) : 0}
-            <article class="rounded-[18px] border border-border-light bg-surface p-4">
-              <div class="flex items-start gap-3">
-                <div class="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-[14px] bg-primary-light text-primary">
-                  <span class="text-[9px] font-extrabold uppercase">{date.month}</span>
-                  <span class="text-lg font-extrabold leading-none">{date.day}</span>
-                </div>
-                <div class="min-w-0 flex-1">
-                  <h3 class="truncate font-bold text-text">{booking.pitches?.name || 'Facility'}</h3>
-                  <p class="mt-1 text-sm text-text-muted">{date.weekday} · {date.time} · {booking.pitches?.location || 'USMBA'}</p>
-                  {#if match}<p class="mt-2 text-xs font-bold text-success">{spotsLeft} {copy.spotsOpen}</p>{/if}
-                </div>
+            {@const match = matchFor(booking.id)}
+            {@const zone = booking.pitches?.timezone}
+            {@const isOpen = match?.visibility === 'open'}
+            {@const used = match
+              ? Math.min(match.capacity, 1 + match.reserved_spots + match.joined_count)
+              : 1}
+
+            <article class="flex min-h-[112px] items-center gap-4 rounded-[18px] border border-border-light bg-surface p-4">
+              <div class="min-w-0 flex-1">
+                <p class="flex items-baseline gap-1.5">
+                  <span class="text-[26px] font-extrabold tracking-[-0.04em] text-text">
+                    {timeText(booking.starts_at, zone)}
+                  </span>
+                  <span class="text-sm font-semibold text-text-muted">
+                    – {timeText(booking.ends_at, zone)}
+                  </span>
+                </p>
+                <h3 class="mt-2 truncate font-bold text-text">
+                  {booking.pitches?.name || 'Facility'}
+                </h3>
+                <p class="mt-1 truncate text-sm text-text-muted">
+                  {dateText(booking.starts_at, zone)}
+                  {#if booking.pitches?.location} · {booking.pitches.location}{/if}
+                </p>
+                {#if match}
+                  <p class={`mt-1 text-xs font-bold ${isOpen ? 'text-success' : 'text-text-muted'}`}>
+                    {isOpen ? copy.open : copy.closed}
+                    {#if isOpen} · {used}/{match.capacity}{/if}
+                  </p>
+                {:else}
+                  <p class="mt-1 text-xs font-bold text-text-muted">{copy.closed}</p>
+                {/if}
               </div>
 
-              <div class="mt-3 flex flex-wrap items-center gap-2 border-t border-border-light pt-3">
-                {#if match}
-                  <a href={`/matches/${match.match_id}`} class="uneem-primary-action min-h-10 px-3 text-sm">{copy.manage}</a>
-                {:else if (booking.pitches?.capacity ?? 1) >= 2}
-                  <button class="uneem-primary-action min-h-10 px-3 text-sm" on:click={() => openMatchSheet(booking)}>{copy.open}</button>
-                {/if}
-                <button class="min-h-10 rounded-[12px] px-3 text-sm font-bold text-danger hover:bg-danger-light" on:click={() => cancelTarget = booking}>{copy.cancel}</button>
-              </div>
+              <a
+                href={`/bookings/${booking.id}`}
+                class="uneem-secondary-action min-h-10 min-w-[72px] shrink-0 px-4 text-sm"
+              >
+                {copy.view}
+              </a>
             </article>
           {/each}
         </div>
@@ -162,13 +191,22 @@
 
     {#if history.length > 0}
       <section class="mt-8">
-        <h2 class="mb-3 text-lg font-bold text-text">{copy.recent}</h2>
-        <div class="rounded-[18px] border border-border-light bg-surface px-4">
+        <h2 class="mb-3 text-lg font-bold text-text">{copy.history}</h2>
+        <div class="overflow-hidden rounded-[18px] border border-border-light bg-surface px-4">
           {#each history.slice(0,8) as booking (booking.id)}
-            {@const date=dateParts(booking.starts_at, booking.pitches?.timezone)}
             <div class="uneem-list-row">
-              <div class="min-w-0 flex-1"><p class="truncate font-semibold text-text">{booking.pitches?.name || 'Facility'}</p><p class="mt-0.5 text-sm text-text-muted">{date.month} {date.day} · {date.time}</p></div>
-              <span class="text-xs font-semibold capitalize text-text-muted">{booking.lifecycle_status}</span>
+              <div class="min-w-0 flex-1">
+                <p class="truncate font-semibold text-text">
+                  {booking.pitches?.name || 'Facility'}
+                </p>
+                <p class="mt-0.5 text-sm text-text-muted">
+                  {dateText(booking.starts_at, booking.pitches?.timezone)}
+                  · {timeText(booking.starts_at, booking.pitches?.timezone)}
+                </p>
+              </div>
+              <span class="text-xs font-semibold text-text-muted">
+                {booking.status === 'cancelled' ? copy.cancelled : copy.completed}
+              </span>
             </div>
           {/each}
         </div>
@@ -176,20 +214,3 @@
     {/if}
   {/if}
 </main>
-
-{#if openTarget}
-  <OpenMatchSheet booking={openTarget} onClose={() => openTarget = null} onOpened={handleOpened}/>
-{/if}
-
-{#if cancelTarget}
-  <div class="fixed inset-0 z-50 flex items-end bg-black/55 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-4" role="presentation">
-    <button type="button" tabindex="-1" aria-label="Close cancellation dialog" class="absolute inset-0 cursor-default" disabled={working} on:click={() => cancelTarget = null}></button>
-    <div class="uneem-mobile-sheet relative z-10" role="dialog" aria-modal="true" tabindex="-1" use:modalFocus on:keydown={(event) => dismissOnEscape(event, () => cancelTarget = null)}>
-      <h2 class="text-xl font-bold text-text">{copy.cancelTitle}</h2>
-      <div class="mt-5 flex gap-3">
-        <button class="uneem-secondary-action flex-1" disabled={working} on:click={() => cancelTarget=null}>{copy.keep}</button>
-        <button class="flex min-h-[48px] flex-1 items-center justify-center rounded-[14px] bg-danger px-4 font-bold text-white disabled:opacity-60" disabled={working} on:click={confirmCancel}>{working ? copy.cancelling : copy.cancel}</button>
-      </div>
-    </div>
-  </div>
-{/if}
