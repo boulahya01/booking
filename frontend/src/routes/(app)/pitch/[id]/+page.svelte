@@ -10,11 +10,12 @@
   import { USE_MOCK, mockPitches, mockSlots } from '$lib/mock'
   import { uiState } from '$lib/stores/ui'
   import { logger } from '$lib/logger'
-  import { getPitchAvailability, cancelBooking as cancelBookingRpc, BookingApiError } from '$lib/bookingApi'
+  import { getPitchAvailability, getMyBookings, cancelBooking as cancelBookingRpc, BookingApiError, type MyBooking } from '$lib/bookingApi'
   import { bookingFailureMessage } from '$lib/ux/bookingFailure'
 
   let pitch: any = null
   let slots: any[] = []
+  let myBookings: MyBooking[] = []
   let loading = true
   let loadingSlots = false
   let error: string | null = null
@@ -37,7 +38,7 @@
   }, {})
   $: dates = Object.keys(grouped).sort()
   $: selectedSlots = selectedDate ? grouped[selectedDate] || [] : []
-  $: selectedAvailableCount = selectedSlots.filter((slot) => slot.is_available).length
+  $: activeBooking = myBookings.find((booking) => booking.status === 'scheduled' && new Date(booking.ends_at).getTime() > currentTime.getTime()) || null
 
   let fetchVersion = 0
   let slotsRequestVersion: number | null = null
@@ -69,7 +70,7 @@
 
     const { data, error: fetchError } = await supabase
       .from('pitches')
-      .select('id,name,location,open_time,close_time,capacity,sport_type,timezone')
+      .select('id,name,location,open_time,close_time,capacity,sport_type,timezone,booking_frequency_enabled,booking_frequency_days')
       .eq('id', pitchId)
       .maybeSingle()
 
@@ -94,6 +95,7 @@
 
     if (USE_MOCK) {
       slots = mockSlots
+      myBookings = []
       loadingSlots = false
       slotsRequestVersion = null
       syncSelectedDate()
@@ -101,9 +103,10 @@
     }
 
     try {
-      const data = await getPitchAvailability(pitchId)
+      const [availability, bookingRows] = await Promise.all([getPitchAvailability(pitchId), getMyBookings()])
       if (version !== fetchVersion) return
-      slots = data
+      slots = availability
+      myBookings = bookingRows
       syncSelectedDate()
     } catch (fetchError) {
       if (version !== fetchVersion) return
@@ -120,6 +123,7 @@
     error = null
     pitch = null
     slots = []
+    myBookings = []
     selectedDate = null
     cancelSlot = null
     cancellationTrigger = null
@@ -134,8 +138,55 @@
     return () => { clearInterval(timer); stopAutoRefresh() }
   })
 
+  function policyBlock(slot: any) {
+    if (slot.booked_by_me || !slot.is_available) return null
+
+    if (activeBooking) {
+      return {
+        code: 'active_booking_exists',
+        label: ar ? 'عندك حجز جاي. لغيه أو لعبو قبل ما تحجز واحد آخر.' : 'You already have an upcoming booking.'
+      }
+    }
+
+    if (pitch?.booking_frequency_enabled && Number(pitch?.booking_frequency_days || 0) > 0) {
+      const candidate = new Date(slot.datetime_start).getTime()
+      const spacing = Number(pitch.booking_frequency_days) * 24 * 60 * 60 * 1000
+      const conflict = myBookings.find((booking) => {
+        if (booking.status !== 'scheduled' || booking.pitch_id !== pitchId) return false
+        const existing = new Date(booking.starts_at).getTime()
+        return existing >= candidate - spacing && existing < candidate + spacing
+      })
+
+      if (conflict) {
+        const after = new Date(new Date(conflict.starts_at).getTime() + spacing)
+        const labelDate = after.toLocaleDateString($locale || 'en', {
+          month: 'short', day: 'numeric', timeZone: pitch?.timezone || 'Africa/Casablanca'
+        })
+        return {
+          code: 'booking_frequency_limited',
+          label: ar ? `اختار وقت من بعد ${labelDate}` : `Choose a slot after ${labelDate}`
+        }
+      }
+    }
+
+    return null
+  }
+
+  function decoratedSlot(slot: any) {
+    const block = policyBlock(slot)
+    return {
+      ...slot,
+      pitch_name: pitch?.name,
+      booking_blocked: Boolean(block),
+      booking_block_code: block?.code || null,
+      booking_block_label: block?.label || null
+    }
+  }
+
   function openBooking(slot: any) {
-    selectedSlot = { ...slot, pitch_name: pitch?.name }
+    const decorated = decoratedSlot(slot)
+    if (decorated.booking_blocked || !decorated.is_available) return
+    selectedSlot = decorated
     showModal = true
   }
 
@@ -154,49 +205,25 @@
     const trigger = cancellationTrigger
     cancelSlot = null
     cancellationTrigger = null
-    void tick().then(() => {
-      if (trigger?.isConnected) trigger.focus()
-    })
+    void tick().then(() => { if (trigger?.isConnected) trigger.focus() })
   }
 
-  function dismissCancellation() {
-    if (!canceling) clearCancellation()
-  }
+  function dismissCancellation() { if (!canceling) clearCancellation() }
 
   function handleCancellationKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape') {
-      if (!canceling) {
-        event.preventDefault()
-        clearCancellation()
-      }
+      if (!canceling) { event.preventDefault(); clearCancellation() }
       return
     }
-
     if (event.key !== 'Tab' || !cancellationDialog) return
 
-    const focusable = Array.from(
-      cancellationDialog.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      )
-    ).filter((element) => !element.hasAttribute('hidden') && element.getAttribute('aria-hidden') !== 'true')
-
-    if (focusable.length === 0) {
-      event.preventDefault()
-      cancellationDialog.focus()
-      return
-    }
-
+    const focusable = Array.from(cancellationDialog.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')).filter((element) => !element.hasAttribute('hidden') && element.getAttribute('aria-hidden') !== 'true')
+    if (focusable.length === 0) { event.preventDefault(); cancellationDialog.focus(); return }
     const first = focusable[0]
     const last = focusable[focusable.length - 1]
     const active = document.activeElement
-
-    if (event.shiftKey && (active === first || active === cancellationDialog)) {
-      event.preventDefault()
-      last.focus()
-    } else if (!event.shiftKey && active === last) {
-      event.preventDefault()
-      first.focus()
-    }
+    if (event.shiftKey && (active === first || active === cancellationDialog)) { event.preventDefault(); last.focus() }
+    else if (!event.shiftKey && active === last) { event.preventDefault(); first.focus() }
   }
 
   async function confirmCancellation() {
@@ -228,9 +255,8 @@
   }
 
   function displayDate(dateKey: string) { return new Date(`${dateKey}T12:00:00`) }
-  function availableCount(dateKey: string) { return (grouped[dateKey] || []).filter((slot) => slot.is_available).length }
   function formatDayLabel(dateKey: string) { return displayDate(dateKey).toLocaleDateString($locale || 'en', { weekday: 'short' }) }
-  function formatDateHeader(dateKey: string) { return displayDate(dateKey).toLocaleDateString($locale || 'en', { weekday: 'long', month: 'short', day: 'numeric' }) }
+  function formatMonthLabel(dateKey: string) { return displayDate(dateKey).toLocaleDateString($locale || 'en', { month: 'short' }) }
   function closeTime() {
     const value = pitch?.close_time?.slice(0, 5) || ''
     return value === '00:00' && pitch?.open_time?.slice(0, 5) !== '00:00' ? '24:00' : value
@@ -239,47 +265,33 @@
 
 <svelte:head><title>{pitch?.name || (ar ? 'المرفق' : 'Facility')} · UNEEM</title></svelte:head>
 
-<main class="uneem-page max-w-4xl">
+<main class="uneem-page-narrow">
   {#if loading}
     <div class="space-y-4" aria-busy="true">
-      <div class="h-10 w-28 animate-pulse rounded-xl bg-surface-level-1"></div>
-      <div class="h-36 animate-pulse rounded-[22px] bg-surface-level-1"></div>
-      <div class="flex gap-2 overflow-hidden">{#each [1,2,3,4,5] as _}<div class="h-20 w-20 shrink-0 animate-pulse rounded-2xl bg-surface-level-1"></div>{/each}</div>
-      <div class="grid gap-3 sm:grid-cols-2">{#each [1,2,3,4] as _}<div class="h-40 animate-pulse rounded-[22px] bg-surface-level-1"></div>{/each}</div>
+      <div class="h-10 w-24 animate-pulse rounded-xl bg-surface-level-1"></div>
+      <div class="h-24 animate-pulse rounded-[18px] bg-surface-level-1"></div>
+      <div class="flex gap-2 overflow-hidden">{#each [1,2,3,4,5] as _}<div class="h-16 w-16 shrink-0 animate-pulse rounded-[14px] bg-surface-level-1"></div>{/each}</div>
+      <div class="h-72 animate-pulse rounded-[18px] bg-surface-level-1"></div>
     </div>
   {:else if error || !pitch}
     <section class="uneem-empty">
-      <div class="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-danger-light text-danger"><Icon name="alert-triangle" size={22}/></div>
-      <p class="mt-3 font-bold text-text">{error || (ar ? 'المرفق غير موجود' : 'Facility not found')}</p>
+      <p class="font-bold text-text">{error || (ar ? 'المرفق غير موجود' : 'Facility not found')}</p>
       <button on:click={fetchPitch} class="mt-3 min-h-10 text-sm font-bold text-primary">{$_('common.retry')}</button>
     </section>
   {:else}
-    <a href="/home" class="uneem-text-action mb-3"><Icon name={ar ? 'arrow-right' : 'arrow-left'} size={17}/>{ar ? 'المرافق' : 'Facilities'}</a>
+    <a href="/home" class="uneem-text-action mb-3"><Icon name={ar ? 'arrow-right' : 'arrow-left'} size={17}/>{ar ? 'رجع' : 'Back'}</a>
 
-    <section class="uneem-card">
-      <div class="flex items-start gap-3.5">
-        <div class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary-light text-primary"><Icon name="trophy" size={21}/></div>
-        <div class="min-w-0 flex-1">
-          {#if pitch.sport_type}<p class="text-xs font-extrabold capitalize text-primary">{pitch.sport_type}</p>{/if}
-          <h1 class="mt-1 truncate text-2xl font-extrabold tracking-[-0.035em] text-text">{pitch.name}</h1>
-          <p class="mt-1 flex items-center gap-1.5 text-sm text-text-secondary"><Icon name="map-pin" size={14}/>{pitch.location || $_('bookings.unknown_location')}</p>
-          <div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs font-semibold text-text-muted">
-            <span class="inline-flex items-center gap-1.5"><Icon name="clock" size={13}/>{pitch.open_time?.slice(0,5)}–{closeTime()}</span>
-            {#if pitch.capacity}<span class="inline-flex items-center gap-1.5"><Icon name="users" size={13}/>{pitch.capacity}</span>{/if}
-          </div>
-        </div>
+    <header class="mb-6">
+      <h1 class="text-2xl font-extrabold tracking-[-0.035em] text-text">{pitch.name}</h1>
+      <p class="mt-1 flex items-center gap-1.5 text-sm text-text-secondary"><Icon name="map-pin" size={14}/>{pitch.location || $_('bookings.unknown_location')}</p>
+      <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-text-muted">
+        <span>{pitch.open_time?.slice(0,5)}–{closeTime()}</span>
+        {#if pitch.capacity > 1}<span>{pitch.capacity} {ar ? 'لاعبين' : 'players'}</span>{/if}
       </div>
-    </section>
+    </header>
 
-    <section class="mt-7">
-      <div class="mb-3 flex items-end justify-between gap-4">
-        <div>
-          <h2 class="text-xl font-extrabold tracking-[-0.025em] text-text">{ar ? 'اختار الوقت' : 'Choose a time'}</h2>
-          {#if selectedDate}<p class="mt-1 text-sm text-text-muted">{formatDateHeader(selectedDate)}</p>{/if}
-        </div>
-        {#if selectedDate && !loadingSlots}<span class="text-xs font-bold text-primary">{selectedAvailableCount} {ar ? 'متاح' : 'available'}</span>{/if}
-      </div>
-
+    <section>
+      <h2 class="mb-3 text-lg font-bold text-text">{ar ? 'اختار النهار' : 'Choose a day'}</h2>
       {#if dates.length > 0}
         <div class="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
           <div class="flex min-w-max gap-2">
@@ -288,18 +300,18 @@
               {@const selected = selectedDate === date}
               <button
                 on:click={() => selectedDate = date}
-                class="min-h-[76px] min-w-[76px] rounded-2xl border px-3 py-2 text-center transition-colors"
+                class="min-h-[62px] min-w-[62px] rounded-[14px] border px-2.5 py-2 text-center transition-colors"
                 class:border-primary={selected}
-                class:bg-primary={selected}
-                class:text-white={selected}
+                class:bg-primary-light={selected}
+                class:text-primary={selected}
                 class:border-border-light={!selected}
                 class:bg-surface={!selected}
                 class:text-text-secondary={!selected}
                 aria-pressed={selected}
               >
-                <span class="block text-[10px] font-extrabold uppercase tracking-wide opacity-70">{formatDayLabel(date)}</span>
-                <span class="mt-0.5 block text-xl font-extrabold">{d.getDate()}</span>
-                <span class="mt-0.5 block text-[10px] font-semibold opacity-70">{availableCount(date)} {ar ? 'متاح' : 'open'}</span>
+                <span class="block text-[10px] font-bold uppercase opacity-75">{formatDayLabel(date)}</span>
+                <span class="mt-0.5 block text-lg font-extrabold leading-none">{d.getDate()}</span>
+                <span class="mt-1 block text-[9px] font-semibold opacity-65">{formatMonthLabel(date)}</span>
               </button>
             {/each}
           </div>
@@ -307,19 +319,27 @@
       {/if}
     </section>
 
-    <section class="mt-3">
+    <section class="mt-5">
+      <h2 class="mb-2 text-lg font-bold text-text">{ar ? 'الأوقات' : 'Times'}</h2>
+
+      {#if activeBooking && selectedSlots.some((slot) => slot.is_available && !slot.booked_by_me)}
+        <a href="/bookings" class="mb-3 flex items-center justify-between gap-3 rounded-[14px] bg-warning-light px-3.5 py-3 text-sm font-semibold text-warning">
+          <span>{ar ? 'عندك حجز جاي دابا.' : 'You already have an upcoming booking.'}</span>
+          <span class="shrink-0 font-bold">{ar ? 'شوفو' : 'View'}</span>
+        </a>
+      {/if}
+
       {#if loadingSlots && slots.length === 0}
-        <div class="grid gap-3 sm:grid-cols-2" aria-busy="true">{#each [1,2,3,4] as _}<div class="h-40 animate-pulse rounded-[22px] bg-surface-level-1"></div>{/each}</div>
+        <div class="h-64 animate-pulse rounded-[18px] bg-surface-level-1" aria-busy="true"></div>
       {:else if errorSlots && slots.length === 0}
-        <div class="uneem-card flex items-center gap-3"><div class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-danger-light text-danger"><Icon name="alert-circle" size={19}/></div><p class="min-w-0 flex-1 text-sm font-semibold text-danger">{errorSlots}</p><button on:click={fetchSlots} class="min-h-10 text-sm font-bold text-primary">{$_('common.retry')}</button></div>
+        <div class="flex items-center justify-between gap-3 py-4"><p class="text-sm font-semibold text-danger">{errorSlots}</p><button on:click={fetchSlots} class="min-h-10 text-sm font-bold text-primary">{$_('common.retry')}</button></div>
       {:else if slots.length === 0}
-        <div class="uneem-empty"><div class="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-surface text-text-muted"><Icon name="clock" size={22}/></div><p class="mt-3 font-bold text-text">{$_('pitch.no_slots')}</p></div>
+        <div class="uneem-empty"><p class="font-semibold text-text-muted">{$_('pitch.no_slots')}</p></div>
       {:else if selectedDate && selectedSlots.length > 0}
-        {#if errorSlots}<div class="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-danger-light px-4 py-3 text-sm font-semibold text-danger"><span>{errorSlots}</span><button on:click={fetchSlots} class="shrink-0 font-bold">{$_('common.retry')}</button></div>{/if}
-        <div class="mb-3 flex items-center justify-between text-xs text-text-muted"><span>{selectedAvailableCount} {ar ? 'وقت متاح' : 'available times'}</span>{#if loadingSlots}<span class="inline-flex items-center gap-1.5"><span class="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"></span>{ar ? 'تحديث' : 'Refreshing'}</span>{:else}<span>{currentTime.toLocaleTimeString($locale || 'en',{hour:'2-digit',minute:'2-digit',hour12:false})}</span>{/if}</div>
-        <div class="grid gap-3 sm:grid-cols-2">
+        {#if errorSlots}<div class="mb-3 flex items-center justify-between gap-3 rounded-[14px] bg-danger-light px-3.5 py-3 text-sm font-semibold text-danger"><span>{errorSlots}</span><button on:click={fetchSlots} class="shrink-0 font-bold">{$_('common.retry')}</button></div>{/if}
+        <div class="rounded-[18px] border border-border-light bg-surface px-3">
           {#each selectedSlots as slot, i (slot.id || `${slot.datetime_start}-${i}`)}
-            <SlotCard slotData={slot} onBook={() => openBooking(slot)} onCancel={requestCancellation}/>
+            <SlotCard slotData={decoratedSlot(slot)} onBook={() => openBooking(slot)} onCancel={requestCancellation}/>
           {/each}
         </div>
       {:else}
@@ -334,20 +354,11 @@
 {#if cancelSlot}
   <div class="fixed inset-0 z-50 flex items-end bg-black/55 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-4" role="presentation">
     <button type="button" tabindex="-1" aria-label="Close cancellation dialog" class="absolute inset-0 cursor-default" disabled={canceling} on:click={dismissCancellation}></button>
-    <section
-      bind:this={cancellationDialog}
-      class="uneem-mobile-sheet relative z-10 sm:max-w-md"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="cancel-booking-title"
-      tabindex="-1"
-      on:keydown={handleCancellationKeydown}
-    >
-      <h2 id="cancel-booking-title" class="text-xl font-extrabold text-text">{ar ? 'إلغاء الحجز؟' : 'Cancel booking?'}</h2>
-      <p class="mt-2 text-sm leading-6 text-text-secondary">{ar ? 'غادي يتحرر هاد الوقت باش يقدر طالب آخر يحجزو.' : 'This time will become available to another student.'}</p>
-      <div class="mt-6 flex gap-3">
+    <section bind:this={cancellationDialog} class="uneem-mobile-sheet relative z-10 sm:max-w-md" role="dialog" aria-modal="true" aria-labelledby="cancel-booking-title" tabindex="-1" on:keydown={handleCancellationKeydown}>
+      <h2 id="cancel-booking-title" class="text-xl font-extrabold text-text">{ar ? 'تلغي الحجز؟' : 'Cancel booking?'}</h2>
+      <div class="mt-5 flex gap-3">
         <button on:click={dismissCancellation} disabled={canceling} class="uneem-secondary-action flex-1">{ar ? 'خليه' : 'Keep booking'}</button>
-        <button on:click={confirmCancellation} disabled={canceling} class="flex min-h-[50px] flex-1 items-center justify-center rounded-[18px] bg-danger px-4 font-bold text-white">{canceling ? (ar ? 'جاري الإلغاء…' : 'Cancelling…') : $_('pitch.cancel_booking')}</button>
+        <button on:click={confirmCancellation} disabled={canceling} class="flex min-h-[48px] flex-1 items-center justify-center rounded-[14px] bg-danger px-4 font-bold text-white">{canceling ? (ar ? 'جاري الإلغاء…' : 'Cancelling…') : $_('pitch.cancel_booking')}</button>
       </div>
     </section>
   </div>
