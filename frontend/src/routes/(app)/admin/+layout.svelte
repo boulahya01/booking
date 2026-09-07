@@ -17,15 +17,13 @@
 </script>
 
 {#if !isIndex && current}
-  <div class="border-b border-border-light bg-background/95 backdrop-blur-xl">
-    <div class="mx-auto flex min-h-11 max-w-7xl items-center gap-2 px-4 text-sm sm:px-6">
-      <a href="/admin" class="inline-flex min-h-10 items-center gap-1.5 font-semibold text-text-secondary hover:text-text">
-        <Icon name={$language === 'ar' ? 'arrow-right' : 'arrow-left'} size={15} />
-        <span>{$language === 'ar' ? 'الإدارة' : 'Admin'}</span>
-      </a>
-      <Icon name={$language === 'ar' ? 'chevron-left' : 'chevron-right'} size={14} className="text-text-muted" />
-      <span class="font-semibold text-text">{$language === 'ar' ? current.ar : current.en}</span>
-    </div>
+  <div class="mx-auto flex min-h-10 w-full max-w-7xl items-center gap-1.5 px-4 pt-2 text-xs sm:px-6">
+    <a href="/admin" class="inline-flex min-h-9 items-center gap-1.5 font-semibold text-text-muted transition-colors hover:text-text">
+      <Icon name={$language === 'ar' ? 'arrow-right' : 'arrow-left'} size={14} />
+      <span>{$language === 'ar' ? 'الإدارة' : 'Admin'}</span>
+    </a>
+    <span class="text-text-muted">/</span>
+    <span class="font-semibold text-text-secondary">{$language === 'ar' ? current.ar : current.en}</span>
   </div>
 {/if}
 
