@@ -7,8 +7,9 @@ export type User = {
   id: string
   email?: string
   full_name?: string
+  username?: string | null
   student_id?: string | null
-  role?: 'admin' | 'user'
+  role?: 'admin' | 'user' | 'student'
   status?: UserStatus
   created_at?: string
   updated_at?: string
