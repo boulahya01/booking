@@ -45,11 +45,11 @@
   }
 
   $: copy = ar ? {
-    title: 'الدعم', intro: 'كيف نقدر نعاونك؟', name: 'اسمك', namePlaceholder: 'مثال: مروان',
-    messagePlaceholder: 'اكتب المشكل ديالك…', send: 'إرسال', sending: 'جاري الإرسال…',
-    safe: 'ما ترسلش كلمة المرور أو معلومات الدفع.', resolved: 'تم الحل', newChat: 'محادثة جديدة',
+    title: 'الدعم', intro: 'كيف يمكننا مساعدتك؟', name: 'اسمك', namePlaceholder: 'مثال: مروان',
+    messagePlaceholder: 'صف المشكلة التي تواجهها…', send: 'إرسال', sending: 'جارٍ الإرسال…',
+    safe: 'لا ترسل كلمة المرور أو معلومات الدفع.', resolved: 'تم الحل', newChat: 'محادثة جديدة',
     signedAs: 'مسجل باسم', back: 'رجوع', generic: 'تعذر إكمال العملية. حاول مرة أخرى.',
-    nameRequired: 'كتب اسمك باش نعرفو نهضرو معاك.', messageRequired: 'كتب المشكل ديالك.',
+    nameRequired: 'أدخل اسمك للمتابعة.', messageRequired: 'صف المشكلة التي تواجهها.',
     appeal: 'مراجعة الحساب'
   } : {
     title: 'Support', intro: 'How can we help?', name: 'Your name', namePlaceholder: 'e.g. Marwan',

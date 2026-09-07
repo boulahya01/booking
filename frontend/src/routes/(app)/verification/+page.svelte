@@ -44,7 +44,7 @@
         studentId: 'رقم الطالب', studentIdPlaceholder: 'S123456789', studentIdValid: 'الصيغة صحيحة · الملكية تُراجع مع البطاقة', studentIdInvalid: 'استخدم حرفاً واحداً + 9 أرقام فقط.',
         card: 'صورة بطاقة الطالب', addCard: 'أضف صورة واضحة للبطاقة', replaceCard: 'اختيار صورة أخرى', cardHint: 'JPG أو PNG أو WebP · أقل من 5 MB', cardReady: 'الصورة جاهزة', cardRequired: 'اختر صورة البطاقة.', invalidType: 'استخدم JPG أو PNG أو WebP.', tooLarge: 'يجب أن تكون الصورة أقل من 5 MB.', invalidImage: 'اختر صورة صالحة.',
         submittedId: 'رقم الطالب المرسل', pending: 'قيد المراجعة', noResubmit: 'لا تحتاج لإعادة الإرسال الآن.',
-        submit: 'إرسال للمراجعة', resubmit: 'إعادة الإرسال للمراجعة', submitting: 'جاري الإرسال…',
+        submit: 'إرسال للمراجعة', resubmit: 'إعادة الإرسال للمراجعة', submitting: 'جارٍ الإرسال…',
         profile: 'العودة للملف الشخصي', accountHelp: 'مساعدة الحساب', help: 'المساعدة', accountStatus: 'حالة الحساب', private: 'بطاقتك خاصة ولا تظهر إلا للمراجعين المصرح لهم.',
         sessionRequired: 'انتهت جلسة تسجيل الدخول. سجّل الدخول من جديد ثم أعد المحاولة.',
         claimUnavailable: 'رقم الطالب مرتبط بهوية مؤكدة أخرى. لا تنشئ حساباً جديداً؛ استخدم المساعدة لتأكيد الملكية.',

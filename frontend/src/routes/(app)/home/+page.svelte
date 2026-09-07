@@ -66,7 +66,7 @@
 
 <main class="uneem-page-narrow">
   <header class="mb-6">
-    {#if firstName}<p class="text-sm font-semibold text-text-secondary">{isArabic ? `مرحبا ${firstName}` : `Hi ${firstName}`}</p>{/if}
+    {#if firstName}<p class="text-sm font-semibold text-text-secondary">{isArabic ? `مرحباً ${firstName}` : `Hi ${firstName}`}</p>{/if}
     <h1 class="uneem-title">{isArabic ? 'العب اليوم' : 'Play today'}</h1>
   </header>
 
@@ -99,11 +99,11 @@
         <button type="button" on:click={() => void fetchPitches()} class="min-h-10 text-sm font-bold text-primary">{$_('common.retry')}</button>
       </div>
     {:else if pitches.length === 0}
-      <div class="uneem-empty"><p class="font-semibold text-text-muted">{isArabic ? 'ما كاين حتى مرفق دابا' : 'No facilities yet'}</p></div>
+      <div class="uneem-empty"><p class="font-semibold text-text-muted">{isArabic ? 'لا توجد مرافق حالياً' : 'No facilities yet'}</p></div>
     {:else if filteredPitches.length === 0}
       <div class="uneem-empty">
-        <p class="font-semibold text-text-muted">{isArabic ? 'ما كاين حتى مرفق بهاد الرياضة' : 'No facility for this sport'}</p>
-        <button type="button" on:click={() => (selectedSport = 'all')} class="mt-2 min-h-10 text-sm font-bold text-primary">{isArabic ? 'شوف الكل' : 'Show all'}</button>
+        <p class="font-semibold text-text-muted">{isArabic ? 'لا توجد مرافق لهذه الرياضة' : 'No facility for this sport'}</p>
+        <button type="button" on:click={() => (selectedSport = 'all')} class="mt-2 min-h-10 text-sm font-bold text-primary">{isArabic ? 'عرض الكل' : 'Show all'}</button>
       </div>
     {:else}
       <div class="space-y-2">

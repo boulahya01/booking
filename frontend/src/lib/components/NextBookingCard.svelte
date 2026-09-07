@@ -90,7 +90,7 @@
 {:else if booking}
   {@const time = formatBookingTime(booking.starts_at, booking.pitches?.timezone || 'Africa/Casablanca')}
   <section class="mb-6">
-    <p class="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-text-muted">{isArabic ? 'الحجز الجاي' : 'Next booking'}</p>
+    <p class="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-text-muted">{isArabic ? 'الحجز القادم' : 'Next booking'}</p>
     <a href="/bookings" class="group flex items-center gap-3 rounded-[18px] border border-border-light bg-surface p-3.5 transition-colors hover:bg-surface-level-1">
       <div class="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-[14px] bg-primary-light text-primary">
         <span class="text-[9px] font-extrabold uppercase">{time.month}</span>

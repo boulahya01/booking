@@ -190,7 +190,7 @@
       code,
       eligibleAt,
       countdown: countdownText(eligibleAt),
-      label: ar ? `تقدر تحجز مرة أخرى من ${labelDate}` : `You can book again from ${labelDate}`
+      label: ar ? `يمكنك الحجز مرة أخرى ابتداءً من ${labelDate}` : `You can book again from ${labelDate}`
     }
   }
 
@@ -210,7 +210,7 @@
       booking_eligible_at: block?.eligibleAt || null,
       cancellation_blocked: cancellationBlocked,
       cancellation_block_label: cancellationBlocked
-        ? (ar ? `كيبدا بعد ${countdownText(startsAt)}` : `Starts in ${countdownText(startsAt)}`)
+        ? (ar ? `يبدأ بعد ${countdownText(startsAt)}` : `Starts in ${countdownText(startsAt)}`)
         : null
     }
   }
@@ -286,7 +286,7 @@
     const date = displayDate(dateKey)
     const today = displayDate(facilityDateKey(currentTime.toISOString()))
     const diff = Math.round((date.getTime() - today.getTime()) / 86_400_000)
-    const prefix = diff === 0 ? (ar ? 'اليوم' : 'Today') : diff === 1 ? (ar ? 'غدا' : 'Tomorrow') : date.toLocaleDateString($locale || 'en', { weekday: 'long' })
+    const prefix = diff === 0 ? (ar ? 'اليوم' : 'Today') : diff === 1 ? (ar ? 'غداً' : 'Tomorrow') : date.toLocaleDateString($locale || 'en', { weekday: 'long' })
     const shortDate = date.toLocaleDateString($locale || 'en', { month: 'short', day: 'numeric' })
     return `${prefix} · ${shortDate}`
   }
@@ -295,7 +295,7 @@
     const open = pitch?.open_time?.slice(0, 5) || ''
     const close = pitch?.close_time?.slice(0, 5) || ''
     if (!open || !close) return ''
-    return close < open ? `${open}–${close} ${ar ? '(اليوم الموالي)' : '(next day)'}` : `${open}–${close}`
+    return close < open ? `${open}–${close} ${ar ? '(اليوم التالي)' : '(next day)'}` : `${open}–${close}`
   }
 </script>
 
@@ -314,7 +314,7 @@
       <button on:click={fetchPitch} class="mt-3 min-h-10 text-sm font-bold text-primary">{$_('common.retry')}</button>
     </section>
   {:else}
-    <a href="/home" class="uneem-text-action mb-3"><Icon name={ar ? 'arrow-right' : 'arrow-left'} size={17}/>{ar ? 'رجع' : 'Back'}</a>
+    <a href="/home" class="uneem-text-action mb-3"><Icon name={ar ? 'arrow-right' : 'arrow-left'} size={17}/>{ar ? 'رجوع' : 'Back'}</a>
 
     <header class="mb-5">
       <h1 class="text-[26px] font-extrabold tracking-[-0.035em] text-text">{pitch.name}</h1>
@@ -363,7 +363,7 @@
             <p class="min-w-0 text-sm font-bold text-text">{policySummary.booking_block_label}</p>
           </div>
         {:else if slotGroups.length === 0}
-          <div class="uneem-empty py-8"><p class="font-semibold text-text-muted">{ar ? 'ما كاين حتى وقت متاح فـ24 ساعة الجاية.' : 'No available times in the next 24 hours.'}</p></div>
+          <div class="uneem-empty py-8"><p class="font-semibold text-text-muted">{ar ? 'لا توجد أوقات متاحة خلال الساعات الأربع والعشرين القادمة.' : 'No available times in the next 24 hours.'}</p></div>
         {/if}
       {/if}
     </section>
@@ -376,11 +376,11 @@
   <div class="fixed inset-0 z-50 flex items-end bg-black/55 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-4" role="presentation">
     <button type="button" tabindex="-1" aria-label="Close cancellation dialog" class="absolute inset-0 cursor-default" disabled={canceling} on:click={dismissCancellation}></button>
     <section bind:this={cancellationDialog} class="uneem-mobile-sheet relative z-10 sm:max-w-md" role="dialog" aria-modal="true" aria-labelledby="cancel-booking-title" tabindex="-1" on:keydown={handleCancellationKeydown}>
-      <h2 id="cancel-booking-title" class="text-xl font-extrabold text-text">{ar ? 'تلغي الحجز؟' : 'Cancel booking?'}</h2>
-      <p class="mt-2 text-sm text-text-secondary">{ar ? 'الوقت غادي يرجع متاح لطالب آخر.' : 'The time will become available to another student.'}</p>
+      <h2 id="cancel-booking-title" class="text-xl font-extrabold text-text">{ar ? 'هل تريد إلغاء الحجز؟' : 'Cancel booking?'}</h2>
+      <p class="mt-2 text-sm text-text-secondary">{ar ? 'سيصبح هذا الوقت متاحاً لطالب آخر.' : 'The time will become available to another student.'}</p>
       <div class="mt-5 flex gap-3">
-        <button on:click={dismissCancellation} disabled={canceling} class="uneem-secondary-action flex-1">{ar ? 'خليه' : 'Keep booking'}</button>
-        <button on:click={confirmCancellation} disabled={canceling} class="flex min-h-[48px] flex-1 items-center justify-center rounded-[14px] bg-danger px-4 font-bold text-white">{canceling ? (ar ? 'جاري الإلغاء…' : 'Cancelling…') : $_('pitch.cancel_booking')}</button>
+        <button on:click={dismissCancellation} disabled={canceling} class="uneem-secondary-action flex-1">{ar ? 'الاحتفاظ بالحجز' : 'Keep booking'}</button>
+        <button on:click={confirmCancellation} disabled={canceling} class="flex min-h-[48px] flex-1 items-center justify-center rounded-[14px] bg-danger px-4 font-bold text-white">{canceling ? (ar ? 'جارٍ الإلغاء…' : 'Cancelling…') : $_('pitch.cancel_booking')}</button>
       </div>
     </section>
   </div>

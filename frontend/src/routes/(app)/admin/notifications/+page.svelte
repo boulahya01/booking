@@ -29,7 +29,7 @@
 
   $: ar = $language === 'ar'
   $: copy = ar ? {
-    title:'الإعلانات', subtitle:'رسائل قصيرة للطلبة.', add:'إعلان جديد', edit:'تعديل الإعلان', create:'إعلان جديد', enTitle:'العنوان بالإنجليزية', arTitle:'العنوان بالعربية', enBody:'النص بالإنجليزية', arBody:'النص بالعربية', publish:'النشر', expiry:'ينتهي', active:'مفعّل', save:'حفظ', cancel:'إلغاء', empty:'ما كاين حتى إعلان', archived:'مؤرشف', archive:'أرشفة', activate:'تفعيل', loadError:'تعذر تحميل الإعلانات.', saveError:'تعذر حفظ الإعلان.', required:'أضف العنوان والنص باللغتين.', noExpiry:'بدون انتهاء'
+    title:'الإعلانات', subtitle:'رسائل قصيرة للطلبة.', add:'إعلان جديد', edit:'تعديل الإعلان', create:'إعلان جديد', enTitle:'العنوان بالإنجليزية', arTitle:'العنوان بالعربية', enBody:'النص بالإنجليزية', arBody:'النص بالعربية', publish:'النشر', expiry:'ينتهي', active:'مفعّل', save:'حفظ', cancel:'إلغاء', empty:'لا توجد إعلانات', archived:'مؤرشف', archive:'أرشفة', activate:'تفعيل', loadError:'تعذر تحميل الإعلانات.', saveError:'تعذر حفظ الإعلان.', required:'أضف العنوان والنص باللغتين.', noExpiry:'بدون انتهاء'
   } : {
     title:'Announcements', subtitle:'Short updates for students.', add:'New announcement', edit:'Edit announcement', create:'New announcement', enTitle:'English title', arTitle:'Arabic title', enBody:'English message', arBody:'Arabic message', publish:'Publish', expiry:'Expires', active:'Active', save:'Save', cancel:'Cancel', empty:'No announcements yet', archived:'Archived', archive:'Archive', activate:'Activate', loadError:'Couldn’t load announcements.', saveError:'Couldn’t save announcement.', required:'Add the title and message in both languages.', noExpiry:'No expiry'
   }

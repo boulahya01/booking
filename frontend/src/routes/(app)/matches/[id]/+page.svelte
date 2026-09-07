@@ -47,7 +47,7 @@
   $: started = Boolean(startsAt && new Date(startsAt).getTime() <= Date.now())
 
   $: copy = ar ? {
-    back:'المباريات', open:'مفتوح', closed:'مغلق على لاعبين جدد', started:'بدا الماتش', openSpots:'بلايص مفتوحة', used:'مستعملة', friends:'صحابك معاك', players:'اللاعبين', organizer:'المنظم', reserved:'صحاب محجوزين', join:'انضم', leave:'خرج', close:'سد على لاعبين جدد', reopen:'حل للاعبين', cannotClose:'كاينين لاعبين منضمين، الماتش غيبقى مفتوح.', retry:'عاود المحاولة', notFound:'هاد الماتش ما بقاش متاح.', closedToast:'تسد الماتش على لاعبين جدد. الحجز ديالك باقي.', openedToast:'الماتش مفتوح للاعبين.'
+    back:'المباريات', open:'مفتوحة', closed:'مغلقة أمام لاعبين جدد', started:'بدأت المباراة', openSpots:'أماكن متاحة', used:'مستخدمة', friends:'الأصدقاء معك', players:'اللاعبون', organizer:'المنظم', reserved:'أماكن محجوزة للأصدقاء', join:'الانضمام إلى المباراة', leave:'مغادرة', close:'إغلاق أمام لاعبين جدد', reopen:'إعادة الفتح للاعبين', cannotClose:'انضم لاعبون بالفعل، لذلك ستبقى المباراة مفتوحة.', retry:'إعادة المحاولة', notFound:'هذه المباراة لم تعد متاحة.', closedToast:'أُغلقت المباراة أمام لاعبين جدد، وسيبقى حجزك قائماً.', openedToast:'المباراة مفتوحة للاعبين.'
   } : {
     back:'Matches', open:'Open', closed:'Closed to new players', started:'Match started', openSpots:'Open spots', used:'Used', friends:'Friends with you', players:'Players', organizer:'Organizer', reserved:'friends reserved', join:'Join match', leave:'Leave match', close:'Close to new players', reopen:'Open to players', cannotClose:'Players already joined, so this match stays open.', retry:'Retry', notFound:'This match is no longer available.', closedToast:'Match closed to new players. Your booking stays active.', openedToast:'Match is open to players.'
   }
@@ -99,7 +99,7 @@
     busy = 'leave'
     try {
       await leaveOpenMatch(matchId)
-      uiState.addToast(ar ? 'خرجتي من الماتش' : 'You left the match.', 'success')
+      uiState.addToast(ar ? 'غادرت المباراة' : 'You left the match.', 'success')
       await load(true)
     } catch (e) {
       uiState.addToast(matchErrorCopy(e instanceof MatchApiError ? e.code : 'unknown', $language), 'error')

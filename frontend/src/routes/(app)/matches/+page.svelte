@@ -24,7 +24,7 @@
 
   $: ar = $language === 'ar'
   $: copy = ar ? {
-    title:'المباريات', empty:'ما كاين حتى ماتش مفتوح دابا.', manage:'دبّر الماتش', openMine:'افتح حجزي', book:'احجز وقت', spots:'بلايص', full:'عامر', join:'انضم', leave:'خرج', view:'شوف', reserved:'محجوزة', retry:'عاود المحاولة'
+    title:'المباريات', empty:'لا توجد مباريات مفتوحة حالياً.', manage:'إدارة المباراة', openMine:'افتح حجزي', book:'احجز وقت', spots:'أماكن', full:'ممتلئ', join:'انضم', leave:'مغادرة', view:'عرض', reserved:'محجوزة', retry:'إعادة المحاولة'
   } : {
     title:'Matches', empty:'No open matches right now.', manage:'Manage match', openMine:'Open my booking', book:'Book a slot', spots:'spots', full:'Full', join:'Join', leave:'Leave', view:'View', reserved:'reserved', retry:'Retry'
   }
@@ -89,7 +89,7 @@
       matches = matches.map((item) => item.match_id === match.match_id
         ? { ...item, joined_by_me: false, joined_count: Math.max(0, item.joined_count - 1), spots_left: item.spots_left + 1 }
         : item)
-      uiState.addToast(ar ? 'خرجتي من الماتش' : 'You left the match.', 'success')
+      uiState.addToast(ar ? 'غادرت المباراة' : 'You left the match.', 'success')
     } catch (e) {
       uiState.addToast(matchErrorCopy(e instanceof MatchApiError ? e.code : 'unknown', $language), 'error')
     } finally { busyId = null }

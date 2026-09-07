@@ -161,7 +161,7 @@ export function matchErrorCopy(code: MatchFailureCode, language: string | null |
   const ar = language === 'ar'
   const copy: Record<MatchFailureCode, [string,string]> = {
     authentication_required: ['Sign in to continue.','سجّل الدخول للمتابعة.'],
-    account_not_approved: ['Your account cannot join matches yet.','حسابك غير جاهز للمباريات بعد.'],
+    account_not_approved: ['Your account cannot join matches yet.','حسابك غير مؤهل للمباريات بعد.'],
     booking_not_found: ['Booking not found.','لم نجد الحجز.'],
     booking_not_owned: ['This booking is not yours.','هذا الحجز ليس لك.'],
     booking_not_matchable: ['This booking cannot become a match.','لا يمكن تحويل هذا الحجز إلى مباراة.'],
@@ -176,8 +176,8 @@ export function matchErrorCopy(code: MatchFailureCode, language: string | null |
     not_joined: ["You're not in this match.",'أنت غير منضم لهذه المباراة.'],
     organizer_required: ['Only the organizer can do that.','هذا الإجراء للمنظم فقط.'],
     organizer_already_in_match: ["You're the organizer.",'أنت منظم المباراة.'],
-    match_has_public_players: ['Players already joined this match.','كاينين لاعبين منضمين لهاد الماتش.'],
-    invalid_match_visibility: ['That match visibility is not valid.','حالة الماتش غير صالحة.'],
+    match_has_public_players: ['Players already joined this match.','انضم لاعبون بالفعل إلى هذه المباراة.'],
+    invalid_match_visibility: ['That match visibility is not valid.','حالة المباراة غير صالحة.'],
     invalid_reserved_spots: ['Check the reserved spots.','تحقق من الأماكن المحجوزة.'],
     reserved_spots_exceed_capacity: ['Not enough spots left for that change.','لا توجد أماكن كافية لهذا التغيير.'],
     network: ['Connection problem. Try again.','مشكلة في الاتصال. حاول مجدداً.'],
