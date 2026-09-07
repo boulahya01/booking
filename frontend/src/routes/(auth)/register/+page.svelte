@@ -8,6 +8,7 @@
   import Button from '$lib/components/Button.svelte'
   import Icon from '$lib/components/Icon.svelte'
   import AuthShell from '$lib/components/AuthShell.svelte'
+  import PasswordRequirements from '$lib/components/PasswordRequirements.svelte'
   import { isValidEmail, isValidStudentId, isValidPassword, isValidUsername } from '$lib/utils/cn'
   import { sanitizeInput, sanitizeName, sanitizeStudentId } from '$lib/validation'
 
@@ -38,9 +39,6 @@
   $: usernameValid = isValidUsername(cleanUsername)
   $: cleanStudentId = sanitizeStudentId(studentId)
   $: studentIdValid = academic || isValidStudentId(cleanStudentId)
-  $: passwordLength = password.length >= 8
-  $: passwordNumber = /\d/.test(password)
-  $: passwordSymbol = /[!@#$%^&*()\-+]/.test(password)
   $: passwordValid = isValidPassword(password) && password.length <= 128
   $: confirmValid = confirmPassword.length > 0 && confirmPassword === password
 
@@ -48,8 +46,8 @@
   $: nameState = fieldState(fullName.length > 0 || detailsAttempted, fullNameValid)
   $: usernameState = fieldState(username.length > 0 || detailsAttempted, usernameValid)
   $: studentIdState = fieldState(studentId.length > 0 || detailsAttempted, studentIdValid)
-  $: passwordState = passwordFieldError ? 'invalid' : fieldState(password.length > 0 || passwordAttempted, passwordValid)
-  $: confirmState = fieldState(confirmPassword.length > 0 || passwordAttempted, confirmValid)
+  $: passwordState = passwordFieldError ? 'invalid' : passwordAttempted ? fieldState(true, passwordValid) : 'idle'
+  $: confirmState = confirmPassword.length > 0 || passwordAttempted ? fieldState(true, confirmValid) : 'idle'
 
   $: copy = $language === 'ar'
     ? {
@@ -61,7 +59,7 @@
         studentId: 'رقم الطالب', studentIdPlaceholder: 'S123456789', invalidStudentId: 'حرف واحد + 9 أرقام فقط',
         password: 'كلمة المرور', passwordPlaceholder: '8 أحرف أو أكثر', confirmPassword: 'تأكيد كلمة المرور', confirmPlaceholder: 'أعد كتابة كلمة المرور',
         passwordRequired: 'أنشئ كلمة مرور.', mismatch: 'غير متطابقة',
-        ruleLength: '8+ أحرف', ruleNumber: 'رقم', ruleSymbol: 'رمز', create: 'إنشاء الحساب', haveAccount: 'لديك حساب؟', signIn: 'تسجيل الدخول', help: 'تحتاج مساعدة؟'
+        ruleLength: '8 أحرف على الأقل', ruleNumber: 'رقم واحد على الأقل', ruleSymbol: 'رمز واحد على الأقل', create: 'إنشاء الحساب', haveAccount: 'لديك حساب؟', signIn: 'تسجيل الدخول', help: 'تحتاج مساعدة؟'
       }
     : {
         emailTitle: 'Create account', detailsTitle: 'Your details', passwordTitle: 'Set password',
@@ -72,7 +70,7 @@
         studentId: 'Student ID', studentIdPlaceholder: 'S123456789', invalidStudentId: 'Use exactly 1 letter + 9 digits',
         password: 'Password', passwordPlaceholder: '8+ characters', confirmPassword: 'Confirm password', confirmPlaceholder: 'Repeat password',
         passwordRequired: 'Create a password.', mismatch: 'Doesn’t match',
-        ruleLength: '8+ chars', ruleNumber: '1 number', ruleSymbol: '1 symbol', create: 'Create account', haveAccount: 'Already have an account?', signIn: 'Sign in', help: 'Need help?'
+        ruleLength: 'At least 8 characters', ruleNumber: 'At least 1 number', ruleSymbol: 'At least 1 symbol', create: 'Create account', haveAccount: 'Already have an account?', signIn: 'Sign in', help: 'Need help?'
       }
 
   $: title = step === 'email' ? copy.emailTitle : step === 'details' ? copy.detailsTitle : copy.passwordTitle
@@ -83,11 +81,6 @@
   function fieldState(active: boolean, valid: boolean): FieldState {
     if (!active) return 'idle'
     return valid ? 'valid' : 'invalid'
-  }
-
-  function ruleClass(passed: boolean) {
-    if (!password.length) return 'text-text-muted'
-    return passed ? 'text-success' : 'text-danger'
   }
 
   function handleEmailInput() {
@@ -228,14 +221,7 @@
       <form on:submit|preventDefault={submit} class="space-y-4">
         <TextField ariaLabel={copy.password} type="password" placeholder={copy.passwordPlaceholder} icon="lock" autocomplete="new-password" maxlength={128} bind:value={password} validation={passwordState} error={passwordFieldError} hint={passwordState === 'invalid' && passwordAttempted && !password.length ? copy.passwordRequired : ''} disabled={loading} on:input={handlePasswordInput} />
 
-        <div class="grid grid-cols-3 gap-2 px-1" aria-live="polite">
-          {#each [{ label: copy.ruleLength, passed: passwordLength }, { label: copy.ruleNumber, passed: passwordNumber }, { label: copy.ruleSymbol, passed: passwordSymbol }] as rule}
-            <div class={`flex items-center justify-center gap-1.5 text-xs font-medium ${ruleClass(rule.passed)}`}>
-              {#if password.length}<Icon name={rule.passed ? 'check' : 'x'} size={12} strokeWidth={2.4} />{:else}<span class="h-1.5 w-1.5 rounded-full bg-current opacity-45"></span>{/if}
-              <span>{rule.label}</span>
-            </div>
-          {/each}
-        </div>
+        <PasswordRequirements password={password} lengthLabel={copy.ruleLength} numberLabel={copy.ruleNumber} symbolLabel={copy.ruleSymbol} />
 
         <TextField ariaLabel={copy.confirmPassword} type="password" placeholder={copy.confirmPlaceholder} icon="lock" autocomplete="new-password" maxlength={128} bind:value={confirmPassword} validation={confirmState} hint={confirmState === 'invalid' ? copy.mismatch : ''} disabled={loading} />
         <Button type="submit" variant="primary" size="lg" {loading} className="mt-2 w-full" disabled={loading}>{copy.create}</Button>
