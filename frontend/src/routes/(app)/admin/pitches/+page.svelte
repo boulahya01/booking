@@ -23,7 +23,7 @@
 
   const defaults: AdminFacilityInput = {
     name: '', location: '', sport_type: '', capacity: 10, timezone: 'Africa/Casablanca',
-    open_time: '08:00', close_time: '22:00', slot_duration_minutes: 60, booking_window_hours: 168,
+    open_time: '08:00', close_time: '22:00', slot_duration_minutes: 60, booking_window_hours: 24,
     booking_frequency_enabled: false, booking_frequency_days: 7, cancellation_cutoff_minutes: 60,
     is_active: true, sort_order: 0
   }
@@ -35,11 +35,13 @@
     eyebrow:'عمليات UNEEM', title:'المرافق', subtitle:'تحكم في أوقات الحجز والسعة والقواعد من مكان واحد.', add:'إضافة مرفق', active:'النشطة', all:'الكل', empty:'لم يتم إعداد أي مرفق بعد.', emptyAction:'إعداد أول مرفق',
     retry:'إعادة المحاولة', edit:'تعديل', archive:'إيقاف المرفق', inactive:'غير نشط', capacity:'السعة', duration:'مدة الحجز', window:'نافذة الحجز', cutoff:'آخر وقت للإلغاء', frequency:'تكرار الحجز', days:'أيام',
     createTitle:'مرفق جديد', editTitle:'إعدادات المرفق', name:'الاسم', location:'الموقع', sport:'الرياضة', open:'الفتح', close:'الإغلاق', sort:'الترتيب', enabled:'نشط للطلاب', save:'حفظ', cancel:'إلغاء', saving:'جارٍ الحفظ…',
+    overnight:'يمكن للمرفق يبقى مفتوح بعد منتصف الليل، مثلا 08:00 → 01:00.', windowHint:'أقصى مدة ظاهرة للطلبة هي 24 ساعة.',
     archiveTitle:'إيقاف هذا المرفق؟', archiveHint:'لن يُحذف التاريخ. سيختفي المرفق من الحجز الجديد ويمكن إعادة تفعيله لاحقاً.', reason:'السبب', keep:'إبقاءه نشطاً', confirmArchive:'إيقاف المرفق'
   } : {
     eyebrow:'UNEEM operations', title:'Facilities', subtitle:'Control availability, capacity and booking rules from one place.', add:'Add facility', active:'Active', all:'All', empty:'No facilities have been configured.', emptyAction:'Set up first facility',
     retry:'Retry', edit:'Edit', archive:'Archive facility', inactive:'Inactive', capacity:'Capacity', duration:'Slot duration', window:'Booking window', cutoff:'Cancellation cutoff', frequency:'Booking frequency', days:'days',
     createTitle:'New facility', editTitle:'Facility settings', name:'Name', location:'Location', sport:'Sport', open:'Opens', close:'Closes', sort:'Display order', enabled:'Available to students', save:'Save facility', cancel:'Cancel', saving:'Saving…',
+    overnight:'Facilities can close after midnight, for example 08:00 → 01:00.', windowHint:'Students can see at most the next 24 hours.',
     archiveTitle:'Archive this facility?', archiveHint:'History is preserved. The facility disappears from new bookings and can be reactivated later.', reason:'Reason', keep:'Keep active', confirmArchive:'Archive facility'
   }
 
@@ -57,6 +59,11 @@
   }
 
   function normalizeTime(value: string) { return value?.slice(0,5) || '' }
+  function facilityHours(facility: AdminFacility) {
+    const open = normalizeTime(facility.open_time)
+    const close = normalizeTime(facility.close_time)
+    return close < open ? `${open}–${close} +1d` : `${open}–${close}`
+  }
 
   function openCreate() {
     editing = null
@@ -69,7 +76,7 @@
     form = {
       id: facility.id, name: facility.name, location: facility.location, sport_type: facility.sport_type || '', capacity: facility.capacity,
       timezone: facility.timezone || 'Africa/Casablanca', open_time: normalizeTime(facility.open_time), close_time: normalizeTime(facility.close_time),
-      slot_duration_minutes: facility.slot_duration_minutes, booking_window_hours: facility.booking_window_hours,
+      slot_duration_minutes: facility.slot_duration_minutes, booking_window_hours: Math.min(facility.booking_window_hours, 24),
       booking_frequency_enabled: facility.booking_frequency_enabled, booking_frequency_days: facility.booking_frequency_days,
       cancellation_cutoff_minutes: facility.cancellation_cutoff_minutes, is_active: facility.is_active, sort_order: facility.sort_order
     }
@@ -80,7 +87,7 @@
     if (!form.name.trim() || !form.location.trim()) { uiState.addToast(ar ? 'الاسم والموقع مطلوبان' : 'Name and location are required', 'error'); return }
     saving = true
     try {
-      const saved = await adminSaveFacility(form)
+      const saved = await adminSaveFacility({ ...form, booking_window_hours: Math.min(Number(form.booking_window_hours || 24), 24) })
       const index = facilities.findIndex((f) => f.id === saved.id)
       facilities = index === -1 ? [...facilities, saved] : facilities.map((f) => f.id === saved.id ? saved : f)
       facilities = [...facilities].sort((a,b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name))
@@ -133,10 +140,10 @@
           <dl class="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
             <div><dt class="text-xs text-text-muted">{copy.capacity}</dt><dd class="mt-0.5 font-bold text-text">{facility.capacity}</dd></div>
             <div><dt class="text-xs text-text-muted">{copy.duration}</dt><dd class="mt-0.5 font-bold text-text">{facility.slot_duration_minutes} min</dd></div>
-            <div><dt class="text-xs text-text-muted">{copy.window}</dt><dd class="mt-0.5 font-bold text-text">{facility.booking_window_hours}h</dd></div>
+            <div><dt class="text-xs text-text-muted">{copy.window}</dt><dd class="mt-0.5 font-bold text-text">{Math.min(facility.booking_window_hours, 24)}h</dd></div>
             <div><dt class="text-xs text-text-muted">{copy.cutoff}</dt><dd class="mt-0.5 font-bold text-text">{facility.cancellation_cutoff_minutes} min</dd></div>
           </dl>
-          <div class="mt-4 flex items-center justify-between border-t border-border-light pt-3"><p class="text-xs text-text-muted">{normalizeTime(facility.open_time)}–{normalizeTime(facility.close_time)}{facility.booking_frequency_enabled ? ` · ${facility.booking_frequency_days} ${copy.days}` : ''}</p>{#if facility.is_active}<button on:click={() => { archiveTarget = facility; archiveReason = 'maintenance' }} class="min-h-9 text-sm font-bold text-danger">{copy.archive}</button>{/if}</div>
+          <div class="mt-4 flex items-center justify-between border-t border-border-light pt-3"><p class="text-xs text-text-muted">{facilityHours(facility)}{facility.booking_frequency_enabled ? ` · ${facility.booking_frequency_days} ${copy.days}` : ''}</p>{#if facility.is_active}<button on:click={() => { archiveTarget = facility; archiveReason = 'maintenance' }} class="min-h-9 text-sm font-bold text-danger">{copy.archive}</button>{/if}</div>
         </article>
       {/each}
     </div>
@@ -154,9 +161,10 @@
         <label><span class="text-sm font-bold text-text">{copy.sport}</span><input bind:value={form.sport_type} class="uneem-field mt-2" placeholder="Football" /></label>
         <label><span class="text-sm font-bold text-text">{copy.open}</span><input bind:value={form.open_time} type="time" class="uneem-field mt-2" /></label>
         <label><span class="text-sm font-bold text-text">{copy.close}</span><input bind:value={form.close_time} type="time" class="uneem-field mt-2" /></label>
+        <p class="-mt-2 text-xs leading-5 text-text-muted sm:col-span-2">{copy.overnight}</p>
         <label><span class="text-sm font-bold text-text">{copy.capacity}</span><input bind:value={form.capacity} type="number" min="1" max="200" class="uneem-field mt-2" /></label>
         <label><span class="text-sm font-bold text-text">{copy.duration}</span><select bind:value={form.slot_duration_minutes} class="uneem-field mt-2"><option value={30}>30 min</option><option value={45}>45 min</option><option value={60}>60 min</option><option value={90}>90 min</option><option value={120}>120 min</option></select></label>
-        <label><span class="text-sm font-bold text-text">{copy.window}</span><input bind:value={form.booking_window_hours} type="number" min="1" max="720" class="uneem-field mt-2" /></label>
+        <label><span class="text-sm font-bold text-text">{copy.window}</span><input bind:value={form.booking_window_hours} type="number" min="1" max="24" class="uneem-field mt-2" /><span class="mt-1 block text-xs text-text-muted">{copy.windowHint}</span></label>
         <label><span class="text-sm font-bold text-text">{copy.cutoff}</span><input bind:value={form.cancellation_cutoff_minutes} type="number" min="0" max="1440" class="uneem-field mt-2" /></label>
         <label><span class="text-sm font-bold text-text">{copy.sort}</span><input bind:value={form.sort_order} type="number" class="uneem-field mt-2" /></label>
         <label><span class="text-sm font-bold text-text">{copy.frequency}</span><div class="mt-2 flex min-h-12 items-center justify-between rounded-2xl bg-surface-level-1 px-4"><span class="text-sm text-text-secondary">{form.booking_frequency_enabled ? 'On' : 'Off'}</span><input bind:checked={form.booking_frequency_enabled} type="checkbox" class="h-5 w-5 accent-primary" /></div></label>
