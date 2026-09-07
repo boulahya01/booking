@@ -3,36 +3,30 @@
   import { language } from '$lib/stores/ui'
   import Icon from '$lib/components/Icon.svelte'
 
-  const items = [
-    { href:'/admin/bookings', icon:'calendar-check', en:'Bookings', ar:'الحجوزات' },
-    { href:'/admin/pitches', icon:'map-pin', en:'Facilities', ar:'المرافق' },
-    { href:'/admin/users', icon:'users', en:'Users', ar:'المستخدمون' },
-    { href:'/admin/verification', icon:'shield', en:'Verification', ar:'التحقق' },
-    { href:'/admin/support', icon:'mail', en:'Help & reports', ar:'الدعم' },
-    { href:'/admin/notifications', icon:'bell-dot', en:'Announcements', ar:'الإعلانات' }
+  const labels = [
+    { path: '/admin/bookings', en: 'Bookings', ar: 'الحجوزات' },
+    { path: '/admin/pitches', en: 'Facilities', ar: 'المرافق' },
+    { path: '/admin/users', en: 'Users', ar: 'المستخدمون' },
+    { path: '/admin/verification', en: 'Verification', ar: 'التحقق' },
+    { path: '/admin/support', en: 'Support', ar: 'الدعم' },
+    { path: '/admin/notifications', en: 'Announcements', ar: 'الإعلانات' }
   ]
 
-  function active(href: string) {
-    return $page.url.pathname === href || $page.url.pathname.startsWith(`${href}/`)
-  }
+  $: current = labels.find((item) => $page.url.pathname === item.path || $page.url.pathname.startsWith(`${item.path}/`))
+  $: isIndex = $page.url.pathname === '/admin' || $page.url.pathname === '/admin/'
 </script>
 
-<div class="sticky top-[60px] z-20 border-b border-border-light bg-background/95 backdrop-blur-xl">
-  <nav class="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 py-2 sm:px-6" aria-label={$language === 'ar' ? 'إدارة UNEEM' : 'UNEEM admin'}>
-    {#each items as item}
-      <a
-        href={item.href}
-        class="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-full px-3 text-sm font-semibold transition-colors"
-        class:bg-primary-light={active(item.href)}
-        class:text-primary={active(item.href)}
-        class:text-text-secondary={!active(item.href)}
-        aria-current={active(item.href) ? 'page' : undefined}
-      >
-        <Icon name={item.icon} size={16} />
-        <span>{$language === 'ar' ? item.ar : item.en}</span>
+{#if !isIndex && current}
+  <div class="border-b border-border-light bg-background/95 backdrop-blur-xl">
+    <div class="mx-auto flex min-h-11 max-w-7xl items-center gap-2 px-4 text-sm sm:px-6">
+      <a href="/admin" class="inline-flex min-h-10 items-center gap-1.5 font-semibold text-text-secondary hover:text-text">
+        <Icon name={$language === 'ar' ? 'arrow-right' : 'arrow-left'} size={15} />
+        <span>{$language === 'ar' ? 'الإدارة' : 'Admin'}</span>
       </a>
-    {/each}
-  </nav>
-</div>
+      <Icon name={$language === 'ar' ? 'chevron-left' : 'chevron-right'} size={14} className="text-text-muted" />
+      <span class="font-semibold text-text">{$language === 'ar' ? current.ar : current.en}</span>
+    </div>
+  </div>
+{/if}
 
 <slot />
