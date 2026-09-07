@@ -9,6 +9,7 @@
   import TextField from '$lib/components/TextField.svelte'
   import Icon from '$lib/components/Icon.svelte'
   import PwaInstallCard from '$lib/components/PwaInstallCard.svelte'
+  import PasswordRequirements from '$lib/components/PasswordRequirements.svelte'
   import { USE_MOCK, mockProfile, mockDelay } from '$lib/mock'
   import { sanitizeInput, sanitizeName } from '$lib/validation'
   import { isValidPassword } from '$lib/utils/cn'
@@ -36,9 +37,6 @@
   $: cleanName = sanitizeName(fullName)
   $: nameValid = normalizedName.length >= 2 && normalizedName.length <= 120
   $: nameState = fieldState(fullName.length > 0 || profileAttempted, nameValid)
-  $: passwordLength = newPassword.length >= 8
-  $: passwordNumber = /\d/.test(newPassword)
-  $: passwordSymbol = /[!@#$%^&*()\-+]/.test(newPassword)
   $: passwordValid = isValidPassword(newPassword)
   $: confirmValid = confirmPassword.length > 0 && confirmPassword === newPassword
   $: passwordState = fieldState(newPassword.length > 0 || passwordAttempted, passwordValid)
@@ -53,7 +51,7 @@
     save:'حفظ', cancel:'إلغاء', changePassword:'تغيير كلمة المرور', passwordHint:'سنطلب كلمة المرور الحالية قبل تغييرها.',
     currentPassword:'كلمة المرور الحالية', currentPasswordPlaceholder:'كلمة المرور الحالية', currentPasswordRequired:'أدخل كلمة المرور الحالية.', currentPasswordInvalid:'كلمة المرور الحالية غير صحيحة.',
     newPassword:'كلمة المرور الجديدة', confirmPassword:'تأكيد كلمة المرور', requiredPassword:'أنشئ كلمة مرور.', ready:'جاهزة', match:'متطابقة', mismatch:'غير متطابقة',
-    ruleLength:'8+ أحرف', ruleNumber:'رقم', ruleSymbol:'رمز', updatePassword:'تحديث كلمة المرور', signOut:'تسجيل الخروج',
+    ruleLength:'8 أحرف على الأقل', ruleNumberOrSymbol:'رقم أو رمز', updatePassword:'تحديث كلمة المرور', signOut:'تسجيل الخروج',
     profileError:'تعذر تحميل الحساب.', saveError:'تعذر حفظ التغييرات.', passwordError:'تعذر تحديث كلمة المرور.', saved:'تم حفظ التغييرات.', passwordSaved:'تم تحديث كلمة المرور.'
   } : {
     title:'Profile', edit:'Edit', done:'Done', profile:'Profile', security:'Security', account:'Account',
@@ -64,7 +62,7 @@
     save:'Save', cancel:'Cancel', changePassword:'Change password', passwordHint:'We’ll verify your current password before changing it.',
     currentPassword:'Current password', currentPasswordPlaceholder:'Current password', currentPasswordRequired:'Enter your current password.', currentPasswordInvalid:'Current password is incorrect.',
     newPassword:'New password', confirmPassword:'Confirm password', requiredPassword:'Create a password.', ready:'Ready', match:'Passwords match', mismatch:'Doesn’t match',
-    ruleLength:'8+ chars', ruleNumber:'1 number', ruleSymbol:'1 symbol', updatePassword:'Update password', signOut:'Sign out',
+    ruleLength:'8 characters minimum', ruleNumberOrSymbol:'1 number or symbol', updatePassword:'Update password', signOut:'Sign out',
     profileError:'Couldn’t load your profile.', saveError:'Couldn’t save changes.', passwordError:'Couldn’t update your password.', saved:'Profile updated.', passwordSaved:'Password updated.'
   }
 
@@ -283,11 +281,7 @@
         <div class="space-y-4 p-4">
           <TextField label={copy.currentPassword} type="password" placeholder={copy.currentPasswordPlaceholder} icon="lock" autocomplete="current-password" bind:value={currentPassword} error={currentPasswordError} disabled={saving}/>
           <TextField label={copy.newPassword} type="password" placeholder="8+ characters" icon="lock" autocomplete="new-password" bind:value={newPassword} validation={passwordState} hint={passwordState === 'invalid' && passwordAttempted && !newPassword ? copy.requiredPassword : ''} validHint={copy.ready} disabled={saving}/>
-          <div class="grid grid-cols-3 gap-2 px-1 text-xs font-semibold" aria-live="polite">
-            {#each [{label:copy.ruleLength,passed:passwordLength},{label:copy.ruleNumber,passed:passwordNumber},{label:copy.ruleSymbol,passed:passwordSymbol}] as rule}
-              <div class={`flex items-center gap-1.5 ${!newPassword ? 'text-text-muted' : rule.passed ? 'text-success' : 'text-danger'}`}><Icon name={rule.passed ? 'check' : 'x'} size={12}/><span>{rule.label}</span></div>
-            {/each}
-          </div>
+          <PasswordRequirements password={newPassword} lengthLabel={copy.ruleLength} numberOrSymbolLabel={copy.ruleNumberOrSymbol} />
           <TextField label={copy.confirmPassword} type="password" placeholder={copy.confirmPassword} icon="lock" autocomplete="new-password" bind:value={confirmPassword} validation={confirmState} hint={confirmState === 'invalid' ? copy.mismatch : ''} validHint={copy.match} disabled={saving}/>
           <div class="flex gap-3"><Button size="lg" className="flex-1" loading={saving} on:click={changePassword}>{copy.updatePassword}</Button><Button variant="secondary" size="lg" className="flex-1" disabled={saving} on:click={cancelPasswordEdit}>{copy.cancel}</Button></div>
         </div>

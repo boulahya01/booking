@@ -34,13 +34,19 @@
     const start = new Date(slot.datetime_start).getTime()
     return start >= currentTime.getTime() - 60_000 && start < currentTime.getTime() + 24 * 60 * 60 * 1000
   })
-  $: grouped = visibleSlots.reduce<Record<string, any[]>>((acc, slot) => {
+  $: activeBooking = myBookings.find((booking) => booking.status === 'scheduled' && new Date(booking.ends_at).getTime() > currentTime.getTime()) || null
+  $: decoratedVisibleSlots = visibleSlots.map((slot) => decoratedSlot(slot))
+  $: actionableSlots = decoratedVisibleSlots.filter((slot) => slot.booked_by_me || (slot.is_available && !slot.booking_blocked))
+  $: policyBlockedSlots = decoratedVisibleSlots.filter((slot) => !slot.booked_by_me && slot.is_available && slot.booking_blocked)
+  $: policySummary = policyBlockedSlots.length > 0
+    ? [...policyBlockedSlots].sort((a, b) => Number(a.booking_eligible_at || 0) - Number(b.booking_eligible_at || 0))[0]
+    : null
+  $: grouped = actionableSlots.reduce<Record<string, any[]>>((acc, slot) => {
     const key = facilityDateKey(slot.datetime_start)
     ;(acc[key] ??= []).push(slot)
     return acc
   }, {})
   $: slotGroups = Object.keys(grouped).sort().map((date) => ({ date, slots: grouped[date] }))
-  $: activeBooking = myBookings.find((booking) => booking.status === 'scheduled' && new Date(booking.ends_at).getTime() > currentTime.getTime()) || null
 
   let fetchVersion = 0
   let slotsRequestVersion: number | null = null
@@ -182,8 +188,9 @@
 
     return {
       code,
+      eligibleAt,
       countdown: countdownText(eligibleAt),
-      label: ar ? `الحجز الجاي من ${labelDate}` : `Next booking from ${labelDate}`
+      label: ar ? `تقدر تحجز مرة أخرى من ${labelDate}` : `You can book again from ${labelDate}`
     }
   }
 
@@ -200,6 +207,7 @@
       booking_block_code: block?.code || null,
       booking_block_label: block?.label || null,
       booking_block_countdown: block?.countdown || null,
+      booking_eligible_at: block?.eligibleAt || null,
       cancellation_blocked: cancellationBlocked,
       cancellation_block_label: cancellationBlocked
         ? (ar ? `كيبدا بعد ${countdownText(startsAt)}` : `Starts in ${countdownText(startsAt)}`)
@@ -308,44 +316,55 @@
   {:else}
     <a href="/home" class="uneem-text-action mb-3"><Icon name={ar ? 'arrow-right' : 'arrow-left'} size={17}/>{ar ? 'رجع' : 'Back'}</a>
 
-    <header class="mb-7">
-      <h1 class="text-2xl font-extrabold tracking-[-0.035em] text-text">{pitch.name}</h1>
+    <header class="mb-5">
+      <h1 class="text-[26px] font-extrabold tracking-[-0.035em] text-text">{pitch.name}</h1>
       <p class="mt-1 flex items-center gap-1.5 text-sm text-text-secondary"><Icon name="map-pin" size={14}/>{pitch.location || $_('bookings.unknown_location')}</p>
-      <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-text-muted">
+      <div class="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-xs font-semibold text-text-muted">
         <span>{hoursLabel()}</span>
-        {#if pitch.capacity > 1}<span>{pitch.capacity} {ar ? 'لاعبين' : 'players'}</span>{/if}
+        {#if pitch.capacity > 1}<span>·</span><span>{pitch.capacity} {ar ? 'لاعبين' : 'players'}</span>{/if}
       </div>
     </header>
 
     <section>
-      <div class="mb-4 flex items-end justify-between gap-4">
-        <div>
-          <h2 class="text-lg font-bold text-text">{ar ? 'الـ24 ساعة الجاية' : 'Next 24 hours'}</h2>
-          <p class="mt-1 text-xs text-text-muted">{ar ? 'غير الأوقات اللي تقدر تحجز دابا.' : 'Only times you can act on now.'}</p>
-        </div>
+      <div class="mb-3 flex items-center justify-between gap-4">
+        <h2 class="text-lg font-bold text-text">{ar ? 'الأوقات' : 'Times'}</h2>
         {#if loadingSlots && slots.length > 0}<span class="text-xs font-semibold text-text-muted">{ar ? 'تحديث…' : 'Refreshing…'}</span>{/if}
       </div>
 
       {#if loadingSlots && slots.length === 0}
-        <div class="space-y-3" aria-busy="true">{#each [1,2,3,4] as _}<div class="h-[88px] animate-pulse rounded-[16px] bg-surface-level-1"></div>{/each}</div>
+        <div class="overflow-hidden rounded-[16px] border border-border-light bg-surface" aria-busy="true">
+          {#each [1,2,3,4] as _}<div class="h-[64px] border-b border-border-light last:border-0"><div class="m-3 h-10 animate-pulse rounded-xl bg-surface-level-1"></div></div>{/each}
+        </div>
       {:else if errorSlots && slots.length === 0}
         <div class="flex items-center justify-between gap-3 py-4"><p class="text-sm font-semibold text-danger">{errorSlots}</p><button on:click={fetchSlots} class="min-h-10 text-sm font-bold text-primary">{$_('common.retry')}</button></div>
       {:else if visibleSlots.length === 0}
-        <div class="uneem-empty"><p class="font-semibold text-text-muted">{$_('pitch.no_slots')}</p></div>
+        <div class="uneem-empty py-8"><p class="font-semibold text-text-muted">{$_('pitch.no_slots')}</p></div>
       {:else}
         {#if errorSlots}<div class="mb-3 flex items-center justify-between gap-3 rounded-[14px] bg-danger-light px-3.5 py-3 text-sm font-semibold text-danger"><span>{errorSlots}</span><button on:click={fetchSlots} class="shrink-0 font-bold">{$_('common.retry')}</button></div>{/if}
-        <div class="space-y-5">
-          {#each slotGroups as group}
-            <div>
-              <p class="mb-2 text-xs font-extrabold uppercase tracking-[0.08em] text-text-muted">{groupLabel(group.date)}</p>
-              <div class="space-y-2">
-                {#each group.slots as slot, i (slot.id || `${slot.datetime_start}-${i}`)}
-                  <SlotCard slotData={decoratedSlot(slot)} onBook={() => openBooking(slot)} onCancel={requestCancellation}/>
-                {/each}
+
+        {#if slotGroups.length > 0}
+          <div class="space-y-4">
+            {#each slotGroups as group}
+              <div>
+                <p class="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-text-muted">{groupLabel(group.date)}</p>
+                <div class="divide-y divide-border-light overflow-hidden rounded-[16px] border border-border-light bg-surface">
+                  {#each group.slots as slot, i (slot.id || `${slot.datetime_start}-${i}`)}
+                    <SlotCard slotData={slot} onBook={() => openBooking(slot)} onCancel={requestCancellation}/>
+                  {/each}
+                </div>
               </div>
-            </div>
-          {/each}
-        </div>
+            {/each}
+          </div>
+        {/if}
+
+        {#if policySummary}
+          <div class="mt-4 flex items-center gap-3 rounded-[14px] bg-surface-level-1 px-3.5 py-3">
+            <div class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-surface text-text-muted"><Icon name="calendar-days" size={17}/></div>
+            <p class="min-w-0 text-sm font-bold text-text">{policySummary.booking_block_label}</p>
+          </div>
+        {:else if slotGroups.length === 0}
+          <div class="uneem-empty py-8"><p class="font-semibold text-text-muted">{ar ? 'ما كاين حتى وقت متاح فـ24 ساعة الجاية.' : 'No available times in the next 24 hours.'}</p></div>
+        {/if}
       {/if}
     </section>
   {/if}
