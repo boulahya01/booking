@@ -1,0 +1,44 @@
+name: Check Modern Standard Arabic UI
+
+on:
+  push:
+    branches: [fix/msa-arabic-full-app]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/msa-arabic-full-app
+      - name: Reject dialect markers in Arabic UI strings
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          files = [p for p in Path('frontend/src').rglob('*') if p.is_file() and p.suffix in {'.svelte','.ts','.js','.json'}]
+          arabic = re.compile(r'[\u0600-\u06FF]')
+          quote_pat = re.compile(r"(['\"`])((?:\\.|(?!\1).)*?[\u0600-\u06FF](?:\\.|(?!\1).)*?)\1", re.S)
+          markers = [
+            'واش','شنو','راه','بغيت','ديال','ديالك','دابا','غادي','تقدر','اللي','حيت','واخا','مزال',
+            'هادي','هادا','هادشي','بهاد','هاد الماتش','باش','كاين','كاي','ماشي','ماتش','بلايص','صحاب',
+            'دبّر','عاود','خليه','خرجتي','غيبقى','غادي تبان','قريب بزاف','الجاية','حجز جاي','كيبدا','تسد',
+            'نقدر نعاونك','ترسلش','نهضرو','المشكل ديالك','خاصها رد','عامر'
+          ]
+          found=[]
+          for path in files:
+            text=path.read_text(encoding='utf-8', errors='ignore')
+            for m in quote_pat.finditer(text):
+              value=' '.join(m.group(2).split())
+              if not arabic.search(value):
+                continue
+              hits=[marker for marker in markers if marker in value]
+              if hits:
+                found.append((path.as_posix(), value, hits))
+          if found:
+            for path,value,hits in found:
+              print(f'{path}: {value} :: {hits}')
+            raise SystemExit(f'Found {len(found)} Arabic UI strings with dialect markers')
+          print('No configured Darija markers found in Arabic UI strings.')
+          PY
