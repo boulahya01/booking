@@ -15,16 +15,7 @@
     { en: 'Matches', ar: 'المباريات', href: '/matches', icon: 'users' },
     { en: 'My Sports', ar: 'رياضتي', href: '/bookings', icon: 'calendar-days' },
     { en: 'Profile', ar: 'حسابي', href: '/profile', icon: 'user' },
-    { en: 'Help', ar: 'المساعدة', href: '/help', icon: 'mail' }
-  ]
-
-  const adminItems = [
-    { en: 'Bookings', ar: 'الحجوزات', href: '/admin/bookings', icon: 'calendar-check' },
-    { en: 'Facilities', ar: 'المرافق', href: '/admin/pitches', icon: 'map-pin' },
-    { en: 'Users', ar: 'المستخدمون', href: '/admin/users', icon: 'users' },
-    { en: 'Verification', ar: 'التحقق', href: '/admin/verification', icon: 'shield' },
-    { en: 'Help & reports', ar: 'الدعم والتقارير', href: '/admin/support', icon: 'mail' },
-    { en: 'Announcements', ar: 'الإعلانات', href: '/admin/notifications', icon: 'bell-dot' }
+    { en: 'Support', ar: 'الدعم', href: '/help', icon: 'message-circle' }
   ]
 
   function isActive(href: string): boolean {
@@ -92,21 +83,17 @@
 
       {#if $isAdmin}
         <div class="my-5 h-px bg-border-light"></div>
-        <p class="mb-2 px-3 text-[10px] font-extrabold uppercase tracking-[0.14em] text-text-muted">Admin</p>
-        <div class="space-y-1">
-          {#each adminItems as item}
-            <button
-              on:click={() => navigate(item.href)}
-              class="flex min-h-11 w-full items-center gap-3 rounded-[14px] px-3 text-start text-sm font-semibold transition-colors"
-              class:bg-primary-light={isActive(item.href)}
-              class:text-primary={isActive(item.href)}
-              class:text-text-secondary={!isActive(item.href)}
-            >
-              <Icon name={item.icon} size={18} strokeWidth={isActive(item.href) ? 2.5 : 2} />
-              <span>{$language === 'ar' ? item.ar : item.en}</span>
-            </button>
-          {/each}
-        </div>
+        <button
+          on:click={() => navigate('/admin')}
+          class="flex min-h-12 w-full items-center gap-3 rounded-[14px] px-3 text-start text-sm font-semibold transition-colors"
+          class:bg-primary-light={isActive('/admin')}
+          class:text-primary={isActive('/admin')}
+          class:text-text-secondary={!isActive('/admin')}
+        >
+          <Icon name="shield" size={18} strokeWidth={isActive('/admin') ? 2.5 : 2} />
+          <span>{$language === 'ar' ? 'الإدارة' : 'Admin'}</span>
+          <Icon name={$language === 'ar' ? 'chevron-left' : 'chevron-right'} size={16} className="ms-auto opacity-60" />
+        </button>
       {/if}
     </div>
 

@@ -12,6 +12,8 @@
   import { isValidEmail, isValidStudentId, isValidPassword, isValidUsername } from '$lib/utils/cn'
   import { sanitizeInput, sanitizeName, sanitizeStudentId } from '$lib/validation'
 
+  const SUPPORT_NAME_KEY = 'uneem_support_guest_name'
+
   type Step = 'email' | 'details' | 'password'
   type FieldState = 'idle' | 'valid' | 'invalid'
 
@@ -83,6 +85,18 @@
     return valid ? 'valid' : 'invalid'
   }
 
+  function suggestUsername(address: string): string {
+    const localPart = address.split('@')[0]?.toLowerCase() || ''
+    const candidate = localPart
+      .replace(/[^a-z0-9_]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 24)
+
+    if (candidate.length >= 3) return candidate
+    const suffix = Math.floor(100 + Math.random() * 900)
+    return `user${suffix}`
+  }
+
   function handleEmailInput() {
     emailFieldError = ''
     submitError = ''
@@ -104,6 +118,9 @@
   onMount(() => {
     const hintedEmail = new URLSearchParams(window.location.search).get('email')
     if (hintedEmail && isValidEmail(hintedEmail)) email = sanitizeInput(hintedEmail).trim().toLowerCase()
+
+    const supportName = localStorage.getItem(SUPPORT_NAME_KEY)
+    if (supportName && !fullName) fullName = sanitizeName(supportName)
   })
 
   function continueFromEmail() {
@@ -112,6 +129,7 @@
     emailAttempted = true
     email = sanitizeInput(email).trim().toLowerCase()
     if (!emailValid) return
+    if (!username.trim()) username = suggestUsername(email)
     step = 'details'
   }
 
