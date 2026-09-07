@@ -36,14 +36,14 @@
     ? {
         title: 'كلمة مرور جديدة', subtitle: 'اختر كلمة مرور جديدة لحسابك.', password: 'كلمة المرور الجديدة', passwordPlaceholder: 'كلمة مرور جديدة',
         confirm: 'تأكيد كلمة المرور', confirmPlaceholder: 'أعد كتابة كلمة المرور', update: 'تحديث كلمة المرور', required: 'أنشئ كلمة مرور.', mismatch: 'غير متطابقة',
-        ruleLength: '8 أحرف على الأقل', ruleNumber: 'رقم واحد على الأقل', ruleSymbol: 'رمز واحد على الأقل', generic: 'تعذر تحديث كلمة المرور. اطلب رابطاً جديداً وحاول مرة أخرى.',
+        ruleLength: '8 أحرف على الأقل', ruleAlternative: 'رقم أو رمز واحد', generic: 'تعذر تحديث كلمة المرور. اطلب رابطاً جديداً وحاول مرة أخرى.',
         doneTitle: 'تم تحديث كلمة المرور', doneBody: 'تم إغلاق جلسة الاسترجاع. سجّل الدخول بكلمة المرور الجديدة.', signIn: 'تسجيل الدخول', newLink: 'طلب رابط جديد', help: 'تحتاج مساعدة؟',
         checkingTitle: 'جارٍ التحقق من رابط الاسترجاع', checkingBody: 'لحظة واحدة.', invalidTitle: 'رابط الاسترجاع غير صالح', invalidBody: 'الرابط منتهي أو غير صالح. اطلب رابطاً جديداً من صفحة نسيت كلمة المرور.'
       }
     : {
         title: 'Reset password', subtitle: 'Choose a new password for your account.', password: 'New password', passwordPlaceholder: 'New password',
         confirm: 'Confirm password', confirmPlaceholder: 'Confirm password', update: 'Update password', required: 'Create a password.', mismatch: 'Doesn’t match',
-        ruleLength: 'At least 8 characters', ruleNumber: 'At least 1 number', ruleSymbol: 'At least 1 symbol', generic: 'Couldn’t update your password. Request a fresh link and try again.',
+        ruleLength: '8 characters minimum', ruleAlternative: '1 number or symbol', generic: 'Couldn’t update your password. Request a fresh link and try again.',
         doneTitle: 'Password updated', doneBody: 'The recovery session is closed. Sign in with your new password.', signIn: 'Back to sign in', newLink: 'Request a new link', help: 'Need help?',
         checkingTitle: 'Checking recovery link', checkingBody: 'Just a moment.', invalidTitle: 'Recovery link not valid', invalidBody: 'This link is expired or invalid. Request a fresh link from Forgot password.'
       }
@@ -173,7 +173,7 @@
       <form on:submit|preventDefault={handleReset} class="space-y-4">
         <TextField ariaLabel={copy.password} type="password" placeholder={copy.passwordPlaceholder} icon="lock" autocomplete="new-password" maxlength={128} bind:value={newPassword} validation={passwordState} hint={passwordState === 'invalid' && attempted && !newPassword.length ? copy.required : ''} disabled={loading} />
 
-        <PasswordRequirements password={newPassword} lengthLabel={copy.ruleLength} numberLabel={copy.ruleNumber} symbolLabel={copy.ruleSymbol} />
+        <PasswordRequirements password={newPassword} lengthLabel={copy.ruleLength} numberOrSymbolLabel={copy.ruleAlternative} />
 
         <TextField ariaLabel={copy.confirm} type="password" placeholder={copy.confirmPlaceholder} icon="lock" autocomplete="new-password" maxlength={128} bind:value={confirmPassword} validation={confirmState} hint={confirmState === 'invalid' ? copy.mismatch : ''} disabled={loading} />
         <Button type="submit" variant="primary" size="lg" {loading} className="mt-2 w-full">{copy.update}</Button>

@@ -118,12 +118,18 @@ button:disabled {
 }
 
 .app-shell {
+  display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
+  flex-direction: column;
   background: var(--bg);
 }
 
-.app-content {
+.app-content,
+.app-content-plain {
+  flex: 1;
   width: 100%;
+  min-width: 0;
   max-width: none;
   margin: 0;
   padding: 0;
@@ -133,7 +139,7 @@ button:disabled {
 .uneem-page-narrow {
   width: 100%;
   margin: 0 auto;
-  padding: 1.2rem 1rem calc(5.4rem + env(safe-area-inset-bottom));
+  padding: 1.2rem 1rem 2.5rem;
 }
 
 .uneem-page { max-width: 72rem; }
@@ -176,7 +182,7 @@ button:disabled {
 .uneem-panel,
 .uneem-card {
   border: 1px solid var(--border-light);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   background: var(--surface);
   box-shadow: none;
 }
@@ -191,13 +197,13 @@ button:disabled {
 
 .uneem-icon-button {
   display: inline-grid;
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   place-items: center;
   border-radius: 50%;
   color: var(--text-secondary);
   background: transparent;
-  border: 1px solid var(--border-light);
+  border: 1px solid transparent;
   transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
 }
 
@@ -223,7 +229,7 @@ button:disabled {
 }
 
 .uneem-chip.is-active {
-  border-color: color-mix(in srgb, var(--primary) 34%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 30%, transparent);
   background: var(--primary-light);
   color: var(--primary);
 }
@@ -232,7 +238,7 @@ button:disabled {
   width: 100%;
   min-height: 50px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: 12px;
   background: var(--surface);
   color: var(--text);
   padding: 0.8rem 0.9rem;
@@ -252,7 +258,7 @@ button:disabled {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border-radius: var(--radius-lg);
+  border-radius: 12px;
   padding: 0.75rem 1rem;
   font-size: 0.92rem;
   font-weight: 700;
@@ -317,8 +323,8 @@ button:disabled {
 
 .support-message {
   margin-inline-start: auto;
-  background: var(--primary-action);
-  color: #fff;
+  background: var(--primary-light);
+  color: var(--text);
 }
 
 .support-message.item-admin {
@@ -330,6 +336,7 @@ button:disabled {
 
 .account-state-shell {
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg);
 }
 

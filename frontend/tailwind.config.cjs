@@ -11,6 +11,9 @@ module.exports = {
           hover: 'var(--primary-hover)',
           gradient: 'var(--primary-gradient)'
         },
+        'primary-action': 'var(--primary-action)',
+        'primary-action-hover': 'var(--primary-action-hover)',
+        background: 'var(--bg)',
         surface: {
           DEFAULT: 'var(--surface)',
           raised: 'var(--surface-raised)',
@@ -50,8 +53,8 @@ module.exports = {
         serif: ['Georgia', 'Times New Roman', 'serif']
       },
       spacing: {
-        'safe-bottom': 'var(--safe-area-inset-bottom, 0)',
-        'safe-top': 'var(--safe-area-inset-top, 0)'
+        'safe-bottom': 'var(--app-safe-bottom, 0px)',
+        'safe-top': 'var(--app-safe-top, 0px)'
       },
       boxShadow: {
         xs: 'var(--shadow-xs)',
@@ -68,7 +71,7 @@ module.exports = {
         xl: 'var(--radius-xl)',
         '2xl': 'var(--radius-2xl)',
         '3xl': 'var(--radius-3xl)',
-        full: 'var(--radius-full)'
+        full: '9999px'
       }
     }
   },

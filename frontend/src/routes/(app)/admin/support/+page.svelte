@@ -69,6 +69,16 @@
     return value.replaceAll('_', ' ').replace(/^./, (char) => char.toUpperCase())
   }
 
+  function when(value: string | null | undefined) {
+    if (!value) return ''
+    return new Date(value).toLocaleString(ar ? 'ar-MA' : 'en', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
   async function loadThreads(silent = false) {
     if (!silent) loading = true
     if (!silent) error = ''
@@ -193,38 +203,36 @@
 
     {#if error}<div class="mb-4 rounded-xl bg-danger-light px-4 py-3 text-sm font-medium text-danger" role="alert">{error}</div>{/if}
 
-    <section class="uneem-panel overflow-hidden">
+    <section class="border-y border-border-light">
       {#if loading}
-        <div class="space-y-1 p-3" aria-busy="true">
-          {#each [1, 2, 3] as _}<div class="h-[72px] animate-pulse rounded-xl bg-surface-level-1"></div>{/each}
+        <div class="space-y-1 py-2" aria-busy="true">
+          {#each [1, 2, 3] as _}<div class="h-[68px] animate-pulse rounded-xl bg-surface-level-1"></div>{/each}
         </div>
       {:else if visibleThreads.length === 0}
         <div class="px-5 py-12 text-center">
-          <div class="mx-auto grid h-11 w-11 place-items-center rounded-2xl bg-surface-level-1 text-text-muted"><Icon name="message-circle" size={20} /></div>
+          <Icon name="message-circle" size={22} className="mx-auto text-text-muted" />
           <p class="mt-3 text-sm font-semibold text-text-secondary">{copy.empty}</p>
         </div>
       {:else}
         {#each visibleThreads as item}
-          <button on:click={() => openThread(item)} class="uneem-list-row min-h-[72px] w-full px-4 text-start sm:px-5">
-            <span class={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${item.status === 'open' ? 'bg-primary-light text-primary' : 'bg-surface-level-1 text-text-muted'}`}>
-              <Icon name={item.kind === 'report' ? 'alert-circle' : 'message-circle'} size={18} />
-            </span>
+          <button on:click={() => openThread(item)} class="flex min-h-[68px] w-full items-center gap-3 border-b border-border-light px-1 text-start transition-colors last:border-0 hover:bg-surface-level-1/70">
+            <span class={`h-2.5 w-2.5 shrink-0 rounded-full ${item.status === 'open' ? 'bg-primary' : item.status === 'waiting' ? 'bg-text-muted' : 'bg-success'}`}></span>
             <span class="min-w-0 flex-1">
-              <span class="flex items-center gap-2">
+              <span class="flex min-w-0 items-center gap-2">
                 <span class="truncate text-sm font-semibold text-text">{item.subject || (item.user_id ? copy.user : copy.guest)}</span>
                 {#if item.kind !== 'support'}<span class="shrink-0 text-[10px] font-bold uppercase tracking-wide text-text-muted">{kindLabel(item.kind)}</span>{/if}
               </span>
               <span class={`mt-1 block text-xs font-medium ${item.status === 'open' ? 'text-primary' : 'text-text-muted'}`}>{statusLabel(item.status)}</span>
             </span>
-            <Icon name={ar ? 'chevron-left' : 'chevron-right'} size={16} className="shrink-0 text-text-muted" />
+            <span class="shrink-0 text-[10px] text-text-muted">{when(item.last_message_at || item.updated_at)}</span>
           </button>
         {/each}
       {/if}
     </section>
   {:else}
-    <section class="flex min-h-[calc(100dvh-180px)] flex-col">
-      <header class="mb-3 flex min-h-12 items-center gap-3">
-        <button on:click={closeThread} class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-text-secondary hover:bg-surface-level-1 hover:text-text" aria-label={copy.back}>
+    <section class="flex min-h-[calc(100dvh-175px)] flex-col">
+      <header class="mb-2 flex min-h-12 items-center gap-2">
+        <button on:click={closeThread} class="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-text-secondary hover:bg-surface-level-1 hover:text-text" aria-label={copy.back}>
           <Icon name={ar ? 'arrow-right' : 'arrow-left'} size={18} />
         </button>
         <div class="min-w-0 flex-1">
@@ -246,14 +254,14 @@
 
       {#if error}<div class="mb-3 rounded-xl bg-danger-light px-4 py-3 text-sm font-medium text-danger" role="alert">{error}</div>{/if}
 
-      <div bind:this={messagesElement} class="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-2xl border border-border-light bg-surface px-4 py-5 sm:px-5" aria-live="polite">
+      <div bind:this={messagesElement} class="min-h-0 flex-1 space-y-3 overflow-y-auto py-4" aria-live="polite">
         {#if loadingMessages}
           <div class="space-y-3" aria-busy="true"><div class="h-16 w-3/4 animate-pulse rounded-2xl bg-surface-level-1"></div><div class="ms-auto h-16 w-3/4 animate-pulse rounded-2xl bg-surface-level-1"></div></div>
         {:else}
           {#each messages as item}
             {@const fromAdmin = item.sender_role === 'admin'}
-            <div class={`max-w-[84%] ${fromAdmin ? 'ms-auto' : 'me-auto'}`}>
-              <div class={`rounded-2xl px-4 py-3 ${fromAdmin ? 'bg-primary-action text-white' : 'bg-surface-level-1 text-text'}`}>
+            <div class={`max-w-[82%] ${fromAdmin ? 'ms-auto' : 'me-auto'}`}>
+              <div class={`rounded-2xl px-4 py-3 ${fromAdmin ? 'bg-primary-light text-text' : 'bg-surface-level-1 text-text'}`}>
                 <p class="whitespace-pre-wrap text-sm leading-6">{item.body}</p>
               </div>
               <time class={`mt-1 block px-1 text-[10px] text-text-muted ${fromAdmin ? 'text-end' : 'text-start'}`}>
@@ -264,7 +272,7 @@
         {/if}
       </div>
 
-      <form on:submit|preventDefault={sendReply} class="mt-3 flex items-end gap-2">
+      <form on:submit|preventDefault={sendReply} class="mt-2 flex items-end gap-2 border-t border-border-light pt-3">
         <textarea bind:value={reply} rows="1" maxlength="4000" class="uneem-field max-h-32 min-h-[48px] flex-1 resize-none" placeholder={copy.placeholder} aria-label={copy.placeholder}></textarea>
         <button disabled={saving || !reply.trim()} class="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary-action text-white disabled:opacity-40" aria-label={copy.send}>
           <Icon name={ar ? 'arrow-left' : 'arrow-right'} size={18} />

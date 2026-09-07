@@ -5,6 +5,7 @@
   import { page } from '$app/stores'
   import '$lib/styles/global.css'
   import '$lib/styles/system.css'
+  import '$lib/styles/mobile.css'
   import TopBar from '$lib/components/TopBar.svelte'
   import SideNav from '$lib/components/SideNav.svelte'
   import Toast from '$lib/components/Toast.svelte'
@@ -158,6 +159,7 @@
         authState.setSessionContext({
           id: profile.id,
           email: session.user.email ?? undefined,
+          username: profile.username,
           student_id: profile.student_id,
           full_name: profile.full_name,
           role: profile.role === 'admin' ? 'admin' : 'user',
@@ -204,6 +206,7 @@
             authState.setSessionContext({
               id: profile.id,
               email: user.email,
+              username: profile.username,
               student_id: profile.student_id,
               full_name: profile.full_name,
               role: profile.role === 'admin' ? 'admin' : 'user',
@@ -326,23 +329,10 @@
 <style>
   :global(html) {
     scroll-behavior: smooth;
-    --safe-area-inset-top: 0;
-    --safe-area-inset-bottom: 0;
-    --safe-area-inset-left: 0;
-    --safe-area-inset-right: 0;
   }
 
   :global(.app-content-plain) {
     flex: 1;
     width: 100%;
-  }
-
-  @supports (padding: max(0px)) {
-    :global(html) {
-      --safe-area-inset-top: max(0px, env(safe-area-inset-top));
-      --safe-area-inset-bottom: max(0px, env(safe-area-inset-bottom));
-      --safe-area-inset-left: max(0px, env(safe-area-inset-left));
-      --safe-area-inset-right: max(0px, env(safe-area-inset-right));
-    }
   }
 </style>
