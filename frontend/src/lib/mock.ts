@@ -9,6 +9,7 @@ export const mockProfile = {
   email: 'test@unem.edu',
   student_id: 'S123456789',
   full_name: 'Test Student',
+  username: 'teststudent',
   role: 'admin',
   status: 'approved',
   rejection_reason: null,

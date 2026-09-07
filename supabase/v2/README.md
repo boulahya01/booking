@@ -27,6 +27,9 @@ Apply the complete stack before enabling real registration or application traffi
 19. `019_user_access_moderation.sql`
 20. `020_first_admin_bootstrap.sql`
 21. `021_auth_lifecycle_contract.sql`
+22. `022_hosted_lint_repairs.sql`
+23. `023_guest_support_ip_gate.sql`
+24. `024_advisor_hardening.sql`
 
 No partial stack is a supported application target.
 
@@ -199,7 +202,7 @@ Do **not** weaken layer 021 merely to make profile-only fixtures pass. Convertin
 
 A hosted V2 project is not launch-ready until all of the following are directly verified:
 
-1. the complete schema through layer 021 is installed on the intended fresh Free project;
+1. the complete schema through layer 024 is installed on the intended fresh Free project;
 2. all SQL suites above pass in their documented validation phase;
 3. Supabase email/password confirmation, Site URL and redirect allow-list are configured;
 4. custom SMTP with a UNEEM-controlled authenticated sending domain is configured and real confirmation/recovery delivery to non-team addresses succeeds;

@@ -18,6 +18,7 @@
   let loginAttempted = false
   let submitError = ''
   let authFailureKind: AuthFailureKind | null = null
+  let emailState: 'idle' | 'valid' | 'invalid' = 'idle'
 
   $: cleanEmail = email.trim().toLowerCase()
   $: emailValid = isValidEmail(cleanEmail)

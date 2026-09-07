@@ -69,6 +69,7 @@
       .from('pitches')
       .select('id,name,location,open_time,close_time,capacity,sport_type,timezone')
       .eq('id', pitchId)
+      .eq('is_active', true)
       .maybeSingle()
 
     if (version !== fetchVersion) return

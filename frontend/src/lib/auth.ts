@@ -314,7 +314,9 @@ export async function resetPasswordForEmail(email: string): Promise<AuthResponse
 // Supabase verifies `current_password` as part of the same credential mutation.
 // This keeps an open browser session alone insufficient for changing a password
 // without creating a second sign-in request or a duplicate SIGNED_IN event.
-export async function updatePassword(newPassword: string, currentPassword?: string): Promise<AuthResponse> {
+export async function updatePassword(newPassword: string, currentPassword: string): Promise<AuthResponse> {
+  if (!currentPassword) return { error: { message: 'current_password_required' } }
+
   if (USE_MOCK) {
     await mockDelay()
     return { data: {} }
@@ -344,9 +346,6 @@ export async function updatePassword(newPassword: string, currentPassword?: stri
       return { data }
     }
 
-    const { data, error } = await supabase.auth.updateUser({ password: newPassword })
-    if (error) return { error: { message: error.message } }
-    return { data }
   } catch (err: any) {
     return { error: { message: err.message || 'Failed to update password' } }
   }

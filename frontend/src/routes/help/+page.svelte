@@ -27,6 +27,7 @@
   let guestToken = ''
   let thread: SupportThread | null = null
   let myThreads: MySupportThreadSummary[] = []
+  let defaultKind: 'support' | 'appeal' = 'support'
   let showingNewRequest = false
   let initialized = false
   let loadedAuthenticated = false

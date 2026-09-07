@@ -12,6 +12,23 @@ begin;
 set local timezone = 'UTC';
 set local session_replication_role = replica;
 
+-- Internal state tables must remain protected even though their direct table
+-- privileges are revoked. SECURITY DEFINER functions are the only access path.
+do $$
+begin
+  if (
+    select count(*)
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'private'
+      and c.relname in ('admin_bootstrap_log', 'guest_support_ip_rate_limits')
+      and c.relrowsecurity
+  ) <> 2 then
+    raise exception 'FAIL: private internal tables do not have RLS enabled';
+  end if;
+end;
+$$;
+
 insert into auth.users (
   instance_id,
   id,
@@ -89,6 +106,39 @@ values (
   1
 );
 
+insert into public.pitches (
+  id,
+  name,
+  location,
+  sport_type,
+  timezone,
+  open_time,
+  close_time,
+  slot_duration_minutes,
+  booking_window_hours,
+  booking_frequency_enabled,
+  booking_frequency_days,
+  cancellation_cutoff_minutes,
+  is_active,
+  sort_order
+)
+values (
+  '42000000-0000-4000-8000-000000000002',
+  'Archived security test pitch',
+  'Test campus',
+  'football',
+  'UTC',
+  time '00:00',
+  time '24:00',
+  60,
+  168,
+  false,
+  1,
+  60,
+  false,
+  2
+);
+
 -- 1. Approved students can browse facilities.
 select set_config('request.jwt.claim.sub', '41000000-0000-4000-8000-000000000001', true);
 set local role authenticated;
@@ -97,6 +147,15 @@ do $$
 begin
   if (select count(*) from public.pitches where id = '42000000-0000-4000-8000-000000000001') <> 1 then
     raise exception 'FAIL: approved student could not read an active facility';
+  end if;
+end;
+$$;
+
+-- 1b. Archived facilities are not visible to approved students.
+do $$
+begin
+  if (select count(*) from public.pitches where id = '42000000-0000-4000-8000-000000000002') <> 0 then
+    raise exception 'FAIL: archived facility unexpectedly visible';
   end if;
 end;
 $$;

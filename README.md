@@ -18,6 +18,8 @@ A comprehensive sports facility booking platform built with modern web technolog
 
 > **Note**: This `dev` branch contains the current SvelteKit implementation. The `main` branch contains the previous React-based implementation. [View main branch](https://github.com/your-username/booking-system/tree/main) for the legacy codebase.
 
+> **V2 deployment boundary**: The clean source of truth is `supabase/v2/`. The historical `supabase/migrations/` and retired `supabase/functions/` trees are V1 reference material and must not be used to initialize or deploy a V2 environment.
+
 ---
 
 ## Overview
@@ -29,7 +31,7 @@ This is a full-stack booking application designed for educational institutions t
 - **Student Portal**: Browse pitches, view availability, and make reservations
 - **Admin Dashboard**: Approve users, manage pitches, and oversee bookings
 - **Real-time Availability**: Dynamic slot generation based on pitch opening hours
-- **Automated Workflows**: Background jobs for booking completion and notifications
+- **Derived Booking Lifecycle**: Booking state is derived from timestamps; V2 does not use a completion cron
 - **Multi-language Support**: English and Arabic interfaces
 - **Secure Authentication**: Role-based access with Supabase Auth
 
@@ -158,21 +160,20 @@ This is a full-stack booking application designed for educational institutions t
    ```
 
 3. **Environment Setup**
-   Create `.env.local` in the root directory:
+   Create `frontend/.env.local` for local browser configuration:
    ```env
    # Supabase Configuration
-   VITE_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-   VITE_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
-   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-
-   # Cron Secret (for Vercel)
-   CRON_SECRET=your-secure-random-token
+   VITE_SUPABASE_URL=https://your-v2-project.supabase.co
+   VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+   VITE_APP_URL=http://localhost:5173
    ```
 
+   Never place a service-role key in `VITE_*` variables or browser code. Configure server-only secrets in the platform that owns the server-side operation.
+
 4. **Database Setup**
-   - Create a new Supabase project
-   - Run migrations from `supabase/migrations/`
-   - Deploy edge functions from `supabase/functions/`
+   - Create a fresh Supabase project
+   - Apply `supabase/v2/schema.sql` and the V2 layers in `supabase/v2/` in order
+   - Do not run `supabase/migrations/` or deploy the retired functions in `supabase/functions/`
 
 ### Development
 

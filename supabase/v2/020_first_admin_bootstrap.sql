@@ -16,6 +16,11 @@ create table if not exists private.admin_bootstrap_log (
   executed_at timestamptz not null default now()
 );
 
+-- Keep this owner-only audit table protected even if the private schema is
+-- exposed by a future API or extension configuration change. The bootstrap
+-- SECURITY DEFINER function remains able to write because it runs as owner.
+alter table private.admin_bootstrap_log enable row level security;
+
 revoke all on private.admin_bootstrap_log from public, anon, authenticated, service_role;
 
 create or replace function private.bootstrap_first_admin(

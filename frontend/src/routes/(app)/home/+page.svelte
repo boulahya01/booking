@@ -43,6 +43,7 @@
       const { data, error } = await supabase
         .from('pitches')
         .select('id,name,location,open_time,close_time,capacity,sport_type')
+        .eq('is_active', true)
         .order('sort_order', { ascending: true })
 
       if (error) throw error

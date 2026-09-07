@@ -33,7 +33,7 @@ create policy pitches_select
 on public.pitches
 for select
 to authenticated
-using ((select private.has_app_access()));
+using ((select private.has_app_access()) and is_active);
 
 -- Do not add a permissive "update own profile" policy. That would allow a
 -- student to submit protected role/status/student_id columns again. This RPC is

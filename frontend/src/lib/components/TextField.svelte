@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte'
+import { createEventDispatcher } from 'svelte'
+  import type { FullAutoFill } from 'svelte/elements'
   import { cn } from '$lib/utils/cn'
   import Icon from './Icon.svelte'
 
@@ -17,7 +18,7 @@
   export let disabled = false
   export let required = false
   export let icon = ''
-  export let autocomplete = ''
+  export let autocomplete: FullAutoFill | null = null
   export let className = ''
 
   const dispatch = createEventDispatcher()

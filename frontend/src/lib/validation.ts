@@ -2,7 +2,11 @@ import DOMPurify from 'dompurify'
 import { z } from 'zod'
 
 export const sanitizeInput = (s = ''): string => {
-  return DOMPurify.sanitize(String(s || ''), { ALLOWED_TAGS: [], ALLOWED_ATTR: [] }).trim()
+  const str = String(s || '')
+  if (typeof window === 'undefined') {
+    return str.replace(/<[^>]*>/g, '').trim()
+  }
+  return DOMPurify.sanitize(str, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] }).trim()
 }
 
 export const sanitizeName = (s = ''): string => sanitizeInput(s).replace(/\s+/g, ' ').slice(0, 100)
@@ -10,7 +14,11 @@ export const sanitizeName = (s = ''): string => sanitizeInput(s).replace(/\s+/g,
 export const sanitizeStudentId = (s = ''): string => String(s || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 50)
 
 export const sanitizeDescription = (s = ''): string => {
-  return DOMPurify.sanitize(String(s || ''), {
+  const str = String(s || '')
+  if (typeof window === 'undefined') {
+    return str
+  }
+  return DOMPurify.sanitize(str, {
     ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'p', 'ul', 'ol', 'li'],
     ALLOWED_ATTR: [],
   })

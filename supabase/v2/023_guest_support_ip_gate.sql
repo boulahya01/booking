@@ -14,6 +14,11 @@ create table if not exists private.guest_support_ip_rate_limits (
   updated_at timestamptz not null default now()
 );
 
+-- This table is internal state for the service-only guest-support RPC. Keep
+-- RLS enabled as defense in depth even though direct table privileges are
+-- revoked below.
+alter table private.guest_support_ip_rate_limits enable row level security;
+
 create index if not exists guest_support_ip_rate_limits_cleanup_idx
   on private.guest_support_ip_rate_limits(updated_at);
 
