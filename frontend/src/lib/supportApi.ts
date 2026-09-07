@@ -66,6 +66,7 @@ function normalizeError(error: unknown): Error {
   if (message.includes('support_rate_limited')) return new Error('You have sent several requests recently. Try again a little later.')
   if (message.includes('support_temporarily_busy')) return new Error('Support is busy right now. Try again shortly.')
   if (message.includes('support_thread_not_found')) return new Error('This support conversation is no longer available.')
+  if (message.includes('support_thread_already_claimed')) return new Error('This support conversation is already linked to an account.')
   if (message.includes('admin_required')) return new Error('You do not have permission to manage support conversations.')
   return new Error('Support is temporarily unavailable. Please try again.')
 }
@@ -222,6 +223,23 @@ export async function addGuestSupportMessage(accessToken: string, body: string):
     p_body: body
   })
   if (error) throw normalizeError(error)
+}
+
+/**
+ * Attach a capability-based guest conversation to the newly authenticated account.
+ * The server invalidates the guest token after a successful claim.
+ */
+export async function claimGuestSupportThread(accessToken: string): Promise<string | null> {
+  if (!accessToken) return null
+  const { data, error } = await supabase.rpc('claim_guest_support_thread', {
+    p_access_token: accessToken
+  })
+  if (error) {
+    const raw = String((error as any)?.message || '')
+    if (raw.includes('support_thread_not_found')) return null
+    throw normalizeError(error)
+  }
+  return typeof data === 'string' ? data : null
 }
 
 export async function listAdminSupportThreads(status: SupportStatus | null = null): Promise<SupportThreadSummary[]> {
