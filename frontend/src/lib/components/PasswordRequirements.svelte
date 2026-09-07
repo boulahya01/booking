@@ -3,15 +3,17 @@
   import { passwordRequirements } from '$lib/utils/cn'
 
   export let password = ''
-  export let lengthLabel = '8+ characters'
-  export let numberLabel = '1 number'
-  export let symbolLabel = '1 symbol'
+  export let lengthLabel = 'At least 8 characters'
+  export let numberLabel = 'At least 1 number'
+  export let symbolLabel = 'At least 1 symbol'
 
   $: requirements = passwordRequirements(password)
+  $: alternativeLabel = symbolLabel.includes('واحد على الأقل')
+    ? `${numberLabel} أو ${symbolLabel.replace(/\s*واحد على الأقل$/, '')}`
+    : `${numberLabel} or ${symbolLabel.replace(/^At least 1\s+/, '')}`
   $: rows = [
     { label: lengthLabel, passed: requirements.length },
-    { label: numberLabel, passed: requirements.number },
-    { label: symbolLabel, passed: requirements.symbol }
+    { label: alternativeLabel, passed: requirements.numberOrSymbol }
   ]
 </script>
 
