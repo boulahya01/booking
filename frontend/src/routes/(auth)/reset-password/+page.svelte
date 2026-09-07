@@ -13,6 +13,7 @@
   import TextField from '$lib/components/TextField.svelte'
   import Button from '$lib/components/Button.svelte'
   import AuthShell from '$lib/components/AuthShell.svelte'
+  import PasswordRequirements from '$lib/components/PasswordRequirements.svelte'
   import Icon from '$lib/components/Icon.svelte'
 
   type FieldState = 'idle' | 'valid' | 'invalid'
@@ -25,27 +26,24 @@
   let attempted = false
   let recoveryState: RecoveryState = 'checking'
 
-  $: passwordLength = newPassword.length >= 8
-  $: passwordNumber = /\d/.test(newPassword)
-  $: passwordSymbol = /[!@#$%^&*()\-+]/.test(newPassword)
-  $: passwordValid = isValidPassword(newPassword)
+  $: passwordValid = isValidPassword(newPassword) && newPassword.length <= 128
   $: confirmValid = confirmPassword.length > 0 && confirmPassword === newPassword
-  $: passwordState = fieldState(newPassword.length > 0 || attempted, passwordValid)
-  $: confirmState = fieldState(confirmPassword.length > 0 || attempted, confirmValid)
+  $: passwordState = attempted ? fieldState(true, passwordValid) : 'idle'
+  $: confirmState = confirmPassword.length > 0 || attempted ? fieldState(true, confirmValid) : 'idle'
   $: complete = recoveryState === 'complete'
 
   $: copy = $language === 'ar'
     ? {
         title: 'كلمة مرور جديدة', subtitle: 'اختر كلمة مرور جديدة لحسابك.', password: 'كلمة المرور الجديدة', passwordPlaceholder: 'كلمة مرور جديدة',
         confirm: 'تأكيد كلمة المرور', confirmPlaceholder: 'أعد كتابة كلمة المرور', update: 'تحديث كلمة المرور', required: 'أنشئ كلمة مرور.', mismatch: 'غير متطابقة',
-        ready: 'جاهزة', match: 'متطابقة', ruleLength: '8+ أحرف', ruleNumber: 'رقم', ruleSymbol: 'رمز', generic: 'تعذر تحديث كلمة المرور. اطلب رابطاً جديداً وحاول مرة أخرى.',
+        ruleLength: '8 أحرف على الأقل', ruleNumber: 'رقم واحد على الأقل', ruleSymbol: 'رمز واحد على الأقل', generic: 'تعذر تحديث كلمة المرور. اطلب رابطاً جديداً وحاول مرة أخرى.',
         doneTitle: 'تم تحديث كلمة المرور', doneBody: 'تم إغلاق جلسة الاسترجاع. سجّل الدخول بكلمة المرور الجديدة.', signIn: 'تسجيل الدخول', newLink: 'طلب رابط جديد', help: 'تحتاج مساعدة؟',
         checkingTitle: 'جارٍ التحقق من رابط الاسترجاع', checkingBody: 'لحظة واحدة.', invalidTitle: 'رابط الاسترجاع غير صالح', invalidBody: 'الرابط منتهي أو غير صالح. اطلب رابطاً جديداً من صفحة نسيت كلمة المرور.'
       }
     : {
         title: 'Reset password', subtitle: 'Choose a new password for your account.', password: 'New password', passwordPlaceholder: 'New password',
         confirm: 'Confirm password', confirmPlaceholder: 'Confirm password', update: 'Update password', required: 'Create a password.', mismatch: 'Doesn’t match',
-        ready: 'Ready', match: 'Passwords match', ruleLength: '8+ chars', ruleNumber: '1 number', ruleSymbol: '1 symbol', generic: 'Couldn’t update your password. Request a fresh link and try again.',
+        ruleLength: 'At least 8 characters', ruleNumber: 'At least 1 number', ruleSymbol: 'At least 1 symbol', generic: 'Couldn’t update your password. Request a fresh link and try again.',
         doneTitle: 'Password updated', doneBody: 'The recovery session is closed. Sign in with your new password.', signIn: 'Back to sign in', newLink: 'Request a new link', help: 'Need help?',
         checkingTitle: 'Checking recovery link', checkingBody: 'Just a moment.', invalidTitle: 'Recovery link not valid', invalidBody: 'This link is expired or invalid. Request a fresh link from Forgot password.'
       }
@@ -53,11 +51,6 @@
   function fieldState(active: boolean, valid: boolean): FieldState {
     if (!active) return 'idle'
     return valid ? 'valid' : 'invalid'
-  }
-
-  function ruleClass(passed: boolean) {
-    if (!newPassword.length) return 'text-text-muted'
-    return passed ? 'text-success' : 'text-danger'
   }
 
   function redirectError(): string {
@@ -81,10 +74,6 @@
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       if (sessionError || !session?.user) throw sessionError || new Error('missing_recovery_session')
 
-      // Only PASSWORD_RECOVERY listeners are allowed to create the local grant.
-      // URL query/hash markers are intentionally not trusted because the user can
-      // edit them. Give the early/root listener a short chance to persist the
-      // grant if Supabase is still completing URL-session initialization.
       if (!restorePasswordRecovery(session.user.id)) {
         await new Promise((resolve) => setTimeout(resolve, 250))
       }
@@ -182,17 +171,11 @@
       {/if}
 
       <form on:submit|preventDefault={handleReset} class="space-y-4">
-        <TextField ariaLabel={copy.password} type="password" placeholder={copy.passwordPlaceholder} icon="lock" autocomplete="new-password" bind:value={newPassword} validation={passwordState} hint={passwordState === 'invalid' && attempted && !newPassword.length ? copy.required : ''} validHint={copy.ready} disabled={loading} />
+        <TextField ariaLabel={copy.password} type="password" placeholder={copy.passwordPlaceholder} icon="lock" autocomplete="new-password" maxlength={128} bind:value={newPassword} validation={passwordState} hint={passwordState === 'invalid' && attempted && !newPassword.length ? copy.required : ''} disabled={loading} />
 
-        <div class="grid grid-cols-3 gap-2 rounded-[16px] bg-surface-level-1 px-3 py-3" aria-live="polite">
-          {#each [{ label: copy.ruleLength, passed: passwordLength }, { label: copy.ruleNumber, passed: passwordNumber }, { label: copy.ruleSymbol, passed: passwordSymbol }] as rule}
-            <div class={`flex items-center justify-center gap-1.5 text-xs font-medium ${ruleClass(rule.passed)}`}>
-              <Icon name={rule.passed ? 'check' : 'x'} size={12} /><span>{rule.label}</span>
-            </div>
-          {/each}
-        </div>
+        <PasswordRequirements password={newPassword} lengthLabel={copy.ruleLength} numberLabel={copy.ruleNumber} symbolLabel={copy.ruleSymbol} />
 
-        <TextField ariaLabel={copy.confirm} type="password" placeholder={copy.confirmPlaceholder} icon="lock" autocomplete="new-password" bind:value={confirmPassword} validation={confirmState} hint={confirmState === 'invalid' ? copy.mismatch : ''} validHint={copy.match} disabled={loading} />
+        <TextField ariaLabel={copy.confirm} type="password" placeholder={copy.confirmPlaceholder} icon="lock" autocomplete="new-password" maxlength={128} bind:value={confirmPassword} validation={confirmState} hint={confirmState === 'invalid' ? copy.mismatch : ''} disabled={loading} />
         <Button type="submit" variant="primary" size="lg" {loading} className="mt-2 w-full">{copy.update}</Button>
       </form>
     {/if}
