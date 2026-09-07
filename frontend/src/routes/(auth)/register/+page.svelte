@@ -61,7 +61,7 @@
         studentId: 'رقم الطالب', studentIdPlaceholder: 'S123456789', invalidStudentId: 'حرف واحد + 9 أرقام فقط',
         password: 'كلمة المرور', passwordPlaceholder: '8 أحرف أو أكثر', confirmPassword: 'تأكيد كلمة المرور', confirmPlaceholder: 'أعد كتابة كلمة المرور',
         passwordRequired: 'أنشئ كلمة مرور.', mismatch: 'غير متطابقة',
-        ruleLength: '8 أحرف على الأقل', ruleNumber: 'رقم واحد على الأقل', ruleSymbol: 'رمز واحد على الأقل', create: 'إنشاء الحساب', haveAccount: 'لديك حساب؟', signIn: 'تسجيل الدخول', help: 'تحتاج مساعدة؟'
+        ruleLength: '8 أحرف على الأقل', ruleAlternative: 'رقم أو رمز واحد', create: 'إنشاء الحساب', haveAccount: 'لديك حساب؟', signIn: 'تسجيل الدخول', help: 'تحتاج مساعدة؟'
       }
     : {
         emailTitle: 'Create account', detailsTitle: 'Your details', passwordTitle: 'Set password',
@@ -72,7 +72,7 @@
         studentId: 'Student ID', studentIdPlaceholder: 'S123456789', invalidStudentId: 'Use exactly 1 letter + 9 digits',
         password: 'Password', passwordPlaceholder: '8+ characters', confirmPassword: 'Confirm password', confirmPlaceholder: 'Repeat password',
         passwordRequired: 'Create a password.', mismatch: 'Doesn’t match',
-        ruleLength: 'At least 8 characters', ruleNumber: 'At least 1 number', ruleSymbol: 'At least 1 symbol', create: 'Create account', haveAccount: 'Already have an account?', signIn: 'Sign in', help: 'Need help?'
+        ruleLength: '8 characters minimum', ruleAlternative: '1 number or symbol', create: 'Create account', haveAccount: 'Already have an account?', signIn: 'Sign in', help: 'Need help?'
       }
 
   $: title = step === 'email' ? copy.emailTitle : step === 'details' ? copy.detailsTitle : copy.passwordTitle
@@ -239,7 +239,7 @@
       <form on:submit|preventDefault={submit} class="space-y-4">
         <TextField ariaLabel={copy.password} type="password" placeholder={copy.passwordPlaceholder} icon="lock" autocomplete="new-password" maxlength={128} bind:value={password} validation={passwordState} error={passwordFieldError} hint={passwordState === 'invalid' && passwordAttempted && !password.length ? copy.passwordRequired : ''} disabled={loading} on:input={handlePasswordInput} />
 
-        <PasswordRequirements password={password} lengthLabel={copy.ruleLength} numberLabel={copy.ruleNumber} symbolLabel={copy.ruleSymbol} />
+        <PasswordRequirements password={password} lengthLabel={copy.ruleLength} numberOrSymbolLabel={copy.ruleAlternative} />
 
         <TextField ariaLabel={copy.confirmPassword} type="password" placeholder={copy.confirmPlaceholder} icon="lock" autocomplete="new-password" maxlength={128} bind:value={confirmPassword} validation={confirmState} hint={confirmState === 'invalid' ? copy.mismatch : ''} disabled={loading} />
         <Button type="submit" variant="primary" size="lg" {loading} className="mt-2 w-full" disabled={loading}>{copy.create}</Button>
