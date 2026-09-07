@@ -1,0 +1,74 @@
+name: Apply selector refactor
+
+on:
+  push:
+    branches:
+      - feature/lucide-icons-selectors
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/lucide-icons-selectors
+      - name: Apply focused selector patches
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(text, old, new, label):
+              if old not in text:
+                  raise SystemExit(f'missing expected block: {label}')
+              return text.replace(old, new, 1)
+
+          # Admin bookings: lifecycle is a small mutually-exclusive set, so use the shared selector.
+          p = Path('frontend/src/routes/(app)/admin/bookings/+page.svelte')
+          s = p.read_text()
+          s = replace_once(s,
+              "  import Icon from '$lib/components/Icon.svelte'\n",
+              "  import Icon from '$lib/components/Icon.svelte'\n  import SegmentedControl from '$lib/components/SegmentedControl.svelte'\n",
+              'bookings import')
+          s = replace_once(s,
+              "  }\n\n  const cancelReasons:",
+              "  }\n  $: lifecycleOptions = [\n    { value: '', label: copy.allStates },\n    { value: 'upcoming', label: copy.upcoming },\n    { value: 'in_progress', label: copy.progress },\n    { value: 'completed', label: copy.completed },\n    { value: 'cancelled', label: copy.cancelled }\n  ]\n\n  const cancelReasons:",
+              'bookings lifecycle options')
+          s = replace_once(s,
+              "      <select bind:value={pitchId} class=\"uneem-field\" aria-label={copy.allFacilities}>\n        <option value=\"\">{copy.allFacilities}</option>\n        {#each facilities as facility}<option value={facility.id}>{facility.name}</option>{/each}\n      </select>\n      <select bind:value={lifecycle} class=\"uneem-field\" aria-label={copy.allStates}>\n        <option value=\"\">{copy.allStates}</option>\n        <option value=\"upcoming\">{copy.upcoming}</option><option value=\"in_progress\">{copy.progress}</option><option value=\"completed\">{copy.completed}</option><option value=\"cancelled\">{copy.cancelled}</option>\n      </select>\n",
+              "      <select bind:value={pitchId} class=\"uneem-field lg:col-span-2\" aria-label={copy.allFacilities}>\n        <option value=\"\">{copy.allFacilities}</option>\n        {#each facilities as facility}<option value={facility.id}>{facility.name}</option>{/each}\n      </select>\n      <div class=\"md:col-span-2 lg:col-span-4\">\n        <SegmentedControl\n          options={lifecycleOptions}\n          value={lifecycle}\n          ariaLabel={copy.allStates}\n          scrollable\n          onChange={(value) => (lifecycle = value)}\n        />\n      </div>\n",
+              'bookings lifecycle select')
+          p.write_text(s)
+
+          # Admin facilities: standardize the selector the user liked and reuse it for slot duration.
+          p = Path('frontend/src/routes/(app)/admin/pitches/+page.svelte')
+          s = p.read_text()
+          s = replace_once(s,
+              "  import Icon from '$lib/components/Icon.svelte'\n",
+              "  import Icon from '$lib/components/Icon.svelte'\n  import SegmentedControl from '$lib/components/SegmentedControl.svelte'\n",
+              'pitches import')
+          s = replace_once(s,
+              "  $: visible = showInactive ? facilities : facilities.filter((f) => f.is_active)\n",
+              "  $: visible = showInactive ? facilities : facilities.filter((f) => f.is_active)\n  $: facilityFilterOptions = [\n    { value: 'active', label: copy.active },\n    { value: 'all', label: copy.all }\n  ]\n  const durationOptions = [30, 45, 60, 90, 120].map((minutes) => ({ value: String(minutes), label: `${minutes} min` }))\n",
+              'pitches selector options')
+          s = replace_once(s,
+              "  <div class=\"mb-4 inline-flex rounded-2xl bg-surface-level-1 p-1\">\n    <button on:click={() => showInactive = false} class={`min-h-10 rounded-xl px-4 text-sm font-bold ${!showInactive ? 'bg-surface text-text shadow-sm' : 'text-text-muted'}`}>{copy.active}</button>\n    <button on:click={() => showInactive = true} class={`min-h-10 rounded-xl px-4 text-sm font-bold ${showInactive ? 'bg-surface text-text shadow-sm' : 'text-text-muted'}`}>{copy.all}</button>\n  </div>\n",
+              "  <div class=\"mb-4 max-w-xs\">\n    <SegmentedControl\n      options={facilityFilterOptions}\n      value={showInactive ? 'all' : 'active'}\n      ariaLabel={copy.title}\n      onChange={(value) => (showInactive = value === 'all')}\n    />\n  </div>\n",
+              'pitches active all selector')
+          s = replace_once(s,
+              "        <label><span class=\"text-sm font-bold text-text\">{copy.duration}</span><select bind:value={form.slot_duration_minutes} class=\"uneem-field mt-2\"><option value={30}>30 min</option><option value={45}>45 min</option><option value={60}>60 min</option><option value={90}>90 min</option><option value={120}>120 min</option></select></label>\n",
+              "        <div><span class=\"text-sm font-bold text-text\">{copy.duration}</span><div class=\"mt-2\"><SegmentedControl options={durationOptions} value={String(form.slot_duration_minutes)} ariaLabel={copy.duration} scrollable onChange={(value) => (form.slot_duration_minutes = Number(value))} /></div></div>\n",
+              'pitches duration select')
+          p.write_text(s)
+          PY
+      - name: Commit patches
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/src/routes/'(app)'/admin/bookings/+page.svelte frontend/src/routes/'(app)'/admin/pitches/+page.svelte
+          git commit -m "Expand segmented selector system" || exit 0
+          git push origin HEAD:feature/lucide-icons-selectors
