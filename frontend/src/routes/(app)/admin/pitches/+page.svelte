@@ -41,8 +41,8 @@
     eyebrow:'عمليات UNEEM', title:'المرافق', subtitle:'تحكم في أوقات الحجز والسعة والقواعد من مكان واحد.', add:'إضافة مرفق', active:'النشطة', all:'الكل', empty:'لم يتم إعداد أي مرفق بعد.', emptyAction:'إعداد أول مرفق',
     retry:'إعادة المحاولة', edit:'تعديل', archive:'إيقاف المرفق', inactive:'غير نشط', capacity:'السعة', duration:'مدة الحجز', window:'نافذة الحجز', cutoff:'آخر وقت للإلغاء', frequency:'تكرار الحجز', days:'أيام',
     createTitle:'مرفق جديد', editTitle:'إعدادات المرفق', name:'الاسم', location:'الموقع', sport:'الرياضة', open:'الفتح', close:'الإغلاق', sort:'الترتيب', enabled:'نشط للطلاب', save:'حفظ', cancel:'إلغاء', saving:'جارٍ الحفظ…',
-    overnight:'يمكن للمرفق يبقى مفتوح بعد منتصف الليل، مثلا 08:00 → 01:00.', windowHint:'أقصى مدة ظاهرة للطلبة هي 24 ساعة.',
-    archiveTitle:'إيقاف هذا المرفق؟', archiveHint:'لن يُحذف التاريخ. سيختفي المرفق من الحجز الجديد ويمكن إعادة تفعيله لاحقاً.', reason:'السبب', keep:'إبقاءه نشطاً', confirmArchive:'إيقاف المرفق'
+    overnight:'يمكن أن يبقى المرفق مفتوحاً بعد منتصف الليل، مثلاً 08:00 → 01:00.', windowHint:'أقصى مدة ظاهرة للطلبة هي 24 ساعة.',
+    archiveTitle:'إيقاف هذا المرفق؟', archiveHint:'لن يُحذف التاريخ. سيختفي المرفق من الحجز الجديد ويمكن إعادة تفعيله لاحقاً.', reason:'السبب', keep:'إبقاؤه نشطاً', confirmArchive:'إيقاف المرفق'
   } : {
     eyebrow:'UNEEM operations', title:'Facilities', subtitle:'Control availability, capacity and booking rules from one place.', add:'Add facility', active:'Active', all:'All', empty:'No facilities have been configured.', emptyAction:'Set up first facility',
     retry:'Retry', edit:'Edit', archive:'Archive facility', inactive:'Inactive', capacity:'Capacity', duration:'Slot duration', window:'Booking window', cutoff:'Cancellation cutoff', frequency:'Booking frequency', days:'days',
