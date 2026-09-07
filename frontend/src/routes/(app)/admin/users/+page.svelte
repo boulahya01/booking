@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { language, uiState } from '$lib/stores/ui'
   import Icon from '$lib/components/Icon.svelte'
+  import SegmentedControl from '$lib/components/SegmentedControl.svelte'
   import {
     listAdminUsers,
     adminSetUserAccess,
@@ -40,6 +41,12 @@
     suspend:'Suspend access', restore:'Restore access', suspendTitle:'Suspend sports access?', restoreTitle:'Restore sports access?', suspendBody:'This student will be blocked from sports routes. Existing bookings are not cancelled automatically.', restoreBody:'Access returns only if the account still satisfies its identity requirements. The change is audited.', reason:'Reason', cancel:'Cancel', confirmSuspend:'Suspend access', confirmRestore:'Restore access', saving:'Saving…', updated:'User access updated', updateError:'Couldn’t update user access.',
     conduct:'Conduct issue', safety:'Safety issue', spam:'Spam or abuse', fakeIdentity:'Suspected fake identity', bookingAbuse:'Booking abuse', matchAbuse:'Match abuse', other:'Other reason', reviewComplete:'Review complete', appealApproved:'Appeal approved'
   }
+  $: statusOptions = [
+    { value: 'all', label: copy.all },
+    { value: 'approved', label: copy.active },
+    { value: 'pending', label: copy.pending },
+    { value: 'suspended', label: copy.suspended }
+  ]
 
   const suspendReasons: { value: AdminUserSuspendReason; label: () => string }[] = [
     { value:'conduct', label:() => copy.conduct },
@@ -159,7 +166,7 @@
     <a href="/admin/verification" class="uneem-secondary-action min-h-11 shrink-0 px-3 text-sm"><Icon name="shield" size={16}/>{copy.verification}</a>
   </header>
 
-  <section class="mb-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+  <section class="mb-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
     <form class="flex min-w-0 gap-2" on:submit|preventDefault={applySearch}>
       <div class="relative min-w-0 flex-1">
         <Icon name="search" size={17} className="pointer-events-none absolute start-4 top-1/2 -translate-y-1/2 text-text-muted"/>
@@ -167,11 +174,13 @@
       </div>
       <button class="uneem-secondary-action shrink-0 px-4" disabled={loading}>{copy.searchAction}</button>
     </form>
-    <div class="flex gap-2 overflow-x-auto pb-1 sm:pb-0">
-      {#each [{value:'all',label:copy.all},{value:'approved',label:copy.active},{value:'pending',label:copy.pending},{value:'suspended',label:copy.suspended}] as item}
-        <button on:click={() => setStatus(item.value as 'all' | AdminUserStatus)} class="uneem-chip" class:is-active={status===item.value}>{item.label}</button>
-      {/each}
-    </div>
+    <SegmentedControl
+      options={statusOptions}
+      value={status}
+      ariaLabel={copy.title}
+      scrollable
+      onChange={(value) => void setStatus(value as 'all' | AdminUserStatus)}
+    />
   </section>
 
   <div class="mb-3 flex items-center justify-between gap-3">
