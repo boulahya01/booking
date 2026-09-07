@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { authState } from '$lib/stores/auth'
-  import { _ , locale } from 'svelte-i18n'
+  import { _, locale } from 'svelte-i18n'
   import { USE_MOCK } from '$lib/mock'
   import Icon from './Icon.svelte'
   import { getNextBooking, BookingApiError, type MyBooking } from '$lib/bookingApi'
@@ -30,7 +30,6 @@
 
       const userId = state.user?.id ?? null
       if (userId === currentUserId) return
-
       currentUserId = userId
       requestVersion += 1
 
@@ -78,46 +77,30 @@
   }
 </script>
 
-<section class="uneem-card">
-  {#if loading}
-    <div class="flex items-center gap-3" aria-busy="true">
-      <div class="h-12 w-12 animate-pulse rounded-2xl bg-surface-level-1"></div>
-      <div class="flex-1 space-y-2">
-        <div class="h-4 w-28 animate-pulse rounded-full bg-surface-level-1"></div>
-        <div class="h-4 w-40 animate-pulse rounded-full bg-surface-level-1"></div>
-      </div>
-    </div>
-  {:else if error}
-    <div class="flex items-center gap-3">
-      <div class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-danger-light text-danger"><Icon name="alert-circle" size={19} /></div>
-      <div class="min-w-0 flex-1">
-        <p class="text-sm font-semibold text-text">{error}</p>
-        {#if currentUserId}<button on:click={() => void loadBooking(currentUserId!)} class="mt-1 min-h-8 text-sm font-bold text-primary">{$_('common.retry')}</button>{/if}
-      </div>
-    </div>
-  {:else if booking}
-    {@const time = formatBookingTime(booking.starts_at, booking.pitches?.timezone || 'Africa/Casablanca')}
-    <a href="/bookings" class="group flex items-center gap-3.5">
-      <div class="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-primary-light text-primary">
-        <span class="text-[10px] font-extrabold uppercase tracking-wide">{time.month}</span>
-        <span class="text-xl font-extrabold leading-none">{time.day}</span>
+{#if loading}
+  <section class="mb-6 flex items-center gap-3 rounded-[18px] border border-border-light bg-surface p-3" aria-busy="true">
+    <div class="h-11 w-11 animate-pulse rounded-[14px] bg-surface-level-1"></div>
+    <div class="flex-1 space-y-2"><div class="h-3 w-24 animate-pulse rounded bg-surface-level-1"></div><div class="h-4 w-36 animate-pulse rounded bg-surface-level-1"></div></div>
+  </section>
+{:else if error}
+  <div class="mb-5 flex items-center justify-between gap-3 py-2">
+    <p class="text-sm font-semibold text-danger">{error}</p>
+    {#if currentUserId}<button on:click={() => void loadBooking(currentUserId!)} class="min-h-9 text-sm font-bold text-primary">{$_('common.retry')}</button>{/if}
+  </div>
+{:else if booking}
+  {@const time = formatBookingTime(booking.starts_at, booking.pitches?.timezone || 'Africa/Casablanca')}
+  <section class="mb-6">
+    <p class="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-text-muted">{isArabic ? 'الحجز الجاي' : 'Next booking'}</p>
+    <a href="/bookings" class="group flex items-center gap-3 rounded-[18px] border border-border-light bg-surface p-3.5 transition-colors hover:bg-surface-level-1">
+      <div class="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-[14px] bg-primary-light text-primary">
+        <span class="text-[9px] font-extrabold uppercase">{time.month}</span>
+        <span class="text-lg font-extrabold leading-none">{time.day}</span>
       </div>
       <div class="min-w-0 flex-1">
-        <p class="text-xs font-bold uppercase tracking-[0.1em] text-primary">{isArabic ? 'حجزك الجاي' : 'Next booking'}</p>
-        <h3 class="mt-1 truncate font-bold text-text">{booking.pitches?.name || $_('bookings.unknown_pitch')}</h3>
+        <h3 class="truncate font-bold text-text">{booking.pitches?.name || $_('bookings.unknown_pitch')}</h3>
         <p class="mt-0.5 text-sm text-text-secondary">{time.weekday} · {time.time}</p>
       </div>
-      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-text-muted transition-colors group-hover:bg-primary-light group-hover:text-primary">
-        <Icon name={isArabic ? 'arrow-left' : 'arrow-right'} size={18} />
-      </span>
+      <Icon name={isArabic ? 'chevron-left' : 'chevron-right'} size={18} className="shrink-0 text-text-muted" />
     </a>
-  {:else}
-    <div class="flex items-center gap-3.5">
-      <div class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-surface-level-1 text-text-muted"><Icon name="calendar-x" size={21} /></div>
-      <div class="min-w-0 flex-1">
-        <p class="font-bold text-text">{isArabic ? 'ما عندك حتى حجز جاي' : 'No booking yet'}</p>
-        <a href="/home" class="mt-1 inline-flex min-h-8 items-center text-sm font-bold text-primary">{isArabic ? 'اختار مرفق' : 'Find a facility'}</a>
-      </div>
-    </div>
-  {/if}
-</section>
+  </section>
+{/if}

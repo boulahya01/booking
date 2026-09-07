@@ -20,15 +20,13 @@
 
   $: ar = ($locale || 'en').startsWith('ar')
   $: copy = ar ? {
-    title:'رياضتي', subtitle:'حجوزاتك ومبارياتك.', upcoming:'القادم', upcomingHint:'الحجوزات اللي نتا منظمها.', book:'احجز مرفق', none:'ما عندك حتى حجز.', noneHint:'اختار مرفق ملي تكون واجد تلعب.',
-    open:'افتح للاعبين', view:'شوف المباراة', cancel:'إلغاء الحجز', joined:'مباريات منضم ليها', joinedHint:'مباريات من تنظيم طلبة آخرين.', find:'لقى مباراة', joinedEmpty:'أي مباراة تنضم ليها غادي تبان هنا.', recent:'السابق', private:'خاص', openMatch:'مفتوحة',
-    openTitle:'تفتح هاد الحجز؟', openBody:'أي طالب مؤهل يقدر ينضم حسب الأسبقية.', reserved:'أصدقاء محجوزين', upTo:'حتى', total:'من أصل', notNow:'ماشي دابا', opening:'جاري الفتح…', openAction:'افتح المباراة',
-    cancelTitle:'تلغي الحجز؟', cancelBody:'غادي يتحرر الوقت', cancelMatch:' والمباراة المفتوحة غادي تسد للجميع.', keep:'خليه', cancelling:'جاري الإلغاء…', retry:'عاود المحاولة', cancelledToast:'تم إلغاء الحجز', openedToast:'المباراة مفتوحة'
+    title:'رياضتي', upcoming:'الحجوزات الجاية', book:'احجز وقت', none:'ما عندك حتى حجز جاي.', open:'افتح للاعبين', view:'شوف الماتش', cancel:'إلغاء الحجز', recent:'السابق', openMatch:'ماتش مفتوح',
+    openTitle:'افتح للاعبين', friends:'صحابك معاك', openSpots:'بلايص مفتوحة للطلبة', notNow:'رجع', opening:'جاري الفتح…', openAction:'افتح',
+    cancelTitle:'تلغي الحجز؟', keep:'خليه', cancelling:'جاري الإلغاء…', retry:'عاود المحاولة', cancelledToast:'تم إلغاء الحجز', openedToast:'الماتش مفتوح'
   } : {
-    title:'My Sports', subtitle:'Your bookings and matches.', upcoming:'Upcoming', upcomingHint:'Bookings you organize.', book:'Book a facility', none:'No bookings yet.', noneHint:'Choose a facility when you are ready to play.',
-    open:'Open to players', view:'View match', cancel:'Cancel booking', joined:'Joined matches', joinedHint:'Games organized by other students.', find:'Find matches', joinedEmpty:'Matches you join will appear here.', recent:'Recent', private:'Private', openMatch:'Open match',
-    openTitle:'Open this booking?', openBody:'Eligible students can join first-come-first-served.', reserved:'Reserved friends', upTo:'Up to', total:'of', notNow:'Not now', opening:'Opening…', openAction:'Open match',
-    cancelTitle:'Cancel booking?', cancelBody:'The facility slot will be released', cancelMatch:' and the open match will close for everyone.', keep:'Keep booking', cancelling:'Cancelling…', retry:'Try again', cancelledToast:'Booking cancelled', openedToast:'Match is open'
+    title:'My Sports', upcoming:'Upcoming', book:'Book a slot', none:'No upcoming bookings.', open:'Open to players', view:'View match', cancel:'Cancel booking', recent:'History', openMatch:'Open match',
+    openTitle:'Open to players', friends:'Friends with you', openSpots:'Open spots for students', notNow:'Back', opening:'Opening…', openAction:'Open',
+    cancelTitle:'Cancel booking?', keep:'Keep booking', cancelling:'Cancelling…', retry:'Try again', cancelledToast:'Booking cancelled', openedToast:'Match is open'
   }
 
   onMount(loadSports)
@@ -36,12 +34,7 @@
   function modalFocus(node: HTMLElement) {
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
     node.focus()
-
-    return {
-      destroy() {
-        previousFocus?.focus()
-      }
-    }
+    return { destroy() { previousFocus?.focus() } }
   }
 
   function dismissOnEscape(event: KeyboardEvent, close: () => void) {
@@ -67,9 +60,10 @@
   const matchFor = (bookingId: string) => matches.find((match) => match.booking_id === bookingId)
   const upcoming = (booking: MyBooking) => booking.lifecycle_status === 'upcoming'
   $: upcomingBookings = bookings.filter((booking) => upcoming(booking) && booking.status !== 'cancelled')
-  $: joinedMatches = matches.filter((match) => match.member_role === 'player')
   $: history = bookings.filter((booking) => !upcoming(booking) || booking.status === 'cancelled')
-  $: maxReservedSpots = Math.max(0, (openTarget?.pitches?.capacity ?? 1) - 1)
+  $: capacity = openTarget?.pitches?.capacity ?? 1
+  $: maxReservedSpots = Math.max(0, capacity - 2)
+  $: openSpots = Math.max(0, capacity - 1 - reservedSpots)
 
   function dateParts(value: string, timezone?: string | null) {
     const d = new Date(value)
@@ -84,6 +78,7 @@
   }
 
   function openMatchSheet(booking: MyBooking) {
+    if ((booking.pitches?.capacity ?? 1) < 2) return
     openTarget = booking
     reservedSpots = 0
   }
@@ -103,7 +98,7 @@
   }
 
   async function confirmOpenMatch() {
-    if (!openTarget) return
+    if (!openTarget || openSpots < 1) return
     working = true
     try {
       await createOpenMatch(openTarget.id, Math.min(reservedSpots, maxReservedSpots))
@@ -119,61 +114,54 @@
 <svelte:head><title>{copy.title} · UNEEM</title></svelte:head>
 
 <main class="uneem-page-narrow">
-  <header class="uneem-page-header">
-    <div>
-      <p class="uneem-kicker">UNEEM</p>
-      <h1 class="uneem-title">{copy.title}</h1>
-      <p class="uneem-subtitle">{copy.subtitle}</p>
-    </div>
-  </header>
+  <header class="mb-6"><h1 class="uneem-title">{copy.title}</h1></header>
 
   {#if loading}
-    <div class="space-y-3" aria-label="Loading My Sports">{#each Array(3) as _}<div class="h-28 animate-pulse rounded-[22px] bg-surface-level-1"></div>{/each}</div>
+    <div class="space-y-2" aria-label="Loading My Sports">{#each Array(3) as _}<div class="h-24 animate-pulse rounded-[18px] bg-surface-level-1"></div>{/each}</div>
   {:else if error}
-    <div class="uneem-card flex items-center gap-3">
-      <div class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-danger-light text-danger"><Icon name="alert-circle" size={19}/></div>
-      <p class="min-w-0 flex-1 text-sm font-semibold text-danger">{error}</p>
+    <div class="flex items-center justify-between gap-3 py-4">
+      <p class="text-sm font-semibold text-danger">{error}</p>
       <button class="min-h-10 text-sm font-bold text-primary" on:click={loadSports}>{copy.retry}</button>
     </div>
   {:else}
-    <section class="mb-8">
-      <div class="mb-3 flex items-end justify-between gap-3">
-        <div><h2 class="text-lg font-bold text-text">{copy.upcoming}</h2><p class="mt-0.5 text-sm text-text-muted">{copy.upcomingHint}</p></div>
-        <a href="/home" class="min-h-10 text-sm font-bold text-primary">{copy.book}</a>
+    <section>
+      <div class="mb-3 flex items-center justify-between gap-3">
+        <h2 class="text-lg font-bold text-text">{copy.upcoming}</h2>
+        {#if upcomingBookings.length > 0}<a href="/home" class="min-h-10 text-sm font-bold text-primary">{copy.book}</a>{/if}
       </div>
 
       {#if upcomingBookings.length === 0}
-        <div class="uneem-empty">
-          <div class="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-surface text-text-muted"><Icon name="calendar-days" size={22}/></div>
+        <div class="uneem-empty py-8">
+          <div class="mx-auto grid h-12 w-12 place-items-center rounded-full bg-surface-level-1 text-text-muted"><Icon name="calendar-days" size={21}/></div>
           <p class="mt-3 font-bold text-text">{copy.none}</p>
-          <p class="mt-1 text-sm text-text-muted">{copy.noneHint}</p>
+          <a href="/home" class="uneem-primary-action mt-5 min-w-[150px]">{copy.book}</a>
         </div>
       {:else}
-        <div class="space-y-3">
+        <div class="space-y-2">
           {#each upcomingBookings as booking (booking.id)}
             {@const date = dateParts(booking.starts_at, booking.pitches?.timezone)}
             {@const match = matchFor(booking.id)}
-            <article class="uneem-card">
-              <div class="flex gap-3.5">
-                <div class="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-primary-light text-primary">
-                  <span class="text-[10px] font-extrabold uppercase">{date.month}</span>
-                  <span class="text-xl font-extrabold leading-none">{date.day}</span>
+            <article class="rounded-[18px] border border-border-light bg-surface p-4">
+              <div class="flex items-start gap-3">
+                <div class="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-[14px] bg-primary-light text-primary">
+                  <span class="text-[9px] font-extrabold uppercase">{date.month}</span>
+                  <span class="text-lg font-extrabold leading-none">{date.day}</span>
                 </div>
                 <div class="min-w-0 flex-1">
                   <div class="flex items-start justify-between gap-2">
                     <div class="min-w-0"><h3 class="truncate font-bold text-text">{booking.pitches?.name || 'Facility'}</h3><p class="mt-1 text-sm text-text-muted">{date.weekday} · {date.time} · {booking.pitches?.location || 'USMBA'}</p></div>
-                    <span class="shrink-0 rounded-full bg-surface-level-1 px-2.5 py-1 text-[11px] font-bold text-text-secondary">{match ? (match.visibility === 'open' ? copy.openMatch : copy.private) : copy.private}</span>
+                    {#if match}<span class="shrink-0 rounded-full bg-success-light px-2.5 py-1 text-[11px] font-bold text-success">{copy.openMatch}</span>{/if}
                   </div>
                 </div>
               </div>
 
-              <div class="mt-4 flex flex-wrap items-center gap-2 border-t border-border-light pt-3">
-                {#if !match}
-                  <button class="uneem-primary-action min-h-11 px-4 text-sm" on:click={() => openMatchSheet(booking)}>{copy.open}</button>
-                {:else}
-                  <a href="/matches" class="uneem-secondary-action min-h-11 px-4 text-sm text-primary">{copy.view}</a>
+              <div class="mt-3 flex flex-wrap items-center gap-2 border-t border-border-light pt-3">
+                {#if match}
+                  <a href="/matches" class="uneem-secondary-action min-h-10 px-3 text-sm">{copy.view}</a>
+                {:else if (booking.pitches?.capacity ?? 1) >= 2}
+                  <button class="uneem-primary-action min-h-10 px-3 text-sm" on:click={() => openMatchSheet(booking)}>{copy.open}</button>
                 {/if}
-                <button class="min-h-11 px-3 text-sm font-bold text-danger" on:click={() => cancelTarget = booking}>{copy.cancel}</button>
+                <button class="min-h-10 rounded-[12px] px-3 text-sm font-bold text-danger hover:bg-danger-light" on:click={() => cancelTarget = booking}>{copy.cancel}</button>
               </div>
             </article>
           {/each}
@@ -181,33 +169,15 @@
       {/if}
     </section>
 
-    <section class="mb-8">
-      <div class="mb-3 flex items-end justify-between gap-3"><div><h2 class="text-lg font-bold text-text">{copy.joined}</h2><p class="mt-0.5 text-sm text-text-muted">{copy.joinedHint}</p></div><a href="/matches" class="min-h-10 text-sm font-bold text-primary">{copy.find}</a></div>
-      {#if joinedMatches.length === 0}
-        <div class="uneem-soft-card text-sm text-text-muted">{copy.joinedEmpty}</div>
-      {:else}
-        <div class="uneem-panel px-4">
-          {#each joinedMatches as match (match.match_id)}
-            {@const date=dateParts(match.starts_at, match.timezone)}
-            <a href="/matches" class="uneem-list-row group">
-              <div class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary-light text-primary"><Icon name="users" size={18}/></div>
-              <div class="min-w-0 flex-1"><p class="truncate font-bold text-text">{match.pitch_name}</p><p class="mt-0.5 text-sm text-text-muted">{date.weekday} · {date.time} · {match.organizer_name}</p></div>
-              <Icon name={ar ? 'chevron-left' : 'chevron-right'} size={18} className="text-text-muted"/>
-            </a>
-          {/each}
-        </div>
-      {/if}
-    </section>
-
     {#if history.length > 0}
-      <section>
+      <section class="mt-8">
         <h2 class="mb-3 text-lg font-bold text-text">{copy.recent}</h2>
-        <div class="uneem-panel px-4">
-          {#each history.slice(0,6) as booking (booking.id)}
+        <div class="rounded-[18px] border border-border-light bg-surface px-4">
+          {#each history.slice(0,8) as booking (booking.id)}
             {@const date=dateParts(booking.starts_at, booking.pitches?.timezone)}
             <div class="uneem-list-row">
               <div class="min-w-0 flex-1"><p class="truncate font-semibold text-text">{booking.pitches?.name || 'Facility'}</p><p class="mt-0.5 text-sm text-text-muted">{date.month} {date.day} · {date.time}</p></div>
-              <span class="text-xs font-semibold text-text-muted">{booking.lifecycle_status}</span>
+              <span class="text-xs font-semibold capitalize text-text-muted">{booking.lifecycle_status}</span>
             </div>
           {/each}
         </div>
@@ -217,20 +187,29 @@
 </main>
 
 {#if openTarget}
+  {@const openDate = dateParts(openTarget.starts_at, openTarget.pitches?.timezone)}
   <div class="fixed inset-0 z-50 flex items-end bg-black/55 backdrop-blur-[2px] sm:items-center sm:justify-center sm:p-4" role="presentation">
     <button type="button" tabindex="-1" aria-label="Close match dialog" class="absolute inset-0 cursor-default" disabled={working} on:click={() => openTarget = null}></button>
     <div class="uneem-mobile-sheet relative z-10" role="dialog" aria-modal="true" tabindex="-1" use:modalFocus on:keydown={(event) => dismissOnEscape(event, () => openTarget = null)}>
       <h2 class="text-xl font-bold text-text">{copy.openTitle}</h2>
-      <p class="mt-2 text-sm leading-6 text-text-secondary">{copy.openBody}</p>
-      <div class="mt-5 flex items-end justify-between gap-4">
-        <div><span class="block text-sm font-bold text-text">{copy.reserved}</span><p class="mt-1 text-xs text-text-muted">{copy.upTo} {maxReservedSpots} {copy.total} {openTarget.pitches?.capacity || 1}.</p></div>
-        <div class="flex items-center gap-2">
-          <button class="grid h-12 w-12 place-items-center rounded-2xl bg-surface-level-1 text-xl font-bold text-text disabled:opacity-40" disabled={reservedSpots === 0 || working} on:click={() => reservedSpots = Math.max(0,reservedSpots-1)} aria-label="Remove reserved friend">−</button>
-          <span class="min-w-10 text-center text-xl font-extrabold text-text">{reservedSpots}</span>
-          <button class="grid h-12 w-12 place-items-center rounded-2xl bg-surface-level-1 text-xl font-bold text-text disabled:opacity-40" disabled={reservedSpots >= maxReservedSpots || working} on:click={() => reservedSpots = Math.min(maxReservedSpots,reservedSpots+1)} aria-label="Add reserved friend">+</button>
+      <p class="mt-1 text-sm text-text-secondary">{openTarget.pitches?.name} · {openDate.weekday} {openDate.time}</p>
+
+      <div class="mt-5 space-y-3 rounded-[16px] bg-surface-level-1 p-4">
+        <div class="flex items-center justify-between gap-4">
+          <span class="text-sm font-semibold text-text-secondary">{copy.friends}</span>
+          <div class="flex items-center gap-2">
+            <button class="grid h-10 w-10 place-items-center rounded-[12px] bg-surface text-lg font-bold text-text disabled:opacity-35" disabled={reservedSpots === 0 || working} on:click={() => reservedSpots = Math.max(0,reservedSpots-1)} aria-label="Remove reserved friend">−</button>
+            <span class="min-w-7 text-center text-lg font-extrabold text-text">{reservedSpots}</span>
+            <button class="grid h-10 w-10 place-items-center rounded-[12px] bg-surface text-lg font-bold text-text disabled:opacity-35" disabled={reservedSpots >= maxReservedSpots || working} on:click={() => reservedSpots = Math.min(maxReservedSpots,reservedSpots+1)} aria-label="Add reserved friend">+</button>
+          </div>
+        </div>
+        <div class="flex items-center justify-between gap-4 border-t border-border-light pt-3">
+          <span class="text-sm font-semibold text-text-secondary">{copy.openSpots}</span>
+          <span class="text-lg font-extrabold text-success">{openSpots}</span>
         </div>
       </div>
-      <div class="mt-6 flex gap-3"><button class="uneem-secondary-action flex-1" disabled={working} on:click={() => openTarget=null}>{copy.notNow}</button><button class="uneem-primary-action flex-1" disabled={working} on:click={confirmOpenMatch}>{working ? copy.opening : copy.openAction}</button></div>
+
+      <div class="mt-5 flex gap-3"><button class="uneem-secondary-action flex-1" disabled={working} on:click={() => openTarget=null}>{copy.notNow}</button><button class="uneem-primary-action flex-1" disabled={working || openSpots < 1} on:click={confirmOpenMatch}>{working ? copy.opening : `${copy.openAction} ${openSpots}`}</button></div>
     </div>
   </div>
 {/if}
@@ -240,8 +219,7 @@
     <button type="button" tabindex="-1" aria-label="Close cancellation dialog" class="absolute inset-0 cursor-default" disabled={working} on:click={() => cancelTarget = null}></button>
     <div class="uneem-mobile-sheet relative z-10" role="dialog" aria-modal="true" tabindex="-1" use:modalFocus on:keydown={(event) => dismissOnEscape(event, () => cancelTarget = null)}>
       <h2 class="text-xl font-bold text-text">{copy.cancelTitle}</h2>
-      <p class="mt-2 text-sm leading-6 text-text-secondary">{copy.cancelBody}{matchFor(cancelTarget.id) ? copy.cancelMatch : ''}</p>
-      <div class="mt-6 flex gap-3"><button class="uneem-secondary-action flex-1" disabled={working} on:click={() => cancelTarget=null}>{copy.keep}</button><button class="flex min-h-[50px] flex-1 items-center justify-center rounded-[18px] bg-danger px-4 font-bold text-white disabled:opacity-60" disabled={working} on:click={confirmCancel}>{working ? copy.cancelling : copy.cancel}</button></div>
+      <div class="mt-5 flex gap-3"><button class="uneem-secondary-action flex-1" disabled={working} on:click={() => cancelTarget=null}>{copy.keep}</button><button class="flex min-h-[48px] flex-1 items-center justify-center rounded-[14px] bg-danger px-4 font-bold text-white disabled:opacity-60" disabled={working} on:click={confirmCancel}>{working ? copy.cancelling : copy.cancel}</button></div>
     </div>
   </div>
 {/if}

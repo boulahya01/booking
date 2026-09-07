@@ -12,23 +12,23 @@
   export let className = ''
 
   const baseClass = [
-    'inline-flex items-center justify-center gap-2 rounded-[18px] font-semibold',
-    'transition-[background-color,color,border-color,transform] duration-150 active:scale-[0.995]',
-    'disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100',
+    'inline-flex items-center justify-center gap-2 rounded-[14px] font-semibold',
+    'transition-[background-color,color,border-color,transform] duration-150 active:translate-y-px',
+    'disabled:cursor-not-allowed disabled:opacity-45 disabled:active:translate-y-0',
     'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background'
   ].join(' ')
 
   const variants = {
-    primary: 'bg-primary text-text-inverse hover:bg-primary-hover',
-    secondary: 'border border-border bg-surface text-text hover:bg-surface-level-1',
+    primary: 'bg-[var(--primary-action)] text-white hover:bg-[var(--primary-action-hover)]',
+    secondary: 'border border-border bg-transparent text-text hover:bg-surface-level-1',
     danger: 'bg-danger text-white hover:bg-danger/90',
     ghost: 'bg-transparent text-text-secondary hover:bg-surface-level-1 hover:text-text'
   }
 
   const sizes = {
-    sm: 'min-h-[42px] px-3.5 text-sm',
-    md: 'min-h-[48px] px-4 text-sm',
-    lg: 'min-h-[56px] px-5 text-base'
+    sm: 'min-h-[40px] px-3.5 text-sm',
+    md: 'min-h-[46px] px-4 text-sm',
+    lg: 'min-h-[50px] px-5 text-[15px]'
   }
 
   $: buttonClass = cn(baseClass, variants[variant], sizes[size], 'touch-target-min', className)
