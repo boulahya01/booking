@@ -14,21 +14,18 @@
 
 <svelte:head><title>Admin · UNEEM</title></svelte:head>
 
-<main class="uneem-page-narrow">
-  <header class="mb-6">
-    <p class="uneem-kicker">UNEEM</p>
+<main class="uneem-page-narrow max-w-2xl">
+  <header class="mb-5">
     <h1 class="uneem-title">{$language === 'ar' ? 'الإدارة' : 'Admin'}</h1>
   </header>
 
-  <section class="uneem-panel overflow-hidden" aria-label={$language === 'ar' ? 'أقسام الإدارة' : 'Admin sections'}>
+  <nav class="border-y border-border-light" aria-label={$language === 'ar' ? 'أقسام الإدارة' : 'Admin sections'}>
     {#each sections as item}
-      <a href={item.href} class="uneem-list-row min-h-[68px] px-4 sm:px-5">
-        <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-surface-level-1 text-text-secondary">
-          <Icon name={item.icon} size={18} />
-        </span>
+      <a href={item.href} class="flex min-h-[62px] items-center gap-3 border-b border-border-light px-1 text-start transition-colors last:border-0 hover:bg-surface-level-1/70">
+        <Icon name={item.icon} size={19} className="shrink-0 text-text-muted" />
         <span class="min-w-0 flex-1 text-[15px] font-semibold text-text">{$language === 'ar' ? item.ar : item.en}</span>
-        <Icon name={$language === 'ar' ? 'chevron-left' : 'chevron-right'} size={17} className="shrink-0 text-text-muted" />
+        <Icon name={$language === 'ar' ? 'chevron-left' : 'chevron-right'} size={16} className="shrink-0 text-text-muted" />
       </a>
     {/each}
-  </section>
+  </nav>
 </main>
