@@ -2,6 +2,7 @@
   import { onMount, tick } from 'svelte'
   import { language } from '$lib/stores/ui'
   import Icon from '$lib/components/Icon.svelte'
+  import SegmentedControl from '$lib/components/SegmentedControl.svelte'
   import {
     adminReplySupportThread,
     adminSetSupportStatus,
@@ -45,6 +46,10 @@
     placeholder: 'Write a reply…', send: 'Send', generic: 'Couldn’t complete that action.',
     context: 'Context', target: 'Target', reason: 'Reason'
   }
+  $: filterOptions = [
+    { value: 'active', label: copy.active },
+    { value: 'resolved', label: copy.resolved }
+  ]
 
   onMount(() => {
     void loadThreads()
@@ -196,9 +201,13 @@
       <h1 class="uneem-title">{copy.title}</h1>
     </header>
 
-    <div class="mb-4 flex gap-2">
-      <button on:click={() => filter = 'active'} class="uneem-chip" class:is-active={filter === 'active'}>{copy.active}</button>
-      <button on:click={() => filter = 'resolved'} class="uneem-chip" class:is-active={filter === 'resolved'}>{copy.resolved}</button>
+    <div class="mb-4 max-w-sm">
+      <SegmentedControl
+        options={filterOptions}
+        value={filter}
+        ariaLabel={copy.title}
+        onChange={(value) => (filter = value as InboxFilter)}
+      />
     </div>
 
     {#if error}<div class="mb-4 rounded-xl bg-danger-light px-4 py-3 text-sm font-medium text-danger" role="alert">{error}</div>{/if}

@@ -3,6 +3,7 @@
   import { supabase } from '$lib/supabaseClient'
   import PitchCard from '$lib/components/PitchCard.svelte'
   import NextBookingCard from '$lib/components/NextBookingCard.svelte'
+  import SegmentedControl from '$lib/components/SegmentedControl.svelte'
   import { _, locale } from 'svelte-i18n'
   import { USE_MOCK, mockPitches } from '$lib/mock'
   import { authState } from '$lib/stores/auth'
@@ -17,9 +18,13 @@
   $: filteredPitches = selectedSport === 'all' ? pitches : pitches.filter((pitch) => String(pitch.sport_type || '').trim().toLowerCase() === selectedSport)
   $: firstName = $authState.user?.full_name?.trim().split(/\s+/)[0] || ''
   $: isArabic = ($locale || 'en').startsWith('ar')
+  $: sportOptions = [
+    { value: 'all', label: isArabic ? 'الكل' : 'All' },
+    ...sports.map((sport) => ({ value: sport, label: sportLabel(sport) }))
+  ]
 
   function sportLabel(value: string) {
-    if (!isArabic) return value
+    if (!isArabic) return value.charAt(0).toUpperCase() + value.slice(1)
     if (value === 'football') return 'كرة القدم'
     if (value === 'basketball') return 'كرة السلة'
     if (value === 'volleyball') return 'الكرة الطائرة'
@@ -73,13 +78,14 @@
     </div>
 
     {#if sports.length > 1}
-      <div class="-mx-4 mb-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0" aria-label={isArabic ? 'تصفية حسب الرياضة' : 'Filter by sport'}>
-        <div class="flex min-w-max gap-2">
-          <button type="button" on:click={() => (selectedSport = 'all')} class="uneem-chip" class:is-active={selectedSport === 'all'} aria-pressed={selectedSport === 'all'}>{isArabic ? 'الكل' : 'All'}</button>
-          {#each sports as sport}
-            <button type="button" on:click={() => (selectedSport = sport)} class="uneem-chip capitalize" class:is-active={selectedSport === sport} aria-pressed={selectedSport === sport}>{sportLabel(sport)}</button>
-          {/each}
-        </div>
+      <div class="-mx-4 mb-4 px-4 sm:mx-0 sm:px-0">
+        <SegmentedControl
+          options={sportOptions}
+          value={selectedSport}
+          ariaLabel={isArabic ? 'تصفية حسب الرياضة' : 'Filter by sport'}
+          scrollable
+          onChange={(value) => (selectedSport = value)}
+        />
       </div>
     {/if}
 

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import Icon from '$lib/components/Icon.svelte'
+  import SegmentedControl from '$lib/components/SegmentedControl.svelte'
   import { language, uiState } from '$lib/stores/ui'
   import {
     listAdminBookings,
@@ -49,6 +50,13 @@
     cancel: 'Cancel booking', cancelTitle: 'Cancel this booking?', cancelHint: 'The facility is released and any linked open match closes automatically.',
     reason: 'Cancellation reason', keep: 'Keep booking', confirm: 'Confirm cancellation', saving: 'Cancelling…', student: 'Student', facility: 'Facility', time: 'Time', booked: 'Booked', previous: 'Previous', next: 'Next'
   }
+  $: lifecycleOptions = [
+    { value: '', label: copy.allStates },
+    { value: 'upcoming', label: copy.upcoming },
+    { value: 'in_progress', label: copy.progress },
+    { value: 'completed', label: copy.completed },
+    { value: 'cancelled', label: copy.cancelled }
+  ]
 
   const cancelReasons: { value: AdminBookingCancelReason; en: string; ar: string }[] = [
     { value: 'maintenance', en: 'Facility maintenance', ar: 'صيانة المرفق' },
@@ -177,14 +185,19 @@
         <span class="sr-only">{copy.search}</span>
         <input bind:value={query} class="uneem-field" placeholder={copy.search} />
       </label>
-      <select bind:value={pitchId} class="uneem-field" aria-label={copy.allFacilities}>
+      <select bind:value={pitchId} class="uneem-field lg:col-span-2" aria-label={copy.allFacilities}>
         <option value="">{copy.allFacilities}</option>
         {#each facilities as facility}<option value={facility.id}>{facility.name}</option>{/each}
       </select>
-      <select bind:value={lifecycle} class="uneem-field" aria-label={copy.allStates}>
-        <option value="">{copy.allStates}</option>
-        <option value="upcoming">{copy.upcoming}</option><option value="in_progress">{copy.progress}</option><option value="completed">{copy.completed}</option><option value="cancelled">{copy.cancelled}</option>
-      </select>
+      <div class="md:col-span-2 lg:col-span-4">
+        <SegmentedControl
+          options={lifecycleOptions}
+          value={lifecycle}
+          ariaLabel={copy.allStates}
+          scrollable
+          onChange={(value) => (lifecycle = value)}
+        />
+      </div>
       <input bind:value={dateFrom} type="date" class="uneem-field" aria-label="From date" />
       <input bind:value={dateTo} type="date" class="uneem-field" aria-label="To date" />
       <div class="flex gap-2 lg:col-span-2 lg:justify-end">

@@ -30,6 +30,7 @@
     "vite": "^8.0.10"
   },
   "dependencies": {
+    "@lucide/svelte": "1.41.0",
     "@supabase/supabase-js": "^2.103.3",
     "dompurify": "^3.2.4",
     "pg": "^8.20.0",
