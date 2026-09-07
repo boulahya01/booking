@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import Icon from '$lib/components/Icon.svelte'
+  import SegmentedControl from '$lib/components/SegmentedControl.svelte'
   import { language, uiState } from '$lib/stores/ui'
   import {
     listAdminFacilities,
@@ -31,6 +32,11 @@
 
   $: ar = $language === 'ar'
   $: visible = showInactive ? facilities : facilities.filter((f) => f.is_active)
+  $: facilityFilterOptions = [
+    { value: 'active', label: copy.active },
+    { value: 'all', label: copy.all }
+  ]
+  const durationOptions = [30, 45, 60, 90, 120].map((minutes) => ({ value: String(minutes), label: `${minutes} min` }))
   $: copy = ar ? {
     eyebrow:'عمليات UNEEM', title:'المرافق', subtitle:'تحكم في أوقات الحجز والسعة والقواعد من مكان واحد.', add:'إضافة مرفق', active:'النشطة', all:'الكل', empty:'لم يتم إعداد أي مرفق بعد.', emptyAction:'إعداد أول مرفق',
     retry:'إعادة المحاولة', edit:'تعديل', archive:'إيقاف المرفق', inactive:'غير نشط', capacity:'السعة', duration:'مدة الحجز', window:'نافذة الحجز', cutoff:'آخر وقت للإلغاء', frequency:'تكرار الحجز', days:'أيام',
@@ -118,9 +124,13 @@
     <button on:click={openCreate} class="uneem-primary-action shrink-0"><Icon name="plus" size={17}/><span class="hidden sm:inline">{copy.add}</span></button>
   </header>
 
-  <div class="mb-4 inline-flex rounded-2xl bg-surface-level-1 p-1">
-    <button on:click={() => showInactive = false} class={`min-h-10 rounded-xl px-4 text-sm font-bold ${!showInactive ? 'bg-surface text-text shadow-sm' : 'text-text-muted'}`}>{copy.active}</button>
-    <button on:click={() => showInactive = true} class={`min-h-10 rounded-xl px-4 text-sm font-bold ${showInactive ? 'bg-surface text-text shadow-sm' : 'text-text-muted'}`}>{copy.all}</button>
+  <div class="mb-4 max-w-xs">
+    <SegmentedControl
+      options={facilityFilterOptions}
+      value={showInactive ? 'all' : 'active'}
+      ariaLabel={copy.title}
+      onChange={(value) => (showInactive = value === 'all')}
+    />
   </div>
 
   {#if error && facilities.length === 0}
@@ -163,7 +173,7 @@
         <label><span class="text-sm font-bold text-text">{copy.close}</span><input bind:value={form.close_time} type="time" class="uneem-field mt-2" /></label>
         <p class="-mt-2 text-xs leading-5 text-text-muted sm:col-span-2">{copy.overnight}</p>
         <label><span class="text-sm font-bold text-text">{copy.capacity}</span><input bind:value={form.capacity} type="number" min="1" max="200" class="uneem-field mt-2" /></label>
-        <label><span class="text-sm font-bold text-text">{copy.duration}</span><select bind:value={form.slot_duration_minutes} class="uneem-field mt-2"><option value={30}>30 min</option><option value={45}>45 min</option><option value={60}>60 min</option><option value={90}>90 min</option><option value={120}>120 min</option></select></label>
+        <div><span class="text-sm font-bold text-text">{copy.duration}</span><div class="mt-2"><SegmentedControl options={durationOptions} value={String(form.slot_duration_minutes)} ariaLabel={copy.duration} scrollable onChange={(value) => (form.slot_duration_minutes = Number(value))} /></div></div>
         <label><span class="text-sm font-bold text-text">{copy.window}</span><input bind:value={form.booking_window_hours} type="number" min="1" max="24" class="uneem-field mt-2" /><span class="mt-1 block text-xs text-text-muted">{copy.windowHint}</span></label>
         <label><span class="text-sm font-bold text-text">{copy.cutoff}</span><input bind:value={form.cancellation_cutoff_minutes} type="number" min="0" max="1440" class="uneem-field mt-2" /></label>
         <label><span class="text-sm font-bold text-text">{copy.sort}</span><input bind:value={form.sort_order} type="number" class="uneem-field mt-2" /></label>
