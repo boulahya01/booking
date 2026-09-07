@@ -1,5 +1,5 @@
 <script lang="ts">
-  export type SegmentOption = {
+  type SegmentOption = {
     value: string
     label: string
     disabled?: boolean
