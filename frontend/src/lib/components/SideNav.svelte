@@ -51,7 +51,7 @@
 {/if}
 
 <nav
-  class="fixed inset-y-0 z-50 w-[18rem] max-w-[86vw] border-e border-border-light bg-surface-raised shadow-xl transition-transform duration-200 ease-out"
+  class="uneem-side-nav fixed inset-y-0 z-50 w-[18rem] max-w-[86vw] border-e border-border-light bg-surface-raised shadow-xl transition-transform duration-200 ease-out"
   class:left-0={$language !== 'ar'}
   class:right-0={$language === 'ar'}
   class:translate-x-0={isOpen}
