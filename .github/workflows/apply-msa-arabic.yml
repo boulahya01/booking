@@ -1,0 +1,157 @@
+name: Apply Modern Standard Arabic copy cleanup
+
+on:
+  push:
+    branches: [fix/msa-arabic-full-app]
+
+permissions:
+  contents: write
+
+jobs:
+  rewrite:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/msa-arabic-full-app
+      - name: Replace Darija UI copy with Modern Standard Arabic
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          root = Path('frontend/src')
+          files = [p for p in root.rglob('*') if p.is_file() and p.suffix in {'.svelte', '.ts', '.json'}]
+
+          replacements = {
+            'ما كاين حتى مرفق دابا': 'لا توجد مرافق حالياً',
+            'ما كاين حتى مرفق بهاد الرياضة': 'لا توجد مرافق لهذه الرياضة',
+            'شوف الكل': 'عرض الكل',
+            'ما كاين حتى جديد': 'لا توجد تحديثات جديدة',
+            'التحديثات الجديدة غادي تبان هنا.': 'ستظهر التحديثات الجديدة هنا.',
+            'ما كاين حتى ماتش مفتوح دابا.': 'لا توجد مباريات مفتوحة حالياً.',
+            'دبّر الماتش': 'إدارة المباراة',
+            'بلايص مفتوحة': 'أماكن متاحة',
+            'بلايص': 'أماكن',
+            'عامر': 'ممتلئ',
+            "'خرج'": "'مغادرة'",
+            "'شوف'": "'عرض'",
+            'عاود المحاولة': 'إعادة المحاولة',
+            'خرجتي من الماتش': 'غادرت المباراة',
+            'بدا الماتش': 'بدأت المباراة',
+            'مغلق على لاعبين جدد': 'مغلق أمام لاعبين جدد',
+            'مستعملة': 'مستخدمة',
+            'صحابك معاك': 'الأصدقاء معك',
+            'صحاب محجوزين': 'أماكن محجوزة للأصدقاء',
+            'سد على لاعبين جدد': 'إغلاق أمام لاعبين جدد',
+            'حل للاعبين': 'إعادة الفتح للاعبين',
+            'كاينين لاعبين منضمين، الماتش غيبقى مفتوح.': 'انضم لاعبون بالفعل، لذلك ستبقى المباراة مفتوحة.',
+            'هاد الماتش ما بقاش متاح.': 'هذه المباراة لم تعد متاحة.',
+            'تسد الماتش على لاعبين جدد. الحجز ديالك باقي.': 'أُغلقت المباراة أمام لاعبين جدد، وسيبقى حجزك قائماً.',
+            'الماتش مفتوح للاعبين.': 'المباراة مفتوحة للاعبين.',
+            'الماتش مفتوح': 'المباراة مفتوحة',
+            'كاينين لاعبين منضمين لهاد الماتش.': 'انضم لاعبون بالفعل إلى هذه المباراة.',
+            'حالة الماتش غير صالحة.': 'حالة المباراة غير صالحة.',
+            'الحجوزات الجاية': 'الحجوزات القادمة',
+            'ما عندك حتى حجز جاي.': 'لا توجد لديك حجوزات قادمة.',
+            'تلغي الحجز؟': 'هل تريد إلغاء الحجز؟',
+            "'خليه'": "'الاحتفاظ بالحجز'",
+            'الحجز الجاي': 'الحجز القادم',
+            'قريب بزاف': 'يبدأ قريباً',
+            'تقدر تحجز مرة أخرى من': 'يمكنك الحجز مرة أخرى ابتداءً من',
+            'كيبدا بعد': 'يبدأ بعد',
+            'الوقت غادي يرجع متاح لطالب آخر.': 'سيصبح هذا الوقت متاحاً لطالب آخر.',
+            'ما كاين حتى وقت متاح فـ24 ساعة الجاية.': 'لا توجد أوقات متاحة خلال الساعات الأربع والعشرين القادمة.',
+            '(اليوم الموالي)': '(اليوم التالي)',
+            "'غدا'": "'غداً'",
+            'كيف نقدر نعاونك؟': 'كيف يمكننا مساعدتك؟',
+            'اكتب المشكل ديالك…': 'صف المشكلة التي تواجهها…',
+            'ما ترسلش كلمة المرور أو معلومات الدفع.': 'لا ترسل كلمة المرور أو معلومات الدفع.',
+            'كتب اسمك باش نعرفو نهضرو معاك.': 'أدخل اسمك للمتابعة.',
+            'كتب المشكل ديالك.': 'صف المشكلة التي تواجهها.',
+            'ما كاين حتى محادثة': 'لا توجد محادثات',
+            'خاصها رد': 'بحاجة إلى رد',
+            'ما كاين حتى طلب': 'لا توجد طلبات',
+            'المشكل السابق': 'المشكلة السابقة',
+            'استعملها فقط للتحقق.': 'استخدمها فقط للتحقق.',
+            'ما كاين حتى مستخدم': 'لا يوجد مستخدمون',
+            'إزعاج أو سبام': 'رسائل مزعجة أو إساءة استخدام',
+            'ما كاين حتى إعلان': 'لا توجد إعلانات',
+            'حسابك غير جاهز للمباريات بعد.': 'حسابك غير مؤهل للمباريات بعد.',
+            'مرحبا ': 'مرحباً ',
+            'جاري الإرسال…': 'جارٍ الإرسال…',
+            'جاري الإلغاء…': 'جارٍ الإلغاء…',
+            'جاري الفتح…': 'جارٍ الفتح…',
+            'جاري الحفظ…': 'جارٍ الحفظ…',
+            'يجب أن تكون كلمة المرور 8 أحرف على الأقل مع رقم واحد وحرف خاص واحد': 'يجب أن تتكون كلمة المرور من 8 أحرف على الأقل وأن تتضمن رقماً أو رمزاً واحداً على الأقل',
+            'الرجاء إدخال بريد إلكتروني صحيح': 'يرجى إدخال بريد إلكتروني صالح',
+            'الرجاء إدخال بريد إلكتروني صالح': 'يرجى إدخال بريد إلكتروني صالح',
+            'الرجاء إدخال اسم كامل صحيح': 'يرجى إدخال اسم كامل صحيح',
+            'يجب أن يكون بريد إلكتروني صحيح (مثال: you@usmba.ac.ma)': 'يجب أن يكون البريد الإلكتروني صالحاً (مثال: you@usmba.ac.ma)',
+          }
+
+          counts = {}
+          for path in files:
+            text = path.read_text(encoding='utf-8')
+            original = text
+            for old, new in replacements.items():
+              n = text.count(old)
+              if n:
+                text = text.replace(old, new)
+                counts[old] = counts.get(old, 0) + n
+            if path.as_posix() in {
+              'frontend/src/routes/(app)/pitch/[id]/+page.svelte',
+              'frontend/src/lib/components/OpenMatchSheet.svelte'
+            }:
+              text = text.replace("'رجع'", "'رجوع'")
+            if path.as_posix() == 'frontend/src/lib/components/OpenMatchSheet.svelte':
+              text = text.replace("title:'افتح الحجز للاعبين'", "title:'فتح الحجز للاعبين'")
+              text = text.replace("opened:'المباراة مفتوحة'", "opened:'تم فتح المباراة للاعبين'")
+            if path.as_posix() == 'frontend/src/routes/(app)/matches/[id]/+page.svelte':
+              text = text.replace("open:'مفتوح'", "open:'مفتوحة'")
+              text = text.replace("closed:'مغلق أمام لاعبين جدد'", "closed:'مغلقة أمام لاعبين جدد'")
+              text = text.replace("players:'اللاعبين'", "players:'اللاعبون'")
+              text = text.replace("join:'انضم'", "join:'الانضمام إلى المباراة'")
+            if path.as_posix() == 'frontend/src/routes/(app)/bookings/+page.svelte':
+              text = text.replace("recent:'السابق'", "recent:'السجل'")
+              text = text.replace("open:'افتح للاعبين'", "open:'فتح للاعبين'")
+            if path.as_posix() == 'frontend/src/routes/(app)/admin/support/+page.svelte':
+              text = text.replace("back: 'الرجوع للمحادثات'", "back: 'العودة إلى المحادثات'")
+            if path.as_posix() == 'frontend/src/routes/(app)/admin/users/+page.svelte':
+              text = text.replace("active:'مسموح'", "active:'نشط'")
+              text = text.replace("restore:'إرجاع الوصول'", "restore:'استعادة الوصول'")
+              text = text.replace("restoreTitle:'إرجاع الوصول الرياضي؟'", "restoreTitle:'استعادة الوصول الرياضي؟'")
+              text = text.replace("confirmRestore:'إرجاع الوصول'", "confirmRestore:'استعادة الوصول'")
+            if text != original:
+              path.write_text(text, encoding='utf-8')
+
+          print('Replacements applied:')
+          for old, count in sorted(counts.items(), key=lambda item: item[0]):
+            print(f'{count:>3}  {old}')
+
+          # Fail the rewrite if known Darija UI markers remain anywhere in frontend source.
+          forbidden = [
+            'ما كاين', 'دابا', 'بهاد', 'هاد الماتش', 'ديالك', 'غادي', 'غيبقى',
+            'ماتش', 'بلايص', 'صحابك', 'صحاب محجوزين', 'دبّر', 'عاود المحاولة',
+            'خرجتي', 'قريب بزاف', 'الجاية', 'حجز جاي', 'خاصها رد', 'نقدر نعاونك',
+            'ترسلش', 'باش نعرفو', 'نهضرو معاك', 'المشكل ديالك', 'كيبدا بعد'
+          ]
+          remaining = []
+          for path in files:
+            text = path.read_text(encoding='utf-8')
+            for marker in forbidden:
+              if marker in text:
+                remaining.append((path.as_posix(), marker))
+          if remaining:
+            print('Remaining dialect markers:')
+            for path, marker in remaining:
+              print(path, '=>', marker)
+            raise SystemExit(1)
+          PY
+
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add frontend/src
+          git commit -m "Use Modern Standard Arabic across the app" || exit 0
+          git push
