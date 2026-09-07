@@ -113,39 +113,39 @@
 
 <svelte:head><title>{copy.title} · UNEEM</title></svelte:head>
 
-<AuthShell>
+<AuthShell maxWidth="max-w-[400px]">
   <section class="w-full">
-    <div class="mb-9 text-center">
-      <h1 class="text-[32px] font-semibold tracking-[-0.035em] text-text">{copy.title}</h1>
-      <p class="mt-2 text-[15px] text-text-secondary">{copy.subtitle}</p>
+    <div class="mb-7 text-center">
+      <h1 class="text-[29px] font-semibold tracking-[-0.035em] text-text">{copy.title}</h1>
+      <p class="mt-1.5 text-[14px] text-text-secondary">{copy.subtitle}</p>
     </div>
 
     {#if submitError}
-      <div class="mb-5 rounded-[18px] bg-danger-light p-4 text-danger" role="alert">
-        <div class="flex items-start gap-3"><Icon name="alert-circle" size={19} className="mt-0.5 shrink-0" /><p class="text-sm font-medium leading-6">{submitError}</p></div>
+      <div class="mb-4 rounded-[16px] bg-danger-light p-3.5 text-danger" role="alert">
+        <div class="flex items-start gap-3"><Icon name="alert-circle" size={18} className="mt-0.5 shrink-0" /><p class="text-sm font-medium leading-6">{submitError}</p></div>
         {#if authFailureKind === 'email_unconfirmed'}
           <a href={verifyHref} class="mt-3 inline-flex min-h-10 items-center font-semibold text-primary hover:text-primary-hover">{copy.resendConfirmation}</a>
         {/if}
       </div>
     {/if}
 
-    <form on:submit|preventDefault={handleLogin} class="space-y-4">
+    <form on:submit|preventDefault={handleLogin} class="space-y-3.5">
       <TextField ariaLabel={copy.email} type="email" placeholder={copy.emailPlaceholder} icon="mail" autocomplete="email" bind:value={email} validation={emailState} hint={emailState === 'invalid' ? copy.invalidEmail : ''} disabled={loading} />
       <TextField ariaLabel={copy.password} type="password" placeholder={copy.passwordPlaceholder} icon="lock" autocomplete="current-password" bind:value={password} error={passwordError} disabled={loading} />
 
-      <div class="flex justify-end pt-0.5"><a href={forgotHref} class="text-sm font-medium text-primary transition-colors hover:text-primary-hover">{copy.forgot}</a></div>
+      <div class="flex justify-end"><a href={forgotHref} class="text-[13px] font-medium text-primary transition-colors hover:text-primary-hover">{copy.forgot}</a></div>
 
-      <Button type="submit" variant="primary" size="lg" {loading} disabled={loading} className="mt-2 w-full">{copy.signIn}</Button>
+      <Button type="submit" variant="primary" size="lg" {loading} disabled={loading} className="mt-1 w-full">{copy.signIn}</Button>
     </form>
 
-    <p class="mt-7 text-center text-sm text-text-secondary">
+    <p class="mt-6 text-center text-[13px] text-text-secondary">
       {copy.newTo}<a href={registerHref} class="ms-1 font-semibold text-primary transition-colors hover:text-primary-hover">{copy.create}</a>
     </p>
   </section>
 
   <div slot="footer" class="text-center">
-    <a href="/help" class="inline-flex min-h-11 items-center justify-center gap-2 px-3 text-sm text-text-muted transition-colors hover:text-text">
-      <Icon name="info" size={17} /><span>{copy.help}</span>
+    <a href="/help" class="inline-flex min-h-10 items-center justify-center gap-2 px-3 text-[13px] text-text-muted transition-colors hover:text-text">
+      <Icon name="info" size={16} /><span>{copy.help}</span>
     </a>
   </div>
 </AuthShell>

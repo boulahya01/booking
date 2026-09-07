@@ -40,8 +40,8 @@
   }
 </script>
 
-<header class="sticky top-0 z-30 border-b border-border-light bg-surface/94 backdrop-blur-xl">
-  <div class="mx-auto flex h-[60px] w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
+<header class="uneem-topbar sticky top-0 z-30 border-b border-border-light backdrop-blur-xl">
+  <div class="uneem-topbar-inner mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
     <div class="flex min-w-0 items-center gap-2.5">
       <button
         on:click={onMenuToggle}

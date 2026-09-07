@@ -17,8 +17,8 @@
   }
 </script>
 
-<nav class="fixed inset-x-0 bottom-0 z-40 border-t border-border-light bg-bg/96 backdrop-blur-xl md:hidden" aria-label="Mobile navigation">
-  <div class="mx-auto flex min-h-[64px] max-w-lg items-stretch px-2 pb-[env(safe-area-inset-bottom)]">
+<nav class="uneem-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-border-light backdrop-blur-xl md:hidden" aria-label="Mobile navigation">
+  <div class="uneem-bottom-nav-inner mx-auto flex max-w-lg items-stretch px-2">
     {#each items as item}
       <a
         href={item.href}
