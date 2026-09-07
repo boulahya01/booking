@@ -26,8 +26,9 @@
   let loading = true
   let error = ''
   let busy: 'join' | 'leave' | 'reserved' | 'visibility' | null = null
+  let matchId = ''
 
-  $: matchId = $page.params.id
+  $: matchId = $page.params.id || ''
   $: ar = $language === 'ar'
   $: isOrganizer = Boolean(openMatch?.organized_by_me || myMatch?.member_role === 'organizer')
   $: joinedByMe = Boolean(openMatch?.joined_by_me || myMatch?.member_role === 'player')
@@ -43,7 +44,6 @@
   $: timezone = openMatch?.timezone || myMatch?.timezone || 'Africa/Casablanca'
   $: pitchName = openMatch?.pitch_name || myMatch?.pitch_name || ''
   $: location = openMatch?.location || myMatch?.location || ''
-  $: organizerName = openMatch?.organizer_name || myMatch?.organizer_name || ''
   $: started = Boolean(startsAt && new Date(startsAt).getTime() <= Date.now())
 
   $: copy = ar ? {
@@ -52,11 +52,17 @@
     back:'Matches', open:'Open', closed:'Closed to new players', started:'Match started', openSpots:'Open spots', used:'Used', friends:'Friends with you', players:'Players', organizer:'Organizer', reserved:'friends reserved', join:'Join match', leave:'Leave match', close:'Close to new players', reopen:'Open to players', cannotClose:'Players already joined, so this match stays open.', retry:'Retry', notFound:'This match is no longer available.', closedToast:'Match closed to new players. Your booking stays active.', openedToast:'Match is open to players.'
   }
 
-  onMount(load)
+  onMount(() => { void load() })
 
-  async function load() {
-    loading = true
+  async function load(silent = false) {
+    if (!silent) loading = true
     error = ''
+    if (!matchId) {
+      error = copy.notFound
+      loading = false
+      return
+    }
+
     try {
       const [openRows, mineRows] = await Promise.all([listOpenMatches(), listMyMatches()])
       openMatch = openRows.find((item) => item.match_id === matchId) || null
@@ -72,7 +78,7 @@
     } catch (e) {
       error = matchErrorCopy(e instanceof MatchApiError ? e.code : 'unknown', $language)
     } finally {
-      loading = false
+      if (!silent) loading = false
     }
   }
 
@@ -82,7 +88,7 @@
     try {
       await joinOpenMatch(matchId)
       uiState.addToast(ar ? 'تم الانضمام' : "You're in!", 'success')
-      await load()
+      await load(true)
     } catch (e) {
       uiState.addToast(matchErrorCopy(e instanceof MatchApiError ? e.code : 'unknown', $language), 'error')
     } finally { busy = null }
@@ -94,7 +100,7 @@
     try {
       await leaveOpenMatch(matchId)
       uiState.addToast(ar ? 'خرجتي من الماتش' : 'You left the match.', 'success')
-      await load()
+      await load(true)
     } catch (e) {
       uiState.addToast(matchErrorCopy(e instanceof MatchApiError ? e.code : 'unknown', $language), 'error')
     } finally { busy = null }
@@ -107,7 +113,7 @@
     busy = 'reserved'
     try {
       await updateReservedSpots(matchId, safe)
-      await load()
+      await load(true)
     } catch (e) {
       uiState.addToast(matchErrorCopy(e instanceof MatchApiError ? e.code : 'unknown', $language), 'error')
     } finally { busy = null }
@@ -123,7 +129,7 @@
         await goto('/bookings')
         return
       }
-      await load()
+      await load(true)
     } catch (e) {
       uiState.addToast(matchErrorCopy(e instanceof MatchApiError ? e.code : 'unknown', $language), 'error')
     } finally { busy = null }
@@ -152,7 +158,7 @@
   {:else if error}
     <section class="uneem-empty py-10">
       <p class="font-bold text-text">{error}</p>
-      <button on:click={load} class="mt-3 min-h-10 text-sm font-bold text-primary">{copy.retry}</button>
+      <button on:click={() => load()} class="mt-3 min-h-10 text-sm font-bold text-primary">{copy.retry}</button>
     </section>
   {:else}
     <header class="mb-5">
