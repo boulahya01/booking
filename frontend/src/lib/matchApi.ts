@@ -7,6 +7,7 @@ export type MatchFailureCode =
   | 'booking_not_owned'
   | 'booking_not_matchable'
   | 'match_not_found'
+  | 'match_not_visible'
   | 'match_not_open'
   | 'match_not_active'
   | 'match_started'
@@ -17,6 +18,7 @@ export type MatchFailureCode =
   | 'organizer_required'
   | 'organizer_already_in_match'
   | 'match_has_public_players'
+  | 'invalid_match_visibility'
   | 'invalid_reserved_spots'
   | 'reserved_spots_exceed_capacity'
   | 'network'
@@ -29,6 +31,15 @@ export class MatchApiError extends Error {
     this.name = 'MatchApiError'
     this.code = code
   }
+}
+
+export type MatchRecord = {
+  id: string
+  booking_id: string
+  organizer_id: string
+  visibility: 'private' | 'open'
+  reserved_spots: number
+  status: 'active' | 'cancelled' | 'completed'
 }
 
 export type OpenMatch = {
@@ -79,8 +90,8 @@ export type MatchRosterMember = {
 
 const knownCodes: MatchFailureCode[] = [
   'authentication_required','account_not_approved','booking_not_found','booking_not_owned','booking_not_matchable',
-  'match_not_found','match_not_open','match_not_active','match_started','match_full','match_capacity_too_small','already_joined','not_joined','organizer_required',
-  'organizer_already_in_match','match_has_public_players','invalid_reserved_spots','reserved_spots_exceed_capacity'
+  'match_not_found','match_not_visible','match_not_open','match_not_active','match_started','match_full','match_capacity_too_small','already_joined','not_joined','organizer_required',
+  'organizer_already_in_match','match_has_public_players','invalid_match_visibility','invalid_reserved_spots','reserved_spots_exceed_capacity'
 ]
 
 function throwMatchError(error: any): never {
@@ -99,13 +110,13 @@ export async function listOpenMatches(): Promise<OpenMatch[]> {
 export async function listMyMatches(): Promise<MyMatch[]> {
   const { data, error } = await supabase.rpc('list_my_matches')
   if (error) throwMatchError(error)
-  return Array.isArray(data) ? data : []
+  return (Array.isArray(data) ? data : []) as MyMatch[]
 }
 
 export async function getMatchRoster(matchId: string): Promise<MatchRosterMember[]> {
   const { data, error } = await supabase.rpc('get_match_roster', { p_match_id: matchId })
   if (error) throwMatchError(error)
-  return Array.isArray(data) ? data : []
+  return (Array.isArray(data) ? data : []) as MatchRosterMember[]
 }
 
 export async function joinOpenMatch(matchId: string) {
@@ -119,22 +130,31 @@ export async function leaveOpenMatch(matchId: string) {
   if (error) throwMatchError(error)
 }
 
-export async function createOpenMatch(bookingId: string, reservedSpots = 0) {
+export async function createOpenMatch(bookingId: string, reservedSpots = 0): Promise<MatchRecord> {
   const { data, error } = await supabase.rpc('create_open_match', {
     p_booking_id: bookingId,
     p_reserved_spots: reservedSpots
   })
   if (error) throwMatchError(error)
-  return Array.isArray(data) ? data[0] : data
+  return (Array.isArray(data) ? data[0] : data) as MatchRecord
 }
 
-export async function updateReservedSpots(matchId: string, reservedSpots: number) {
+export async function updateReservedSpots(matchId: string, reservedSpots: number): Promise<MatchRecord> {
   const { data, error } = await supabase.rpc('update_match_reserved_spots', {
     p_match_id: matchId,
     p_reserved_spots: reservedSpots
   })
   if (error) throwMatchError(error)
-  return Array.isArray(data) ? data[0] : data
+  return (Array.isArray(data) ? data[0] : data) as MatchRecord
+}
+
+export async function setMatchVisibility(matchId: string, visibility: 'private' | 'open'): Promise<MatchRecord> {
+  const { data, error } = await supabase.rpc('set_match_visibility', {
+    p_match_id: matchId,
+    p_visibility: visibility
+  })
+  if (error) throwMatchError(error)
+  return (Array.isArray(data) ? data[0] : data) as MatchRecord
 }
 
 export function matchErrorCopy(code: MatchFailureCode, language: string | null | undefined): string {
@@ -142,19 +162,26 @@ export function matchErrorCopy(code: MatchFailureCode, language: string | null |
   const copy: Record<MatchFailureCode, [string,string]> = {
     authentication_required: ['Sign in to continue.','سجّل الدخول للمتابعة.'],
     account_not_approved: ['Your account cannot join matches yet.','حسابك غير جاهز للمباريات بعد.'],
-    booking_not_found: ['Booking not found.','لم نجد الحجز.'], booking_not_owned: ['This booking is not yours.','هذا الحجز ليس لك.'],
+    booking_not_found: ['Booking not found.','لم نجد الحجز.'],
+    booking_not_owned: ['This booking is not yours.','هذا الحجز ليس لك.'],
     booking_not_matchable: ['This booking cannot become a match.','لا يمكن تحويل هذا الحجز إلى مباراة.'],
-    match_not_found: ['Match not found.','لم نجد المباراة.'], match_not_open: ['This match is not open.','هذه المباراة ليست مفتوحة.'],
+    match_not_found: ['Match not found.','لم نجد المباراة.'],
+    match_not_visible: ['This match is not available to you.','هذه المباراة غير متاحة لك.'],
+    match_not_open: ['This match is not open.','هذه المباراة ليست مفتوحة.'],
     match_not_active: ['This match is no longer active.','هذه المباراة لم تعد نشطة.'],
-    match_started: ['This match has already started.','بدأت هذه المباراة بالفعل.'], match_full: ['This match is full.','المباراة ممتلئة.'],
+    match_started: ['This match has already started.','بدأت هذه المباراة بالفعل.'],
+    match_full: ['This match is full.','المباراة ممتلئة.'],
     match_capacity_too_small: ['This facility does not have enough capacity for an open match.','سعة هذا الملعب غير كافية لإنشاء مباراة مفتوحة.'],
-    already_joined: ["You're already in.",'أنت منضم بالفعل.'], not_joined: ["You're not in this match.",'أنت غير منضم لهذه المباراة.'],
+    already_joined: ["You're already in.",'أنت منضم بالفعل.'],
+    not_joined: ["You're not in this match.",'أنت غير منضم لهذه المباراة.'],
     organizer_required: ['Only the organizer can do that.','هذا الإجراء للمنظم فقط.'],
     organizer_already_in_match: ["You're the organizer.",'أنت منظم المباراة.'],
-    match_has_public_players: ['Keep the match open while players are joined.','لا يمكن جعل المباراة خاصة بعد انضمام لاعبين.'],
+    match_has_public_players: ['Players already joined this match.','كاينين لاعبين منضمين لهاد الماتش.'],
+    invalid_match_visibility: ['That match visibility is not valid.','حالة الماتش غير صالحة.'],
     invalid_reserved_spots: ['Check the reserved spots.','تحقق من الأماكن المحجوزة.'],
     reserved_spots_exceed_capacity: ['Not enough spots left for that change.','لا توجد أماكن كافية لهذا التغيير.'],
-    network: ['Connection problem. Try again.','مشكلة في الاتصال. حاول مجدداً.'], unknown: ['Something went wrong. Try again.','حدث خطأ. حاول مجدداً.']
+    network: ['Connection problem. Try again.','مشكلة في الاتصال. حاول مجدداً.'],
+    unknown: ['Something went wrong. Try again.','حدث خطأ. حاول مجدداً.']
   }
   return copy[code][ar ? 1 : 0]
 }
