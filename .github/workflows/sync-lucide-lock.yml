@@ -1,0 +1,36 @@
+name: Sync Lucide lockfile
+
+on:
+  push:
+    branches:
+      - feature/lucide-icons-selectors
+
+permissions:
+  contents: write
+
+jobs:
+  sync-lock:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/lucide-icons-selectors
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Regenerate lockfile
+        working-directory: frontend
+        run: npm install --package-lock-only --ignore-scripts
+      - name: Commit lockfile
+        run: |
+          if git diff --quiet -- frontend/package-lock.json; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/package-lock.json
+          git commit -m "Sync lockfile for Lucide icons"
+          git push origin HEAD:feature/lucide-icons-selectors
