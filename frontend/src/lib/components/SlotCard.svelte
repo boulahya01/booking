@@ -29,7 +29,7 @@
   {#if state === 'mine' && slot.booking_id && !cancellationBlocked}
     <button on:click={() => onCancel(slot)} class="min-h-10 rounded-[11px] px-3 text-sm font-bold text-danger hover:bg-danger-light">{ar ? 'إلغاء' : 'Cancel'}</button>
   {:else if state === 'mine' && cancellationBlocked}
-    <span class="max-w-[108px] text-end text-xs font-bold leading-5 text-warning">{slot.cancellation_block_label || (ar ? 'قريب بزاف' : 'Starts soon')}</span>
+    <span class="max-w-[108px] text-end text-xs font-bold leading-5 text-warning">{slot.cancellation_block_label || (ar ? 'يبدأ قريباً' : 'Starts soon')}</span>
   {:else if state === 'available' && !blocked}
     <button on:click={() => onBook(slot)} class="min-h-10 min-w-[72px] rounded-[11px] bg-[var(--primary-action)] px-4 text-sm font-extrabold text-white hover:bg-[var(--primary-action-hover)]">{$_('pitch.book')}</button>
   {:else if state === 'available' && blocked}

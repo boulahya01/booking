@@ -21,9 +21,9 @@
 
   $: ar = $language === 'ar'
   $: copy = ar ? {
-    title:'التحقق من الطلبة', subtitle:'راجع البطاقة ورقم الطالب.', refresh:'تحديث', clear:'ما كاين حتى طلب', clearHint:'جميع الطلبات تمت مراجعتها.',
-    studentId:'رقم الطالب', academic:'بريد جامعي', personal:'بريد شخصي', attempt:'محاولة', previous:'المشكل السابق', review:'مراجعة', private:'وثيقة خاصة. استعملها فقط للتحقق.',
-    rejectLabel:'سبب الرفض', reject:'رفض مع تصحيح', approve:'موافقة', saving:'جاري الحفظ…', loadError:'تعذر تحميل الطلبات.', cardError:'تعذر فتح البطاقة.', saveError:'تعذر حفظ القرار.', conflictError:'رقم الطالب مرتبط بالفعل بهوية موثقة أخرى. تم تسجيل الطلب كتعارض.'
+    title:'التحقق من الطلبة', subtitle:'راجع البطاقة ورقم الطالب.', refresh:'تحديث', clear:'لا توجد طلبات', clearHint:'جميع الطلبات تمت مراجعتها.',
+    studentId:'رقم الطالب', academic:'بريد جامعي', personal:'بريد شخصي', attempt:'محاولة', previous:'المشكلة السابقة', review:'مراجعة', private:'وثيقة خاصة. استخدمها فقط للتحقق.',
+    rejectLabel:'سبب الرفض', reject:'رفض مع تصحيح', approve:'موافقة', saving:'جارٍ الحفظ…', loadError:'تعذر تحميل الطلبات.', cardError:'تعذر فتح البطاقة.', saveError:'تعذر حفظ القرار.', conflictError:'رقم الطالب مرتبط بالفعل بهوية موثقة أخرى. تم تسجيل الطلب كتعارض.'
   } : {
     title:'Student verification', subtitle:'Review the card and Student ID.', refresh:'Refresh', clear:'Queue is clear', clearHint:'No submissions are waiting.',
     studentId:'Student ID', academic:'Academic email', personal:'Personal email', attempt:'Attempt', previous:'Previous issue', review:'Review', private:'Private evidence. Use it only for verification.',

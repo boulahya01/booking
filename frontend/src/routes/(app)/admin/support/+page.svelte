@@ -32,10 +32,10 @@
   $: ar = $language === 'ar'
   $: visibleThreads = threads.filter((item) => filter === 'resolved' ? item.status === 'resolved' : item.status !== 'resolved')
   $: copy = ar ? {
-    title: 'الدعم', active: 'النشطة', resolved: 'المحلولة', empty: 'ما كاين حتى محادثة',
+    title: 'الدعم', active: 'النشطة', resolved: 'المحلولة', empty: 'لا توجد محادثات',
     guest: 'زائر', user: 'مستخدم', report: 'بلاغ', support: 'دعم', appeal: 'مراجعة الحساب',
-    needsReply: 'خاصها رد', waiting: 'في انتظار المستخدم', resolvedStatus: 'تم الحل',
-    back: 'الرجوع للمحادثات', resolve: 'حل', reopen: 'إعادة الفتح',
+    needsReply: 'بحاجة إلى رد', waiting: 'في انتظار المستخدم', resolvedStatus: 'تم الحل',
+    back: 'العودة إلى المحادثات', resolve: 'حل', reopen: 'إعادة الفتح',
     placeholder: 'اكتب الرد…', send: 'إرسال', generic: 'تعذر إكمال العملية.',
     context: 'السياق', target: 'النوع', reason: 'السبب'
   } : {

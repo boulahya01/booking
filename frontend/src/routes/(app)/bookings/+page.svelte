@@ -20,8 +20,8 @@
 
   $: ar = ($locale || 'en').startsWith('ar')
   $: copy = ar ? {
-    title:'رياضتي', upcoming:'الحجوزات الجاية', book:'احجز وقت', none:'ما عندك حتى حجز جاي.', open:'افتح للاعبين', manage:'دبّر الماتش', cancel:'إلغاء الحجز', recent:'السابق', spotsOpen:'بلايص مفتوحة',
-    cancelTitle:'تلغي الحجز؟', keep:'خليه', cancelling:'جاري الإلغاء…', retry:'عاود المحاولة', cancelledToast:'تم إلغاء الحجز'
+    title:'رياضتي', upcoming:'الحجوزات القادمة', book:'احجز وقت', none:'لا توجد لديك حجوزات قادمة.', open:'فتح للاعبين', manage:'إدارة المباراة', cancel:'إلغاء الحجز', recent:'السجل', spotsOpen:'أماكن متاحة',
+    cancelTitle:'هل تريد إلغاء الحجز؟', keep:'الاحتفاظ بالحجز', cancelling:'جارٍ الإلغاء…', retry:'إعادة المحاولة', cancelledToast:'تم إلغاء الحجز'
   } : {
     title:'My Sports', upcoming:'Upcoming', book:'Book a slot', none:'No upcoming bookings.', open:'Open to players', manage:'Manage match', cancel:'Cancel booking', recent:'History', spotsOpen:'spots open',
     cancelTitle:'Cancel booking?', keep:'Keep booking', cancelling:'Cancelling…', retry:'Try again', cancelledToast:'Booking cancelled'

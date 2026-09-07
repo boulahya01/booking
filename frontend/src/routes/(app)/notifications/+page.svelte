@@ -27,8 +27,8 @@
   {#if notificationCount === 0}
     <section class="uneem-empty mt-4">
       <div class="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-surface text-text-muted"><Icon name="bell-off" size={22} /></div>
-      <p class="mt-3 font-bold text-text">{ar ? 'ما كاين حتى جديد' : 'You’re all caught up'}</p>
-      <p class="mt-1 text-sm text-text-muted">{ar ? 'التحديثات الجديدة غادي تبان هنا.' : 'New updates will appear here.'}</p>
+      <p class="mt-3 font-bold text-text">{ar ? 'لا توجد تحديثات جديدة' : 'You’re all caught up'}</p>
+      <p class="mt-1 text-sm text-text-muted">{ar ? 'ستظهر التحديثات الجديدة هنا.' : 'New updates will appear here.'}</p>
     </section>
   {/if}
 </main>

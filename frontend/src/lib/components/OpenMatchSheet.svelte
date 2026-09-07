@@ -16,7 +16,7 @@
   $: maxReservedSpots = Math.max(0, capacity - 2)
   $: openSpots = Math.max(0, capacity - 1 - reservedSpots)
   $: copy = ar ? {
-    title:'افتح الحجز للاعبين', friends:'صحابك معاك', openSpots:'بلايص مفتوحة', back:'رجع', opening:'جاري الفتح…', open:'افتح', opened:'الماتش مفتوح'
+    title:'فتح الحجز للاعبين', friends:'الأصدقاء معك', openSpots:'أماكن متاحة', back:'رجوع', opening:'جارٍ الفتح…', open:'افتح', opened:'تم فتح المباراة للاعبين'
   } : {
     title:'Open booking to players', friends:'Friends with you', openSpots:'Open spots', back:'Back', opening:'Opening…', open:'Open', opened:'Match is open'
   }
