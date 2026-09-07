@@ -14,6 +14,8 @@
     { href: '/bookings', en: 'My Sports', ar: 'رياضتي' }
   ]
 
+  $: mobileDetailPage = $page.url.pathname.startsWith('/pitch/') || /^\/matches\/[^/]+/.test($page.url.pathname)
+
   $: initials = ($authState.user?.full_name || 'U')
     .split(/\s+/)
     .filter(Boolean)
@@ -39,7 +41,7 @@
   }
 </script>
 
-<header class="uneem-topbar sticky top-0 z-30 border-b border-border-light backdrop-blur-xl">
+<header class={`uneem-topbar sticky top-0 z-30 border-b border-border-light backdrop-blur-xl ${mobileDetailPage ? 'hidden lg:block' : ''}`}>
   <div class="uneem-topbar-inner mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-3 sm:px-6">
     <div class="flex min-w-0 items-center gap-1.5">
       <button
