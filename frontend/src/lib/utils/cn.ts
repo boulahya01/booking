@@ -95,25 +95,24 @@ export function isValidStudentId(id: string): boolean {
 
 export type PasswordRequirements = {
   length: boolean
-  number: boolean
-  symbol: boolean
+  numberOrSymbol: boolean
 }
 
 /**
  * Single source of truth for the product password policy.
+ * Keep the policy simple: 8+ characters and at least one number or symbol.
  */
 export function passwordRequirements(password: string): PasswordRequirements {
   return {
     length: password.length >= 8,
-    number: /\d/.test(password),
-    symbol: /[!@#$%^&*()\-+]/.test(password)
+    numberOrSymbol: /[\d!@#$%^&*()\-+]/.test(password)
   }
 }
 
 /**
- * Validate password: min 8 chars, at least 1 number, and 1 special character.
+ * Validate password: min 8 chars and at least 1 number or symbol.
  */
 export function isValidPassword(password: string): boolean {
   const requirements = passwordRequirements(password)
-  return requirements.length && requirements.number && requirements.symbol
+  return requirements.length && requirements.numberOrSymbol
 }
