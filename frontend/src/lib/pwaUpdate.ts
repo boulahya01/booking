@@ -6,6 +6,11 @@ type PwaUpdateState = {
   error: boolean
 }
 
+type IdleWindow = Window & {
+  requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number
+  cancelIdleCallback?: (handle: number) => void
+}
+
 export const pwaUpdateState = writable<PwaUpdateState>({ available: false, applying: false, error: false })
 
 const UPDATE_CHECK_INTERVAL = 6 * 60 * 60 * 1000
@@ -14,6 +19,7 @@ let initialized = false
 let reloading = false
 let lastUpdateCheck = 0
 let idleHandle: number | null = null
+let idleHandleUsesCallback = false
 
 function markWaitingWorker() {
   if (registration?.waiting && navigator.serviceWorker.controller) {
@@ -38,25 +44,33 @@ async function checkForUpdate(force = false) {
 
 function scheduleInitialCheck() {
   if (typeof window === 'undefined') return
+  const idleWindow = window as IdleWindow
 
-  if ('requestIdleCallback' in window) {
-    idleHandle = window.requestIdleCallback(() => {
+  if (typeof idleWindow.requestIdleCallback === 'function') {
+    idleHandleUsesCallback = true
+    idleHandle = idleWindow.requestIdleCallback(() => {
       idleHandle = null
       void checkForUpdate()
     }, { timeout: 4000 })
     return
   }
 
-  idleHandle = window.setTimeout(() => {
+  idleHandleUsesCallback = false
+  idleHandle = globalThis.setTimeout(() => {
     idleHandle = null
     void checkForUpdate()
-  }, 2000)
+  }, 2000) as unknown as number
 }
 
 function cancelScheduledCheck() {
   if (idleHandle === null || typeof window === 'undefined') return
-  if ('cancelIdleCallback' in window) window.cancelIdleCallback(idleHandle)
-  else window.clearTimeout(idleHandle)
+  const idleWindow = window as IdleWindow
+
+  if (idleHandleUsesCallback && typeof idleWindow.cancelIdleCallback === 'function') {
+    idleWindow.cancelIdleCallback(idleHandle)
+  } else {
+    globalThis.clearTimeout(idleHandle)
+  }
   idleHandle = null
 }
 
