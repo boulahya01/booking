@@ -6,12 +6,12 @@
   export let className = ''
 
   const variants = {
-    elevated: 'border border-border-light bg-surface shadow-xs',
+    elevated: 'bg-surface',
     outlined: 'border border-border bg-surface',
-    filled: 'border border-transparent bg-surface-level-1'
+    filled: 'bg-surface-level-1'
   }
 
-  $: cardClass = cn('rounded-[22px] p-4', variants[variant], className)
+  $: cardClass = cn('rounded-[22px] p-5', variants[variant], className)
 </script>
 
 <div class={cardClass}><slot /></div>

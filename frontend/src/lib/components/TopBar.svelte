@@ -43,7 +43,7 @@
   }
 </script>
 
-<header class={`uneem-topbar sticky top-0 z-30 border-b border-border-light bg-background ${mobileDetailPage ? 'hidden lg:block' : ''}`}>
+<header class={`uneem-topbar sticky top-0 z-30 bg-background ${mobileDetailPage ? 'hidden lg:block' : ''}`}>
   <div class="uneem-topbar-inner mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-3 sm:px-6">
     <div class="flex min-w-0 items-center gap-1.5">
       <button
@@ -56,12 +56,12 @@
 
       <a href={$isAuthenticated ? '/home' : '/login'} class="flex min-h-10 items-center gap-2 rounded-lg px-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30">
         <img
-          src="/assets/brand/torch.png"
+          src="/assets/brand/app-icon.svg"
           alt=""
           width="28"
           height="28"
           decoding="async"
-          class="h-7 w-7 shrink-0 object-contain"
+          class="h-9 w-9 shrink-0 rounded-xl object-contain"
         />
         <span class="text-[17px] font-extrabold tracking-[0.14em] text-text">UNEEM</span>
       </a>

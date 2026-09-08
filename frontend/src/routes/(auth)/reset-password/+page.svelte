@@ -143,26 +143,26 @@
     {#if recoveryState === 'checking'}
       <div class="py-8 text-center" aria-live="polite" aria-busy="true">
         <span class="mx-auto block h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" aria-hidden="true"></span>
-        <h1 class="mt-6 text-[30px] font-semibold tracking-[-0.035em] text-text">{copy.checkingTitle}</h1>
+        <h1 class="mt-6 auth-title">{copy.checkingTitle}</h1>
         <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-text-secondary">{copy.checkingBody}</p>
       </div>
     {:else if recoveryState === 'invalid'}
       <div class="text-center" aria-live="polite">
         <div class="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-danger-light text-danger"><Icon name="alert-circle" size={21} /></div>
-        <h1 class="text-[30px] font-semibold tracking-[-0.035em] text-text">{copy.invalidTitle}</h1>
+        <h1 class="auth-title">{copy.invalidTitle}</h1>
         <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-text-secondary">{copy.invalidBody}</p>
         <Button on:click={() => goto('/forgot-password')} variant="primary" size="lg" className="mt-8 w-full">{copy.newLink}</Button>
       </div>
     {:else if complete}
       <div class="text-center" aria-live="polite">
         <div class="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-success-light text-success"><Icon name="check" size={21} /></div>
-        <h1 class="text-[30px] font-semibold tracking-[-0.035em] text-text">{copy.doneTitle}</h1>
+        <h1 class="auth-title">{copy.doneTitle}</h1>
         <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-text-secondary">{copy.doneBody}</p>
         <Button on:click={() => goto('/login')} variant="primary" size="lg" className="mt-8 w-full">{copy.signIn}</Button>
       </div>
     {:else}
       <div class="mb-9 text-center">
-        <h1 class="text-[30px] font-semibold tracking-[-0.035em] text-text">{copy.title}</h1>
+        <h1 class="auth-title">{copy.title}</h1>
         <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-text-secondary">{copy.subtitle}</p>
       </div>
 
@@ -171,11 +171,11 @@
       {/if}
 
       <form on:submit|preventDefault={handleReset} class="space-y-4">
-        <TextField ariaLabel={copy.password} type="password" placeholder={copy.passwordPlaceholder} icon="lock" autocomplete="new-password" maxlength={128} bind:value={newPassword} validation={passwordState} hint={passwordState === 'invalid' && attempted && !newPassword.length ? copy.required : ''} disabled={loading} />
+        <TextField label={copy.password} type="password" placeholder={copy.passwordPlaceholder} autocomplete="new-password" maxlength={128} bind:value={newPassword} validation={passwordState} hint={passwordState === 'invalid' && attempted && !newPassword.length ? copy.required : ''} disabled={loading} />
 
         <PasswordRequirements password={newPassword} lengthLabel={copy.ruleLength} numberOrSymbolLabel={copy.ruleAlternative} />
 
-        <TextField ariaLabel={copy.confirm} type="password" placeholder={copy.confirmPlaceholder} icon="lock" autocomplete="new-password" maxlength={128} bind:value={confirmPassword} validation={confirmState} hint={confirmState === 'invalid' ? copy.mismatch : ''} disabled={loading} />
+        <TextField label={copy.confirm} type="password" placeholder={copy.confirmPlaceholder} autocomplete="new-password" maxlength={128} bind:value={confirmPassword} validation={confirmState} hint={confirmState === 'invalid' ? copy.mismatch : ''} disabled={loading} />
         <Button type="submit" variant="primary" size="lg" {loading} className="mt-2 w-full">{copy.update}</Button>
       </form>
     {/if}

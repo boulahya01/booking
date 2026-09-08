@@ -4,19 +4,21 @@
   import { browser } from '$app/environment'
   import { page } from '$app/stores'
   import '$lib/styles/global.css'
+  import '$lib/styles/fonts.css'
   import '$lib/styles/system.css'
   import '$lib/styles/mobile.css'
   import TopBar from '$lib/components/TopBar.svelte'
   import SideNav from '$lib/components/SideNav.svelte'
   import Toast from '$lib/components/Toast.svelte'
   import PwaRuntime from '$lib/components/PwaRuntime.svelte'
-  import { theme, toasts, uiState } from '$lib/stores/ui'
+  import { theme, toasts, uiState, interfaceReady } from '$lib/stores/ui'
   import { initializeI18n } from '$lib/i18n'
   import { supabase } from '$lib/supabaseClient'
   import { authState } from '$lib/stores/auth'
   import { getMyAccountState, getUserProfile } from '$lib/auth'
   import { getMySessionContext } from '$lib/sessionApi'
   import { clearRequestCache } from '$lib/requestCache'
+  import { observeViewport } from '$lib/viewport'
   import {
     clearPasswordRecovery,
     markPasswordRecovery,
@@ -27,6 +29,14 @@
   import { USE_MOCK } from '$lib/mock'
 
   let sideNavOpen = false
+  let toastRegion: HTMLDivElement
+  $: if (browser && toastRegion && typeof toastRegion.showPopover === 'function') {
+    if ($toasts.length) {
+      // Toast feedback must also be visible above a native dialog.
+      toastRegion.hidePopover()
+      toastRegion.showPopover()
+    } else toastRegion.hidePopover()
+  }
   let routeGuardProcessing = false
   let unsubAuth: (() => void) | null = null
   let unsubEarlyRecovery: (() => void) | null = null
@@ -131,6 +141,8 @@
   }
 
   onMount(() => {
+    interfaceReady.set(true)
+    const stopViewport = observeViewport()
     const storedTheme = localStorage.getItem('theme') as 'light' | 'dark' | 'auto' | null
     const storedLang = localStorage.getItem('language') as 'en' | 'ar' | null
 
@@ -291,6 +303,7 @@
     mediaQuery.addEventListener('change', handleChange)
 
     return () => {
+      stopViewport()
       mediaQuery.removeEventListener('change', handleChange)
       unsubAuth?.()
       unsubEarlyRecovery?.()
@@ -318,18 +331,19 @@
 
 <PwaRuntime />
 
-<div class="app-shell">
+<div class="app-shell" inert={!$interfaceReady}>
+  <a href="#main-content" class="skip-link">{$uiState.language === 'ar' ? 'انتقل إلى المحتوى' : 'Skip to content'}</a>
   {#if !chromeFreePage}
     <TopBar onMenuToggle={toggleSideNav} />
   {/if}
-  <main class:app-content={!chromeFreePage} class:app-content-plain={chromeFreePage}>
+  <main id="main-content" tabindex="-1" class:app-content={!chromeFreePage} class:app-content-plain={chromeFreePage}>
     <slot />
   </main>
   {#if !chromeFreePage}
     <SideNav bind:isOpen={sideNavOpen} on:close={() => sideNavOpen = false} />
   {/if}
 
-  <div class="fixed bottom-20 md:bottom-4 right-4 space-y-2 z-50 pointer-events-none">
+  <div bind:this={toastRegion} popover="manual" role="region" class="ui-toast-region" aria-label={$uiState.language === 'ar' ? 'تحديثات' : 'Updates'}>
     {#each $toasts as toast (toast.id)}
       <div class="pointer-events-auto">
         <Toast

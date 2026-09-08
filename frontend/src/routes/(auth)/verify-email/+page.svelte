@@ -214,7 +214,7 @@
         {/if}
       </div>
 
-      <h1 class="text-[30px] font-semibold tracking-[-0.035em] text-text">
+      <h1 class="auth-title">
         {status === 'verifying' ? copy.verifying : status === 'success' ? copy.success : status === 'error' ? copy.error : copy.title}
       </h1>
       <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-text-secondary">
@@ -222,7 +222,7 @@
       </p>
 
       {#if hintedEmail && status === 'waiting'}
-        <div class="mt-5 rounded-[18px] border border-border bg-surface px-4 py-4">
+        <div class="mt-5 rounded-[18px] bg-surface px-4 py-4">
           <p class="break-all text-sm font-semibold text-text">{hintedEmail}</p>
         </div>
       {/if}

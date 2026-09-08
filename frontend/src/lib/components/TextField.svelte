@@ -1,128 +1,64 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte'
+  import { createEventDispatcher, type Snippet } from 'svelte'
   import type { HTMLInputAttributes } from 'svelte/elements'
-  import { cn } from '$lib/utils/cn'
+  import { language, interfaceReady } from '$lib/stores/ui'
   import Icon from './Icon.svelte'
 
-  type ValidationState = 'idle' | 'valid' | 'invalid'
-
-  export let label = ''
-  export let ariaLabel = ''
-  export let placeholder = ''
-  export let type = 'text'
-  export let value: string | number = ''
-  export let error = ''
-  export let hint = ''
-  export let validHint = ''
-  export let validation: ValidationState = 'idle'
-  export let disabled = false
-  export let required = false
-  export let icon = ''
-  export let autocomplete: HTMLInputAttributes['autocomplete'] = undefined
-  export let inputmode: HTMLInputAttributes['inputmode'] = undefined
-  export let autocapitalize: HTMLInputAttributes['autocapitalize'] = undefined
-  export let spellcheck: HTMLInputAttributes['spellcheck'] = undefined
-  export let maxlength: number | undefined = undefined
-  export let className = ''
-
+  type Props = {
+    label?: string; ariaLabel?: string; placeholder?: string; type?: string;
+    value?: string | number; error?: string; hint?: string; validHint?: string;
+    validation?: 'idle' | 'valid' | 'invalid'; disabled?: boolean; required?: boolean;
+    icon?: string; className?: string; id?: string; labelAction?: Snippet;
+    autocomplete?: HTMLInputAttributes['autocomplete']; inputmode?: HTMLInputAttributes['inputmode'];
+    autocapitalize?: HTMLInputAttributes['autocapitalize']; spellcheck?: HTMLInputAttributes['spellcheck'];
+    maxlength?: number; name?: string; enterkeyhint?: HTMLInputAttributes['enterkeyhint'];
+  }
+  const fieldId = $props.id()
+  let { label = '', ariaLabel = '', placeholder = '', type = 'text', value = $bindable<string | number>(''),
+    error = '', hint = '', validHint = '', validation = 'idle', disabled = false, required = false,
+    icon = '', className = '', id = fieldId, labelAction, autocomplete, inputmode, autocapitalize, spellcheck, maxlength, name, enterkeyhint }: Props = $props()
   const dispatch = createEventDispatcher()
-
-  let focused = false
-  let showPassword = false
-
-  $: isPassword = type === 'password'
-  $: inputType = isPassword && showPassword ? 'text' : type
-  $: state = error ? 'invalid' : validation
-  $: message = error || (state === 'valid' ? (validHint || hint) : hint)
-  $: messageTone = state === 'valid' ? 'text-success' : state === 'invalid' ? 'text-danger' : 'text-text-muted'
-  $: showStateIcon = state !== 'idle' && !isPassword
-
-  function handleFocus() {
-    focused = true
-    dispatch('focus')
-  }
-
-  function handleBlur() {
-    focused = false
-    dispatch('blur')
-  }
-
-  function handleInput(event: Event) {
-    dispatch('input', event)
-  }
-
-  function togglePasswordVisibility() {
-    showPassword = !showPassword
-  }
+  let showPassword = $state(false)
+  const isPassword = $derived(type === 'password')
+  const validationState = $derived(error ? 'invalid' : validation)
+  const message = $derived(error || (validationState === 'valid' ? (validHint || hint) : hint))
 </script>
 
-<div class="w-full">
-  {#if label}
-    <label for={label} class="mb-2 block text-sm font-medium text-text-secondary">
-      {label}
-      {#if required}<span class="text-danger"> *</span>{/if}
-    </label>
+<div class="ui-field" data-state={validationState}>
+  {#if label || labelAction}
+    <div class="ui-field-heading">
+      {#if label}<label for={id} class="ui-field-label">{label}</label>{/if}
+      {#if labelAction}{@render labelAction()}{/if}
+    </div>
   {/if}
-
-  <div class={cn('relative', className)}>
-    {#if icon}
-      <span class="pointer-events-none absolute start-4 top-1/2 -translate-y-1/2 text-text-muted">
-        <Icon name={icon} size={19} />
-      </span>
-    {/if}
-
-    <input
-      id={label || undefined}
-      aria-label={ariaLabel || label || placeholder}
-      type={inputType}
-      {placeholder}
-      bind:value
-      {disabled}
-      {required}
-      {autocomplete}
-      {inputmode}
-      {autocapitalize}
-      {spellcheck}
-      {maxlength}
-      aria-invalid={state === 'invalid' ? 'true' : undefined}
-      on:focus={handleFocus}
-      on:blur={handleBlur}
-      on:input={handleInput}
-      class={cn(
-        'min-h-[56px] w-full rounded-[18px] border bg-surface px-4 py-3.5 text-[15px] text-text outline-none',
-        'shadow-[inset_0_1px_0_rgba(255,255,255,0.025)] placeholder:text-text-muted transition-[border-color,background-color,box-shadow] duration-150',
-        icon && 'ps-12',
-        isPassword ? 'pe-12' : showStateIcon ? 'pe-11' : '',
-        state === 'invalid'
-          ? 'border-danger/75 focus:ring-2 focus:ring-danger/15'
-          : state === 'valid'
-            ? 'border-success/65 focus:ring-2 focus:ring-success/15'
-            : focused
-              ? 'border-primary/80 ring-2 ring-primary/15'
-              : 'border-border',
-        disabled && 'cursor-not-allowed bg-surface-level-1 text-text-muted opacity-70'
-      )}
-    />
-
-    {#if showStateIcon}
-      <span class={cn('pointer-events-none absolute end-3 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center', state === 'valid' ? 'text-success' : 'text-danger')} aria-hidden="true">
-        <Icon name={state === 'valid' ? 'check' : 'x'} size={16} strokeWidth={2.4} />
-      </span>
-    {/if}
-
+  <div class={`ui-field-control ${className}`}>
+    {#if icon}<span class="ui-field-icon"><Icon name={icon} size={20} /></span>{/if}
+    <input {id} {name} aria-label={ariaLabel || label || placeholder} type={isPassword && showPassword ? 'text' : type}
+      {placeholder} bind:value disabled={disabled || !$interfaceReady} {required} {autocomplete} {inputmode} {autocapitalize} {spellcheck} {maxlength} {enterkeyhint}
+      aria-invalid={validationState === 'invalid' ? 'true' : undefined} aria-describedby={message ? `${id}-message` : undefined}
+      onfocus={() => dispatch('focus')} onblur={() => dispatch('blur')} oninput={(event) => dispatch('input', event)}
+      class="uneem-field" class:has-icon={!!icon} class:has-action={isPassword} />
     {#if isPassword}
-      <button type="button" on:click={togglePasswordVisibility} class="absolute end-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-surface-level-1 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/25" aria-label={showPassword ? 'Hide password' : 'Show password'}>
-        <Icon name={showPassword ? 'eye-off' : 'eye'} size={19} />
+      <button type="button" class="ui-field-action" onmousedown={(event) => event.preventDefault()} onclick={() => showPassword = !showPassword}
+        aria-label={$language === 'ar' ? (showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور') : (showPassword ? 'Hide password' : 'Show password')} aria-pressed={showPassword}>
+        <Icon name={showPassword ? 'eye-off' : 'eye'} size={20} />
       </button>
     {/if}
   </div>
-
-  {#if message}
-    <div class={cn('mt-1.5 flex min-h-5 items-start gap-1.5 px-1 text-xs font-medium leading-5', messageTone)} aria-live="polite">
-      {#if state !== 'idle'}
-        <Icon name={state === 'valid' ? 'check' : 'x'} size={13} className="mt-[3px] shrink-0" strokeWidth={2.4} />
-      {/if}
-      <span>{message}</span>
-    </div>
-  {/if}
+  {#if message}<p id={`${id}-message`} class="ui-field-message" aria-live="polite">{message}</p>{/if}
 </div>
+
+<style>
+  .ui-field { width: 100%; min-width: 0; }
+  .ui-field-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 8px; }
+  .ui-field-label { display: block; font-size: 14px; font-weight: 550; color: var(--text-secondary); }
+  .ui-field-control { position: relative; }
+  .uneem-field { min-height: 56px; padding: 15px 16px; font-size: 16px; }
+  .has-icon { padding-inline-start: 48px; }
+  .has-action { padding-inline-end: 52px; }
+  .ui-field-icon { position: absolute; inset-inline-start: 16px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
+  .ui-field-action { position: absolute; inset-inline-end: 4px; top: 50%; display: grid; width: 44px; height: 44px; transform: translateY(-50%); place-items: center; border-radius: 14px; color: var(--text-secondary); }
+  .ui-field-message { margin: 8px 4px 0; font-size: 13px; line-height: 1.5; color: var(--text-secondary); }
+  [data-state='invalid'] .uneem-field { border-color: var(--danger); }
+  [data-state='invalid'] .ui-field-message { color: var(--danger); }
+</style>

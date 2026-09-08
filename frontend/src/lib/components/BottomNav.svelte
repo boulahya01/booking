@@ -17,7 +17,7 @@
   }
 </script>
 
-<nav class="uneem-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-border-light backdrop-blur-xl md:hidden" aria-label={$language === 'ar' ? 'التنقل الرئيسي' : 'Primary navigation'}>
+<nav class="uneem-bottom-nav fixed inset-x-0 bottom-0 z-40 lg:hidden" aria-label={$language === 'ar' ? 'التنقل الرئيسي' : 'Primary navigation'}>
   <div class="uneem-bottom-nav-inner mx-auto flex max-w-lg items-stretch px-2">
     {#each items as item}
       <a
@@ -26,8 +26,8 @@
         class:text-primary={isActive(item.href)}
         aria-current={isActive(item.href) ? 'page' : undefined}
       >
-        <Icon name={item.icon} size={21} strokeWidth={isActive(item.href) ? 2.5 : 2} />
-        <span class="max-w-full truncate text-[10px] font-semibold leading-none">{item.label[$language === 'ar' ? 1 : 0]}</span>
+        <Icon name={item.icon} size={23} strokeWidth={isActive(item.href) ? 2.5 : 1.8} />
+        <span class="max-w-full truncate text-[11px] font-semibold leading-tight">{item.label[$language === 'ar' ? 1 : 0]}</span>
       </a>
     {/each}
   </div>

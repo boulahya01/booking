@@ -3,117 +3,28 @@
   --app-safe-right: env(safe-area-inset-right, 0px);
   --app-safe-bottom: env(safe-area-inset-bottom, 0px);
   --app-safe-left: env(safe-area-inset-left, 0px);
-  --mobile-nav-height: 62px;
+  --mobile-nav-height: 64px;
 }
-
-html,
-body,
-#svelte {
-  min-height: 100%;
-  min-height: 100dvh;
-  background: var(--bg);
+html, body, #svelte { min-height: 100dvh; background: var(--bg); }
+html { scroll-padding-top: calc(68px + var(--app-safe-top)); scroll-padding-bottom: calc(var(--mobile-nav-height) + var(--app-safe-bottom) + 24px); }
+body { -webkit-text-size-adjust: 100%; }
+input, textarea, select, [contenteditable='true'] { scroll-margin-block: 24px; }
+.uneem-page, .uneem-page-narrow {
+  padding: 24px max(var(--page-gutter), var(--app-safe-right)) calc(var(--mobile-nav-height) + var(--app-safe-bottom) + 32px) max(var(--page-gutter), var(--app-safe-left));
 }
-
-html {
-  overscroll-behavior-y: none;
-  scroll-padding-top: calc(56px + var(--app-safe-top));
-  scroll-padding-bottom: calc(var(--mobile-nav-height) + var(--app-safe-bottom));
-}
-
-body {
-  min-height: 100dvh;
-  overscroll-behavior-y: none;
-  -webkit-text-size-adjust: 100%;
-}
-
-.app-content,
-.app-content-plain {
-  min-width: 0;
-}
-
-/* One gutter model for the full product. Device cutouts are added only where needed. */
-.uneem-page,
-.uneem-page-narrow {
-  padding-top: 1rem;
-  padding-inline-start: max(1rem, calc(var(--app-safe-left) + 0.75rem));
-  padding-inline-end: max(1rem, calc(var(--app-safe-right) + 0.75rem));
-  padding-bottom: calc(var(--mobile-nav-height) + max(1.25rem, var(--app-safe-bottom)) + 0.9rem);
-}
-
-/* Chrome blends into the page background instead of creating a second band. */
-.uneem-topbar {
-  padding-top: var(--app-safe-top);
-  padding-inline-start: var(--app-safe-left);
-  padding-inline-end: var(--app-safe-right);
-  background: color-mix(in srgb, var(--bg) 96%, transparent);
-}
-
-.uneem-topbar-inner {
-  height: 56px;
-}
-
-.uneem-bottom-nav {
-  padding-inline-start: var(--app-safe-left);
-  padding-inline-end: var(--app-safe-right);
-  background: color-mix(in srgb, var(--bg) 96%, transparent);
-}
-
-.uneem-bottom-nav-inner {
-  min-height: var(--mobile-nav-height);
-  padding-bottom: var(--app-safe-bottom);
-}
-
-.uneem-side-nav {
-  padding-top: var(--app-safe-top);
-  padding-bottom: var(--app-safe-bottom);
-}
-
-.uneem-mobile-sheet {
-  padding-inline-start: max(1.15rem, calc(var(--app-safe-left) + 0.75rem));
-  padding-inline-end: max(1.15rem, calc(var(--app-safe-right) + 0.75rem));
-  padding-bottom: max(1.15rem, calc(var(--app-safe-bottom) + 1rem));
-}
-
-.app-shell > .fixed.bottom-20 {
-  right: auto;
-  inset-inline-end: max(1rem, calc(var(--app-safe-right) + 0.75rem));
-  bottom: calc(var(--mobile-nav-height) + max(1rem, var(--app-safe-bottom)) + 0.75rem);
-}
-
+.uneem-topbar { padding-top: var(--app-safe-top); padding-inline: var(--app-safe-left) var(--app-safe-right); background: var(--bg); }
+.uneem-topbar-inner { height: 60px; }
+.uneem-bottom-nav { padding-inline: var(--app-safe-left) var(--app-safe-right); background: var(--surface); box-shadow: 0 -1px 0 var(--border-light); }
+.uneem-bottom-nav-inner { min-height: calc(var(--mobile-nav-height) + var(--app-safe-bottom)); padding-bottom: var(--app-safe-bottom); }
+.uneem-side-nav { padding-top: var(--app-safe-top); padding-bottom: var(--app-safe-bottom); }
+.uneem-mobile-sheet { padding: 24px max(24px, var(--app-safe-right)) max(24px, var(--app-safe-bottom)) max(24px, var(--app-safe-left)); }
+html[data-keyboard-open] { scroll-padding-block: 16px; }
+html[data-keyboard-open] .uneem-bottom-nav { display: none; }
+html[data-keyboard-open] .uneem-page, html[data-keyboard-open] .uneem-page-narrow { padding-bottom: 24px; }
 @media (max-width: 767px) {
-  input,
-  select,
-  textarea {
-    font-size: 16px;
-  }
+  input, select, textarea { font-size: 16px !important; }
+  .uneem-primary-action { width: 100%; }
 }
-
-@media (display-mode: standalone) {
-  html,
-  body,
-  #svelte,
-  .app-shell,
-  .app-content-plain {
-    min-height: 100dvh;
-  }
-}
-
-@media (min-width: 640px) {
-  .uneem-page,
-  .uneem-page-narrow {
-    padding-top: 1.5rem;
-    padding-inline-start: max(1.5rem, calc(var(--app-safe-left) + 1rem));
-    padding-inline-end: max(1.5rem, calc(var(--app-safe-right) + 1rem));
-  }
-}
-
-@media (min-width: 768px) {
-  .uneem-page,
-  .uneem-page-narrow {
-    padding-bottom: 2.5rem;
-  }
-
-  .app-shell > .fixed.bottom-20 {
-    bottom: max(1rem, var(--app-safe-bottom));
-  }
+@media (min-width: 1024px) {
+  .uneem-page, .uneem-page-narrow { padding-block: 32px 48px; }
 }

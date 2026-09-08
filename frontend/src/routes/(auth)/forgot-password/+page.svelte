@@ -119,7 +119,7 @@
 <AuthShell backHref={loginHref} backLabel={copy.signIn}>
   <section class="w-full">
     <div class="mb-9 text-center">
-      <h1 class="text-[30px] font-semibold tracking-[-0.035em] text-text">{emailSent ? copy.sentTitle : copy.title}</h1>
+      <h1 class="auth-title">{emailSent ? copy.sentTitle : copy.title}</h1>
       <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-text-secondary">{emailSent ? copy.sentBody : copy.subtitle}</p>
     </div>
 
@@ -129,7 +129,7 @@
 
     {#if emailSent}
       <div class="space-y-5">
-        <div class="rounded-[18px] border border-border bg-surface px-4 py-4 text-center">
+        <div class="rounded-[18px] bg-surface px-4 py-4 text-center">
           <div class="mb-2 flex justify-center text-primary"><Icon name="mail" size={20} /></div>
           <p class="break-all text-sm font-semibold text-text">{normalizedEmail}</p>
         </div>
@@ -137,7 +137,7 @@
       </div>
     {:else}
       <form on:submit|preventDefault={handleSubmit} class="space-y-5">
-        <TextField ariaLabel={copy.email} type="email" placeholder={copy.placeholder} icon="mail" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck={false} maxlength={254} bind:value={email} validation={emailState} hint={emailHint} disabled={loading || retrySeconds > 0} />
+        <TextField label={copy.email} type="email" placeholder={copy.placeholder} autocomplete="email" inputmode="email" autocapitalize="none" spellcheck={false} maxlength={254} bind:value={email} validation={emailState} hint={emailHint} disabled={loading || retrySeconds > 0} />
         <Button type="submit" variant="primary" size="lg" {loading} disabled={loading || retrySeconds > 0} className="w-full">
           {retrySeconds > 0 ? `${copy.send} · ${retryLabel}` : copy.send}
         </Button>

@@ -125,6 +125,10 @@ test('registration stays concise and returns wrapped database conflicts to edita
     await route.fulfill({
       status: 500,
       contentType: 'application/json',
+      headers: {
+        'x-supabase-api-version': '2024-01-01',
+        'access-control-expose-headers': 'x-supabase-api-version',
+      },
       body: JSON.stringify({
         code: 'unexpected_failure',
         message: 'Database error saving new user',
@@ -147,7 +151,8 @@ test('registration stays concise and returns wrapped database conflicts to edita
 
   await page.getByLabel('Password', { exact: true }).fill('Secure123!');
   await page.getByLabel('Confirm password', { exact: true }).fill('Secure123!');
-  await expect(page.getByText('Ready')).toHaveCount(0);
+  // Match the old validation badge, not the word fragment in "Already have an account?".
+  await expect(page.getByText('Ready', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Passwords match')).toHaveCount(0);
   await page.getByRole('button', { name: 'Create account' }).click();
 

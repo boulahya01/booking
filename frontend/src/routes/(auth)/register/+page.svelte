@@ -201,47 +201,47 @@
         <span class={`h-1 flex-1 rounded-full ${step === 'password' ? 'bg-primary' : 'bg-surface-level-2'}`}></span>
       </div>
 
-      <div class="relative text-center">
+      <div class="flex items-center gap-3">
         {#if step !== 'email'}
-          <button type="button" on:click={goBack} class="absolute start-0 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-surface-level-1 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/25" aria-label={copy.back}>
+          <button type="button" on:click={goBack} class="uneem-icon-button shrink-0 bg-surface" aria-label={copy.back}>
             <Icon name={$language === 'ar' ? 'arrow-right' : 'arrow-left'} size={18} />
           </button>
         {/if}
-        <h1 class="text-[30px] font-semibold tracking-[-0.035em] text-text">{title}</h1>
+        <h1 class="auth-title">{title}</h1>
       </div>
     </div>
 
     {#if submitError}
-      <div class="mb-5 rounded-[18px] border border-danger/15 bg-danger-light px-4 py-3 text-danger" role="alert">
+      <div class="mb-5 rounded-[18px] bg-danger-light px-4 py-3 text-danger" role="alert">
         <div class="flex items-start gap-3"><Icon name="alert-circle" size={19} className="mt-0.5 shrink-0" /><p class="text-sm font-medium leading-6">{submitError}</p></div>
       </div>
     {/if}
 
     {#if step === 'email'}
       <form on:submit|preventDefault={continueFromEmail} class="space-y-5">
-        <TextField ariaLabel={copy.email} type="email" placeholder={copy.emailPlaceholder} icon="mail" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck={false} maxlength={254} bind:value={email} validation={emailState} error={emailFieldError} hint={emailHint} disabled={loading} on:input={handleEmailInput} />
+        <TextField label={copy.email} type="email" placeholder={copy.emailPlaceholder} autocomplete="email" inputmode="email" autocapitalize="none" spellcheck={false} maxlength={254} bind:value={email} validation={emailState} error={emailFieldError} hint={emailHint} disabled={loading} on:input={handleEmailInput} />
         <Button type="submit" variant="primary" size="lg" className="w-full" disabled={loading}>{copy.continue}</Button>
       </form>
     {:else if step === 'details'}
-      <div class="mb-5 flex items-center gap-3 rounded-[18px] border border-border/70 bg-surface-level-1 px-4 py-3.5">
+      <div class="mb-5 flex items-center gap-3 rounded-[18px] bg-surface-level-1 px-4 py-3.5">
         <span class={`h-2.5 w-2.5 shrink-0 rounded-full ${academic ? 'bg-success' : 'bg-warning'}`}></span>
         <div class="min-w-0"><p class="text-sm font-semibold text-text">{academic ? copy.universityEmail : copy.personalEmail}</p><p class="mt-0.5 text-xs text-text-muted">{academic ? copy.universityAccess : copy.personalAccess}</p></div>
       </div>
       <form on:submit|preventDefault={continueFromDetails} class="space-y-4">
-        <TextField ariaLabel={copy.fullName} placeholder={copy.fullNamePlaceholder} icon="user" autocomplete="name" maxlength={120} bind:value={fullName} validation={nameState} hint={nameState === 'invalid' ? copy.invalidName : ''} disabled={loading} />
-        <TextField ariaLabel={copy.username} placeholder={copy.usernamePlaceholder} icon="users" autocomplete="username" autocapitalize="none" spellcheck={false} maxlength={24} bind:value={username} validation={usernameState} hint={usernameHint} disabled={loading} on:input={handleUsernameInput} />
+        <TextField label={copy.fullName} placeholder={copy.fullNamePlaceholder} autocomplete="name" maxlength={120} bind:value={fullName} validation={nameState} hint={nameState === 'invalid' ? copy.invalidName : ''} disabled={loading} />
+        <TextField label={copy.username} placeholder={copy.usernamePlaceholder} autocomplete="username" autocapitalize="none" spellcheck={false} maxlength={24} bind:value={username} validation={usernameState} hint={usernameHint} disabled={loading} on:input={handleUsernameInput} />
         {#if !academic}
-          <TextField ariaLabel={copy.studentId} placeholder={copy.studentIdPlaceholder} icon="id-card" autocapitalize="characters" spellcheck={false} maxlength={20} bind:value={studentId} validation={studentIdState} hint={studentIdState === 'invalid' ? copy.invalidStudentId : ''} disabled={loading} />
+          <TextField label={copy.studentId} placeholder={copy.studentIdPlaceholder} autocapitalize="characters" spellcheck={false} maxlength={20} bind:value={studentId} validation={studentIdState} hint={studentIdState === 'invalid' ? copy.invalidStudentId : ''} disabled={loading} />
         {/if}
         <Button type="submit" variant="primary" size="lg" className="mt-2 w-full" disabled={loading}>{copy.continue}</Button>
       </form>
     {:else}
       <form on:submit|preventDefault={submit} class="space-y-4">
-        <TextField ariaLabel={copy.password} type="password" placeholder={copy.passwordPlaceholder} icon="lock" autocomplete="new-password" maxlength={128} bind:value={password} validation={passwordState} error={passwordFieldError} hint={passwordState === 'invalid' && passwordAttempted && !password.length ? copy.passwordRequired : ''} disabled={loading} on:input={handlePasswordInput} />
+        <TextField label={copy.password} type="password" placeholder={copy.passwordPlaceholder} autocomplete="new-password" maxlength={128} bind:value={password} validation={passwordState} error={passwordFieldError} hint={passwordState === 'invalid' && passwordAttempted && !password.length ? copy.passwordRequired : ''} disabled={loading} on:input={handlePasswordInput} />
 
         <PasswordRequirements password={password} lengthLabel={copy.ruleLength} numberOrSymbolLabel={copy.ruleAlternative} />
 
-        <TextField ariaLabel={copy.confirmPassword} type="password" placeholder={copy.confirmPlaceholder} icon="lock" autocomplete="new-password" maxlength={128} bind:value={confirmPassword} validation={confirmState} hint={confirmState === 'invalid' ? copy.mismatch : ''} disabled={loading} />
+        <TextField label={copy.confirmPassword} type="password" placeholder={copy.confirmPlaceholder} autocomplete="new-password" maxlength={128} bind:value={confirmPassword} validation={confirmState} hint={confirmState === 'invalid' ? copy.mismatch : ''} disabled={loading} />
         <Button type="submit" variant="primary" size="lg" {loading} className="mt-2 w-full" disabled={loading}>{copy.create}</Button>
       </form>
     {/if}

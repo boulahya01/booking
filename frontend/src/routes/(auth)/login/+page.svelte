@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation'
   import { onMount } from 'svelte'
   import Button from '$lib/components/Button.svelte'
+  import ActionLink from '$lib/components/ActionLink.svelte'
   import TextField from '$lib/components/TextField.svelte'
   import Icon from '$lib/components/Icon.svelte'
   import AuthShell from '$lib/components/AuthShell.svelte'
@@ -16,13 +17,14 @@
   let password = ''
   let loading = false
   let loginAttempted = false
+  let emailTouched = false
   let submitError = ''
   let authFailureKind: AuthFailureKind | null = null
   let emailState: 'idle' | 'valid' | 'invalid' = 'idle'
 
   $: cleanEmail = email.trim().toLowerCase()
   $: emailValid = isValidEmail(cleanEmail)
-  $: emailState = email.length > 0 || loginAttempted ? (emailValid ? 'valid' : 'invalid') : 'idle'
+  $: emailState = (emailTouched || loginAttempted) && !emailValid ? 'invalid' : 'idle'
   $: passwordError = loginAttempted && !password ? copy.passwordRequired : ''
   $: registerHref = emailValid ? `/register?email=${encodeURIComponent(cleanEmail)}` : '/register'
   $: forgotHref = emailValid ? `/forgot-password?email=${encodeURIComponent(cleanEmail)}` : '/forgot-password'
@@ -63,6 +65,7 @@
   }
 
   async function handleLogin() {
+    if (loading) return
     loginAttempted = true
     submitError = ''
     authFailureKind = null
@@ -113,11 +116,11 @@
 
 <svelte:head><title>{copy.title} · UNEEM</title></svelte:head>
 
-<AuthShell maxWidth="max-w-[400px]">
+<AuthShell>
   <section class="w-full">
-    <div class="mb-7 text-center">
-      <h1 class="text-[29px] font-semibold tracking-[-0.035em] text-text">{copy.title}</h1>
-      <p class="mt-1.5 text-[14px] text-text-secondary">{copy.subtitle}</p>
+    <div class="mb-8">
+      <h1 class="auth-title">{copy.title}</h1>
+      <p class="mt-2 text-[15px] text-text-secondary">{copy.subtitle}</p>
     </div>
 
     {#if submitError}
@@ -129,18 +132,20 @@
       </div>
     {/if}
 
-    <form on:submit|preventDefault={handleLogin} class="space-y-3.5">
-      <TextField ariaLabel={copy.email} type="email" placeholder={copy.emailPlaceholder} icon="mail" autocomplete="email" bind:value={email} validation={emailState} hint={emailState === 'invalid' ? copy.invalidEmail : ''} disabled={loading} />
-      <TextField ariaLabel={copy.password} type="password" placeholder={copy.passwordPlaceholder} icon="lock" autocomplete="current-password" bind:value={password} error={passwordError} disabled={loading} />
+    <form on:submit|preventDefault={handleLogin} class="login-form" novalidate>
+      <TextField label={copy.email} name="email" type="email" placeholder={copy.emailPlaceholder} autocomplete="email" inputmode="email" autocapitalize="none" spellcheck={false} enterkeyhint="next" bind:value={email} on:blur={() => emailTouched = true} validation={emailState} hint={emailState === 'invalid' ? copy.invalidEmail : ''} disabled={loading} />
+      <TextField label={copy.password} name="password" type="password" placeholder={copy.passwordPlaceholder} autocomplete="current-password" enterkeyhint="go" bind:value={password} error={passwordError} disabled={loading}>
+        {#snippet labelAction()}
+          <a href={forgotHref} class="login-recovery">{copy.forgot}</a>
+        {/snippet}
+      </TextField>
 
-      <div class="flex justify-end"><a href={forgotHref} class="text-[13px] font-medium text-primary transition-colors hover:text-primary-hover">{copy.forgot}</a></div>
-
-      <Button type="submit" variant="primary" size="lg" {loading} disabled={loading} className="mt-1 w-full">{copy.signIn}</Button>
+      <div class="pt-3"><Button type="submit" variant="primary" size="lg" {loading} disabled={loading} fullWidth>{copy.signIn}</Button></div>
     </form>
 
-    <p class="mt-6 text-center text-[13px] text-text-secondary">
-      {copy.newTo}<a href={registerHref} class="ms-1 font-semibold text-primary transition-colors hover:text-primary-hover">{copy.create}</a>
-    </p>
+    <div class="mt-3">
+      <ActionLink href={registerHref} variant="secondary" size="lg" fullWidth>{copy.create}</ActionLink>
+    </div>
   </section>
 
   <div slot="footer" class="text-center">
@@ -149,3 +154,8 @@
     </a>
   </div>
 </AuthShell>
+
+<style>
+  .login-form { display: grid; gap: 16px; }
+  .login-recovery { display: inline-flex; min-height: 44px; align-items: center; font-size: 13px; font-weight: 550; color: var(--primary); }
+</style>
