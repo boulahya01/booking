@@ -1,3 +1,5 @@
+import { browser } from '$app/environment'
+
 type CacheEntry<T> = {
   value: T
   expiresAt: number
@@ -13,6 +15,10 @@ export async function cachedRequest<T>(
   loader: () => Promise<T>,
   force = false
 ): Promise<T> {
+  // Never share user-scoped data through the long-lived SSR module instance.
+  // Browser caches are cleared again whenever the authenticated identity changes.
+  if (!browser) return loader()
+
   const now = Date.now()
   const cached = values.get(key) as CacheEntry<T> | undefined
 
@@ -40,10 +46,12 @@ export async function cachedRequest<T>(
 }
 
 export function setCachedValue<T>(key: string, value: T, ttlMs: number): void {
+  if (!browser) return
   values.set(key, { value, expiresAt: Date.now() + ttlMs })
 }
 
 export function invalidateRequestCache(prefix?: string): void {
+  if (!browser) return
   generation += 1
 
   if (!prefix) {
