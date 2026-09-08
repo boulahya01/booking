@@ -16,6 +16,7 @@
   import { authState } from '$lib/stores/auth'
   import { getMyAccountState, getUserProfile } from '$lib/auth'
   import { getMySessionContext } from '$lib/sessionApi'
+  import { clearRequestCache } from '$lib/requestCache'
   import {
     clearPasswordRecovery,
     markPasswordRecovery,
@@ -29,6 +30,13 @@
   let routeGuardProcessing = false
   let unsubAuth: (() => void) | null = null
   let unsubEarlyRecovery: (() => void) | null = null
+  let cacheUserId: string | null = null
+
+  function setCacheIdentity(nextUserId: string | null) {
+    if (cacheUserId === nextUserId) return
+    clearRequestCache()
+    cacheUserId = nextUserId
+  }
 
   // Supabase may resolve an implicit recovery URL before child route onMount
   // callbacks run. Register this minimal listener during client component setup so
@@ -40,6 +48,7 @@
         markPasswordRecovery(session)
       } else if (event === 'SIGNED_OUT') {
         clearPasswordRecovery()
+        setCacheIdentity(null)
       }
     })
     unsubEarlyRecovery = () => earlyRecoveryListener.subscription.unsubscribe()
@@ -141,10 +150,13 @@
 
     async function applySession(session: any) {
       if (!session?.user) {
+        setCacheIdentity(null)
         clearPasswordRecovery()
         authState.clear()
         return
       }
+
+      setCacheIdentity(session.user.id)
 
       try {
         restorePasswordRecovery(session.user.id)
@@ -181,6 +193,7 @@
         if (!data?.session) clearPasswordRecovery()
         await applySession(data?.session)
       } catch {
+        setCacheIdentity(null)
         clearPasswordRecovery()
         authState.clear()
       } finally {
@@ -195,6 +208,7 @@
       if (stored) {
         try {
           const user = JSON.parse(stored)
+          setCacheIdentity(user.id || null)
           void Promise.all([
             getUserProfile(user.id),
             getMyAccountState()
@@ -214,14 +228,17 @@
             }, account)
           }).catch(() => authState.clear())
         } catch {
+          setCacheIdentity(null)
           authState.clear()
         }
       } else {
+        setCacheIdentity(null)
         authState.clear()
       }
     } else {
       const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
         if (event === 'SIGNED_OUT') {
+          setCacheIdentity(null)
           clearPasswordRecovery()
           authState.clear()
           return
@@ -327,10 +344,6 @@
 </div>
 
 <style>
-  :global(html) {
-    scroll-behavior: smooth;
-  }
-
   :global(.app-content-plain) {
     flex: 1;
     width: 100%;
