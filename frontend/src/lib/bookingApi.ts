@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { cachedRequest, invalidateRequestCache } from './requestCache'
 
 export type BookingFailureCode =
   | 'authentication_required'
@@ -96,6 +97,11 @@ export type BookingRosterEntry = {
   joined_at: string
 }
 
+const AVAILABILITY_TTL = 15_000
+const DETAILS_TTL = 20_000
+const ROSTER_TTL = 15_000
+const MY_BOOKINGS_TTL = 20_000
+
 function classifyError(error: any): BookingFailureCode {
   const message = String(error?.message || error || '').toLowerCase()
 
@@ -156,38 +162,7 @@ function normalizeAuthoritativeBooking(row: any): MyBooking {
   }
 }
 
-export async function getPitchAvailability(pitchId: string): Promise<AvailabilitySlot[]> {
-  const { data, error } = await supabase.rpc('get_pitch_availability', { p_pitch_id: pitchId })
-
-  if (error) throwApiError(error)
-  if (!Array.isArray(data)) return []
-
-  return data.map((row: any) => ({
-    id: row.booking_id || `${pitchId}:${row.starts_at}`,
-    booking_id: row.booking_id || null,
-    pitch_id: pitchId,
-    datetime_start: row.starts_at,
-    datetime_end: row.ends_at,
-    timezone: row.timezone || 'Africa/Casablanca',
-    is_available: Boolean(row.is_available),
-    booked_by_me: Boolean(row.booked_by_me),
-    booker_name: row.booker_name || null,
-    booker_username: row.booker_username || null,
-    match_id: row.match_id || null,
-    match_open: Boolean(row.match_open),
-    capacity: Number(row.capacity || 1),
-    reserved_spots: Number(row.reserved_spots || 0),
-    joined_count: Number(row.joined_count || 0),
-    spots_left: Number(row.spots_left || 0)
-  }))
-}
-
-export async function getBookingDetails(bookingId: string): Promise<BookingDetails | null> {
-  const { data, error } = await supabase.rpc('get_booking_details', { p_booking_id: bookingId })
-  if (error) throwApiError(error)
-  const row = Array.isArray(data) ? data[0] : data
-  if (!row) return null
-
+function normalizeBookingDetails(row: any): BookingDetails {
   return {
     booking_id: row.booking_id,
     pitch_id: row.pitch_id,
@@ -214,9 +189,7 @@ export async function getBookingDetails(bookingId: string): Promise<BookingDetai
   }
 }
 
-export async function listBookingRoster(bookingId: string): Promise<BookingRosterEntry[]> {
-  const { data, error } = await supabase.rpc('list_booking_roster', { p_booking_id: bookingId })
-  if (error) throwApiError(error)
+function normalizeRoster(data: any): BookingRosterEntry[] {
   return (Array.isArray(data) ? data : []).map((row: any) => ({
     entry_id: String(row.entry_id),
     reservation_id: row.reservation_id || null,
@@ -229,6 +202,60 @@ export async function listBookingRoster(bookingId: string): Promise<BookingRoste
   }))
 }
 
+export function invalidateBookingData(bookingId?: string, pitchId?: string): void {
+  if (bookingId) {
+    invalidateRequestCache(`booking-details:${bookingId}`)
+    invalidateRequestCache(`booking-roster:${bookingId}`)
+  }
+  if (pitchId) invalidateRequestCache(`availability:${pitchId}`)
+  invalidateRequestCache('my-bookings')
+  invalidateRequestCache('next-booking')
+}
+
+export async function getPitchAvailability(pitchId: string, force = false): Promise<AvailabilitySlot[]> {
+  return cachedRequest(`availability:${pitchId}`, AVAILABILITY_TTL, async () => {
+    const { data, error } = await supabase.rpc('get_pitch_availability', { p_pitch_id: pitchId })
+    if (error) throwApiError(error)
+    if (!Array.isArray(data)) return []
+
+    return data.map((row: any) => ({
+      id: row.booking_id || `${pitchId}:${row.starts_at}`,
+      booking_id: row.booking_id || null,
+      pitch_id: pitchId,
+      datetime_start: row.starts_at,
+      datetime_end: row.ends_at,
+      timezone: row.timezone || 'Africa/Casablanca',
+      is_available: Boolean(row.is_available),
+      booked_by_me: Boolean(row.booked_by_me),
+      booker_name: row.booker_name || null,
+      booker_username: row.booker_username || null,
+      match_id: row.match_id || null,
+      match_open: Boolean(row.match_open),
+      capacity: Number(row.capacity || 1),
+      reserved_spots: Number(row.reserved_spots || 0),
+      joined_count: Number(row.joined_count || 0),
+      spots_left: Number(row.spots_left || 0)
+    }))
+  }, force)
+}
+
+export async function getBookingDetails(bookingId: string, force = false): Promise<BookingDetails | null> {
+  return cachedRequest(`booking-details:${bookingId}`, DETAILS_TTL, async () => {
+    const { data, error } = await supabase.rpc('get_booking_details', { p_booking_id: bookingId })
+    if (error) throwApiError(error)
+    const row = Array.isArray(data) ? data[0] : data
+    return row ? normalizeBookingDetails(row) : null
+  }, force)
+}
+
+export async function listBookingRoster(bookingId: string, force = false): Promise<BookingRosterEntry[]> {
+  return cachedRequest(`booking-roster:${bookingId}`, ROSTER_TTL, async () => {
+    const { data, error } = await supabase.rpc('list_booking_roster', { p_booking_id: bookingId })
+    if (error) throwApiError(error)
+    return normalizeRoster(data)
+  }, force)
+}
+
 export async function createBooking(pitchId: string, startsAt: string) {
   const { data, error } = await supabase.rpc('create_booking', {
     p_pitch_id: pitchId,
@@ -236,6 +263,8 @@ export async function createBooking(pitchId: string, startsAt: string) {
   })
 
   if (error) throwApiError(error)
+  invalidateBookingData(undefined, pitchId)
+  invalidateRequestCache('open-matches')
   return Array.isArray(data) ? data[0] : data
 }
 
@@ -245,24 +274,27 @@ export async function cancelBooking(bookingId: string) {
   })
 
   if (error) throwApiError(error)
+  invalidateBookingData(bookingId)
+  invalidateRequestCache('open-matches')
+  invalidateRequestCache('my-matches')
   return Array.isArray(data) ? data[0] : data
 }
 
 // userId remains optional for source compatibility with existing components,
 // but the database scopes the read exclusively through auth.uid().
-export async function getMyBookings(_userId?: string): Promise<MyBooking[]> {
-  const { data, error } = await supabase.rpc('list_my_bookings', {
-    p_limit: 100
-  })
-
-  if (error) throwApiError(error)
-  return (Array.isArray(data) ? data : []).map(normalizeAuthoritativeBooking)
+export async function getMyBookings(_userId?: string, force = false): Promise<MyBooking[]> {
+  return cachedRequest('my-bookings', MY_BOOKINGS_TTL, async () => {
+    const { data, error } = await supabase.rpc('list_my_bookings', { p_limit: 100 })
+    if (error) throwApiError(error)
+    return (Array.isArray(data) ? data : []).map(normalizeAuthoritativeBooking)
+  }, force)
 }
 
-export async function getNextBooking(_userId?: string): Promise<MyBooking | null> {
-  const { data, error } = await supabase.rpc('get_next_booking')
-
-  if (error) throwApiError(error)
-  const row = Array.isArray(data) ? data[0] : data
-  return row ? normalizeAuthoritativeBooking(row) : null
+export async function getNextBooking(_userId?: string, force = false): Promise<MyBooking | null> {
+  return cachedRequest('next-booking', MY_BOOKINGS_TTL, async () => {
+    const { data, error } = await supabase.rpc('get_next_booking')
+    if (error) throwApiError(error)
+    const row = Array.isArray(data) ? data[0] : data
+    return row ? normalizeAuthoritativeBooking(row) : null
+  }, force)
 }

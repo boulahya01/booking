@@ -6,11 +6,20 @@ type PwaUpdateState = {
   error: boolean
 }
 
+type IdleWindow = Window & {
+  requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number
+  cancelIdleCallback?: (handle: number) => void
+}
+
 export const pwaUpdateState = writable<PwaUpdateState>({ available: false, applying: false, error: false })
 
+const UPDATE_CHECK_INTERVAL = 6 * 60 * 60 * 1000
 let registration: ServiceWorkerRegistration | null = null
 let initialized = false
 let reloading = false
+let lastUpdateCheck = 0
+let idleHandle: number | null = null
+let idleHandleUsesCallback = false
 
 function markWaitingWorker() {
   if (registration?.waiting && navigator.serviceWorker.controller) {
@@ -18,8 +27,12 @@ function markWaitingWorker() {
   }
 }
 
-async function checkForUpdate() {
+async function checkForUpdate(force = false) {
   if (!registration) return
+  const now = Date.now()
+  if (!force && now - lastUpdateCheck < UPDATE_CHECK_INTERVAL) return
+  lastUpdateCheck = now
+
   try {
     await registration.update()
     markWaitingWorker()
@@ -27,6 +40,38 @@ async function checkForUpdate() {
     // Background checks are best-effort. Only surface a failure after the user
     // explicitly asks to apply an update.
   }
+}
+
+function scheduleInitialCheck() {
+  if (typeof window === 'undefined') return
+  const idleWindow = window as IdleWindow
+
+  if (typeof idleWindow.requestIdleCallback === 'function') {
+    idleHandleUsesCallback = true
+    idleHandle = idleWindow.requestIdleCallback(() => {
+      idleHandle = null
+      void checkForUpdate()
+    }, { timeout: 4000 })
+    return
+  }
+
+  idleHandleUsesCallback = false
+  idleHandle = globalThis.setTimeout(() => {
+    idleHandle = null
+    void checkForUpdate()
+  }, 2000) as unknown as number
+}
+
+function cancelScheduledCheck() {
+  if (idleHandle === null || typeof window === 'undefined') return
+  const idleWindow = window as IdleWindow
+
+  if (idleHandleUsesCallback && typeof idleWindow.cancelIdleCallback === 'function') {
+    idleWindow.cancelIdleCallback(idleHandle)
+  } else {
+    globalThis.clearTimeout(idleHandle)
+  }
+  idleHandle = null
 }
 
 function watchInstalling(worker: ServiceWorker | null) {
@@ -75,10 +120,11 @@ export function initPwaUpdates(): () => void {
     markWaitingWorker()
     watchInstalling(registration.installing)
     registration.addEventListener('updatefound', () => watchInstalling(registration?.installing ?? null))
-    void checkForUpdate()
+    scheduleInitialCheck()
   }).catch(() => undefined)
 
   return () => {
+    cancelScheduledCheck()
     navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange)
     document.removeEventListener('visibilitychange', handleVisibility)
     initialized = false
@@ -92,7 +138,7 @@ export async function applyPwaUpdate(): Promise<void> {
 
   try {
     if (!registration.waiting) {
-      await registration.update()
+      await checkForUpdate(true)
 
       if (registration.installing) {
         await waitForInstallingWorker(registration.installing)

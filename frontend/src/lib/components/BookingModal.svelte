@@ -9,7 +9,7 @@
 
   export let slotData: any
   export let onClose: () => void
-  export let onBooked: () => void = () => {}
+  export let onBooked: () => void | Promise<void> = () => {}
 
   $: slot = slotData
   $: ar = ($locale || 'en').startsWith('ar')
@@ -65,9 +65,13 @@
     try {
       if (USE_MOCK) await mockDelay()
       else await createBooking(slot.pitch_id, slot.datetime_start)
+
+      // The authoritative booking mutation has succeeded. Close immediately so
+      // the user is not blocked on a second network round-trip; the parent can
+      // reconcile availability in the background.
       uiState.addToast(ar ? 'تم الحجز' : 'Booked!', 'success')
-      await onBooked()
       onClose()
+      void Promise.resolve(onBooked()).catch(() => undefined)
     } catch (err) {
       const code = err instanceof BookingApiError ? err.code : 'unknown'
       if (code === 'active_booking_exists' || code === 'booking_frequency_limited' || code === 'account_not_approved') blockedByServer = true

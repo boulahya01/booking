@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { cachedRequest, invalidateRequestCache } from './requestCache'
 
 export type MatchFailureCode =
   | 'authentication_required'
@@ -54,6 +55,12 @@ export type MatchReservation = {
   guest_name: string | null
   created_by: string
   created_at: string
+}
+
+export type UsernameSuggestion = {
+  user_id: string
+  username: string
+  full_name: string
 }
 
 export type OpenMatch = {
@@ -116,33 +123,73 @@ function throwMatchError(error: any): never {
   throw new MatchApiError(code, error?.message)
 }
 
-export async function listOpenMatches(): Promise<OpenMatch[]> {
-  const { data, error } = await supabase.rpc('list_open_matches')
-  if (error) throwMatchError(error)
-  return (Array.isArray(data) ? data : []) as OpenMatch[]
+function invalidateMatchData(bookingId?: string): void {
+  invalidateRequestCache('open-matches')
+  invalidateRequestCache('my-matches')
+  invalidateRequestCache('availability:')
+  if (bookingId) {
+    invalidateRequestCache(`booking-details:${bookingId}`)
+    invalidateRequestCache(`booking-roster:${bookingId}`)
+  } else {
+    invalidateRequestCache('booking-details:')
+    invalidateRequestCache('booking-roster:')
+  }
 }
 
-export async function listMyMatches(): Promise<MyMatch[]> {
-  const { data, error } = await supabase.rpc('list_my_matches')
-  if (error) throwMatchError(error)
-  return (Array.isArray(data) ? data : []) as MyMatch[]
+export async function listOpenMatches(force = false): Promise<OpenMatch[]> {
+  return cachedRequest('open-matches', 12_000, async () => {
+    const { data, error } = await supabase.rpc('list_open_matches')
+    if (error) throwMatchError(error)
+    return (Array.isArray(data) ? data : []) as OpenMatch[]
+  }, force)
 }
 
-export async function getMatchRoster(matchId: string): Promise<MatchRosterMember[]> {
-  const { data, error } = await supabase.rpc('get_match_roster', { p_match_id: matchId })
-  if (error) throwMatchError(error)
-  return (Array.isArray(data) ? data : []) as MatchRosterMember[]
+export async function listMyMatches(force = false): Promise<MyMatch[]> {
+  return cachedRequest('my-matches', 15_000, async () => {
+    const { data, error } = await supabase.rpc('list_my_matches')
+    if (error) throwMatchError(error)
+    return (Array.isArray(data) ? data : []) as MyMatch[]
+  }, force)
+}
+
+export async function getMatchRoster(matchId: string, force = false): Promise<MatchRosterMember[]> {
+  return cachedRequest(`match-roster:${matchId}`, 15_000, async () => {
+    const { data, error } = await supabase.rpc('get_match_roster', { p_match_id: matchId })
+    if (error) throwMatchError(error)
+    return (Array.isArray(data) ? data : []) as MatchRosterMember[]
+  }, force)
+}
+
+export async function searchUsernames(query: string, limit = 5): Promise<UsernameSuggestion[]> {
+  const normalized = query.trim().replace(/^@+/, '').toLowerCase()
+  if (normalized.length < 2) return []
+  const safeLimit = Math.min(Math.max(limit, 1), 8)
+
+  return cachedRequest(`username-search:${normalized}:${safeLimit}`, 60_000, async () => {
+    const { data, error } = await supabase.rpc('search_usernames', {
+      p_query: normalized,
+      p_limit: safeLimit
+    })
+    if (error) throwMatchError(error)
+    return (Array.isArray(data) ? data : []).map((row: any) => ({
+      user_id: String(row.user_id),
+      username: String(row.username),
+      full_name: String(row.full_name || '')
+    }))
+  })
 }
 
 export async function joinOpenMatch(matchId: string) {
   const { data, error } = await supabase.rpc('join_open_match', { p_match_id: matchId })
   if (error) throwMatchError(error)
+  invalidateMatchData()
   return Array.isArray(data) ? data[0] : data
 }
 
 export async function leaveOpenMatch(matchId: string) {
   const { error } = await supabase.rpc('leave_open_match', { p_match_id: matchId })
   if (error) throwMatchError(error)
+  invalidateMatchData()
 }
 
 export async function createOpenMatch(bookingId: string, reservedSpots = 0): Promise<MatchRecord> {
@@ -151,6 +198,7 @@ export async function createOpenMatch(bookingId: string, reservedSpots = 0): Pro
     p_reserved_spots: reservedSpots
   })
   if (error) throwMatchError(error)
+  invalidateMatchData(bookingId)
   return (Array.isArray(data) ? data[0] : data) as MatchRecord
 }
 
@@ -160,6 +208,7 @@ export async function updateReservedSpots(matchId: string, reservedSpots: number
     p_reserved_spots: reservedSpots
   })
   if (error) throwMatchError(error)
+  invalidateMatchData()
   return (Array.isArray(data) ? data[0] : data) as MatchRecord
 }
 
@@ -172,6 +221,7 @@ export async function addMatchReservation(matchId: string, value: string): Promi
     p_guest_name: isUsername ? null : clean
   })
   if (error) throwMatchError(error)
+  invalidateMatchData()
   return (Array.isArray(data) ? data[0] : data) as MatchReservation
 }
 
@@ -181,6 +231,7 @@ export async function removeMatchReservation(matchId: string, reservationId: str
     p_reservation_id: reservationId
   })
   if (error) throwMatchError(error)
+  invalidateMatchData()
 }
 
 export async function setMatchVisibility(matchId: string, visibility: 'private' | 'open'): Promise<MatchRecord> {
@@ -189,6 +240,7 @@ export async function setMatchVisibility(matchId: string, visibility: 'private' 
     p_visibility: visibility
   })
   if (error) throwMatchError(error)
+  invalidateMatchData()
   return (Array.isArray(data) ? data[0] : data) as MatchRecord
 }
 

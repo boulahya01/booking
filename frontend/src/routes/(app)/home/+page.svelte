@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { supabase } from '$lib/supabaseClient'
   import PitchCard from '$lib/components/PitchCard.svelte'
   import NextBookingCard from '$lib/components/NextBookingCard.svelte'
   import SegmentedControl from '$lib/components/SegmentedControl.svelte'
@@ -8,8 +7,9 @@
   import { USE_MOCK, mockPitches } from '$lib/mock'
   import { authState } from '$lib/stores/auth'
   import { logger } from '$lib/logger'
+  import { listActiveFacilities, type FacilitySummary } from '$lib/facilityApi'
 
-  let pitches: any[] = []
+  let pitches: FacilitySummary[] = []
   let pitchesLoading = true
   let pitchesError = false
   let selectedSport = 'all'
@@ -32,25 +32,18 @@
     return value
   }
 
-  async function fetchPitches() {
+  async function fetchPitches(force = false) {
     pitchesLoading = pitches.length === 0
     pitchesError = false
 
     if (USE_MOCK) {
-      pitches = mockPitches
+      pitches = mockPitches as FacilitySummary[]
       pitchesLoading = false
       return
     }
 
     try {
-      const { data, error } = await supabase
-        .from('pitches')
-        .select('id,name,location,open_time,close_time,capacity,sport_type')
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true })
-
-      if (error) throw error
-      pitches = data ?? []
+      pitches = await listActiveFacilities(force)
     } catch (error) {
       logger.error('[Home Page] Failed to load pitches:', error)
       pitchesError = true
@@ -96,7 +89,7 @@
     {:else if pitchesError}
       <div class="flex items-center justify-between gap-3 py-4" role="alert">
         <p class="text-sm font-semibold text-danger">{isArabic ? 'تعذر تحميل المرافق' : 'Couldn’t load facilities'}</p>
-        <button type="button" on:click={() => void fetchPitches()} class="min-h-10 text-sm font-bold text-primary">{$_('common.retry')}</button>
+        <button type="button" on:click={() => void fetchPitches(true)} class="min-h-10 text-sm font-bold text-primary">{$_('common.retry')}</button>
       </div>
     {:else if pitches.length === 0}
       <div class="uneem-empty"><p class="font-semibold text-text-muted">{isArabic ? 'لا توجد مرافق حالياً' : 'No facilities yet'}</p></div>
