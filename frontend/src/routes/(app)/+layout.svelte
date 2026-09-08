@@ -1,6 +1,10 @@
 <script lang="ts">
+  import { onMount } from 'svelte'
   import { authState } from '$lib/stores/auth'
+  import { startNotifications } from '$lib/stores/notifications'
   import BottomNav from '$lib/components/BottomNav.svelte'
+
+  onMount(startNotifications)
 </script>
 
 {#if $authState.loading}

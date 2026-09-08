@@ -86,7 +86,7 @@
 
     <div class="flex items-center gap-0.5">
       {#if $isAuthenticated}
-        <a href="/notifications" class="relative grid h-10 w-10 place-items-center rounded-xl text-text-secondary transition-colors hover:bg-surface-level-1 hover:text-text" aria-label={$language === 'ar' ? 'الإشعارات' : 'Notifications'}>
+        <a href="/notifications" class="relative grid h-11 w-11 place-items-center rounded-xl text-text-secondary transition-colors hover:bg-surface-level-1 hover:text-text" aria-label={$language === 'ar' ? `الإشعارات${$unreadNotifications ? `، ${$unreadNotifications} جديدة` : ''}` : `Notifications${$unreadNotifications ? `, ${$unreadNotifications} new` : ''}`}>
           <Icon name="bell" size={19} />
           {#if $unreadNotifications > 0}
             <span class="absolute end-1.5 top-1.5 h-2 w-2 rounded-full bg-danger ring-2 ring-background"></span>
