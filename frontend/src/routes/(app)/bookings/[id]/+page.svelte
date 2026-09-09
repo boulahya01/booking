@@ -1,9 +1,14 @@
 <script lang="ts">
+  import { hasFullAccess } from '$lib/stores/auth'
+  import ActionLink from '$lib/components/ActionLink.svelte'
   import { onMount } from 'svelte'
   import { page } from '$app/stores'
   import { goto } from '$app/navigation'
+  import Modal from '$lib/components/Modal.svelte'
+  import Toggle from '$lib/components/Toggle.svelte'
   import Button from '$lib/components/Button.svelte'
   import Icon from '$lib/components/Icon.svelte'
+  import ShareMatch from '$lib/components/ShareMatch.svelte'
   import { locale } from 'svelte-i18n'
   import { uiState } from '$lib/stores/ui'
   import {
@@ -33,6 +38,7 @@
   let loading = true
   let error = ''
   let busy: 'visibility' | 'join' | 'leave' | 'friend' | 'cancel' | null = null
+  let cancelDialogOpen = false
   let friendInput = ''
   let suggestions: UsernameSuggestion[] = []
   let selectedSuggestion: UsernameSuggestion | null = null
@@ -51,7 +57,7 @@
     ? Math.min(details.capacity, 1 + details.reserved_spots + details.joined_count)
     : 0
   $: canJoin = Boolean(
-    details?.match_id
+    $hasFullAccess && details?.match_id
       && isOpen
       && !isOwner
       && !details.participant_by_me
@@ -60,7 +66,7 @@
       && !started
   )
   $: canAddFriend = Boolean(
-    isOwner
+    $hasFullAccess && isOwner
       && details?.match_id
       && isOpen
       && !started
@@ -235,7 +241,7 @@
   }
 
   async function toggleOpen() {
-    if (!details || !isOwner || busy || started || details.capacity < 2) return
+    if (!$hasFullAccess || !details || !isOwner || busy || started || details.capacity < 2) return
     busy = 'visibility'
 
     try {
@@ -274,7 +280,7 @@
   }
 
   async function join() {
-    if (!details?.match_id || !canJoin || busy) return
+    if (!$hasFullAccess || !details?.match_id || !canJoin || busy) return
     busy = 'join'
     try {
       await joinOpenMatch(details.match_id)
@@ -297,7 +303,7 @@
   }
 
   async function leave() {
-    if (!details?.match_id || !details.participant_by_me || busy || started) return
+    if (!$hasFullAccess || !details?.match_id || !details.participant_by_me || busy || started) return
     busy = 'leave'
     try {
       await leaveOpenMatch(details.match_id)
@@ -321,7 +327,7 @@
 
   async function addFriend() {
     const value = friendInput.trim()
-    if (!details?.match_id || !canAddFriend || !value || busy) return
+    if (!$hasFullAccess || !details?.match_id || !canAddFriend || !value || busy) return
     busy = 'friend'
 
     try {
@@ -366,7 +372,7 @@
   }
 
   async function removeFriend(entry: BookingRosterEntry) {
-    if (!details?.match_id || !entry.reservation_id || !isOwner || busy || started) return
+    if (!$hasFullAccess || !details?.match_id || !entry.reservation_id || !isOwner || busy || started) return
     busy = 'friend'
 
     try {
@@ -389,8 +395,8 @@
   }
 
   async function cancelMine() {
-    if (!details || !isOwner || busy || started) return
-    if (typeof window !== 'undefined' && !window.confirm(copy.cancelConfirm)) return
+    if (!$hasFullAccess || !details || !isOwner || busy || started) return
+
 
     busy = 'cancel'
     try {
@@ -457,11 +463,11 @@
       <h1 class="uneem-title">{copy.title}</h1>
     </header>
 
-    <section class="overflow-hidden rounded-[18px] border border-border-light bg-surface">
-      <div class="flex items-start justify-between gap-4 p-4">
+    <section class="overflow-hidden rounded-[22px] bg-surface">
+      <div class="flex flex-wrap items-start justify-between gap-4 p-5">
         <div class="min-w-0">
-          <h2 class="truncate text-xl font-extrabold text-text">{details.pitch_name}</h2>
-          <p class="mt-2 flex items-baseline gap-1.5">
+          <h2 class="break-words text-xl font-semibold leading-7 text-text">{details.pitch_name}</h2>
+          <p class="mt-3 flex flex-wrap items-baseline gap-2.5" dir="ltr">
             <span class="text-[28px] font-extrabold tracking-[-0.04em] text-text">{timeText(details.starts_at)}</span>
             <span class="text-sm font-semibold text-text-muted">– {timeText(details.ends_at)}</span>
           </p>
@@ -470,7 +476,7 @@
             <Icon name="map-pin" size={14}/>
             {details.location}
           </p>
-          <p class="mt-2 text-sm text-text-secondary">
+          <p class="mt-3 break-words text-sm text-text-secondary">
             {copy.bookedBy} <span class="font-bold text-text">@{details.booker_username}</span>
           </p>
         </div>
@@ -481,25 +487,14 @@
       </div>
     </section>
 
-    {#if isOwner && !started && details.capacity >= 2}
-      <section class="mt-3 rounded-[16px] border border-border-light bg-surface p-4">
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <p class="font-bold text-text">{copy.openToPlayers}</p>
-            {#if isOpen}<p class="mt-1 text-xs font-semibold text-text-muted">{details.spots_left} {copy.openSpots}</p>{/if}
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={isOpen}
-            aria-label={copy.openToPlayers}
-            disabled={busy !== null}
-            on:click={toggleOpen}
-            class={`relative h-8 w-14 rounded-full transition-colors disabled:opacity-50 ${isOpen ? 'bg-success' : 'bg-surface-level-2'}`}
-          >
-            <span class={`absolute top-1 h-6 w-6 rounded-full bg-white shadow-sm transition-transform ${isOpen ? 'translate-x-7 rtl:-translate-x-7' : 'translate-x-1 rtl:-translate-x-1'}`}></span>
-          </button>
-        </div>
+    {#if isOpen && !started}
+      <div class="mt-4"><ShareMatch {bookingId} title={details.pitch_name}/></div>
+    {/if}
+
+    {#if $hasFullAccess && isOwner && !started && details.capacity >= 2}
+      <section class="mt-4 rounded-[22px] bg-surface p-5">
+        <Toggle checked={isOpen} label={copy.openToPlayers} disabled={busy !== null} onToggle={() => void toggleOpen()} />
+        {#if isOpen}<p class="mt-1 text-xs text-text-muted">{details.spots_left} {copy.openSpots}</p>{/if}
       </section>
     {/if}
 
@@ -517,14 +512,14 @@
 
       <section class="mt-5">
         <h2 class="mb-2 text-lg font-bold text-text">{copy.players}</h2>
-        <div class="overflow-hidden rounded-[16px] border border-border-light bg-surface px-4">
+        <div class="overflow-hidden rounded-[22px] bg-surface px-4">
           {#each roster as member (member.entry_id)}
             <div class="uneem-list-row min-h-[56px] py-2">
               <div class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface-level-1 text-xs font-bold text-text-secondary">
                 {member.display_name?.trim()?.[0]?.toUpperCase() || 'U'}
               </div>
               <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-semibold text-text">{member.username ? `@${member.username}` : member.display_name}</p>
+                <p class="break-words text-sm font-semibold text-text">{member.username ? `@${member.username}` : member.display_name}</p>
                 {#if member.source === 'guest'}
                   <p class="text-xs text-text-muted">{copy.guest}</p>
                 {:else if member.member_role === 'reserved'}
@@ -536,13 +531,13 @@
               {:else if member.member_role === 'reserved'}
                 <span class="text-xs font-bold text-text-muted">{copy.reserved}</span>
               {/if}
-              {#if isOwner && member.reservation_id && !started}
+              {#if $hasFullAccess && isOwner && member.reservation_id && !started}
                 <button
                   type="button"
                   disabled={busy !== null}
                   on:click={() => removeFriend(member)}
-                  class="grid h-9 w-9 place-items-center rounded-full text-text-muted hover:bg-surface-level-1 hover:text-danger disabled:opacity-40"
-                  aria-label="Remove reserved player"
+                  class="uneem-icon-button text-text-muted hover:bg-surface-level-1 hover:text-danger disabled:opacity-40"
+                  aria-label={`${ar ? 'إزالة' : 'Remove'} ${member.display_name}`}
                 >
                   <Icon name="x" size={16}/>
                 </button>
@@ -553,9 +548,14 @@
       </section>
 
       {#if canAddFriend}
-        <form class="mt-3 flex gap-2" on:submit|preventDefault={addFriend}>
+        <form class="mt-5 flex flex-col gap-3" on:submit|preventDefault={addFriend}>
           <div class="relative min-w-0 flex-1">
+            <label for="booking-friend" class="mb-2 block text-sm font-semibold text-text">{ar ? 'أضف لاعباً' : 'Add a player'}</label>
             <input
+              id="booking-friend"
+              role="combobox"
+              aria-controls="friend-suggestions"
+              aria-activedescendant={suggestionIndex >= 0 ? `friend-option-${suggestionIndex}` : undefined}
               value={friendInput}
               on:input={handleFriendInput}
               on:keydown={handleFriendKeydown}
@@ -569,14 +569,15 @@
               placeholder={copy.addPlaceholder}
               aria-autocomplete="list"
               aria-expanded={suggestionOpen}
-              class="min-h-[46px] w-full rounded-[14px] border border-border bg-surface px-3.5 text-sm text-text outline-none placeholder:text-text-muted focus:border-primary"
+              class="uneem-field"
             />
             {#if suggestionOpen && suggestions.length > 0}
-              <div class="absolute inset-x-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-[14px] border border-border-light bg-surface-raised p-1.5 shadow-lg" role="listbox">
+              <div id="friend-suggestions" class="friend-suggestions absolute inset-x-0 bottom-[calc(100%+6px)] z-20 overflow-y-auto rounded-[18px] bg-surface-raised p-1.5 shadow-lg" role="listbox">
                 {#each suggestions as suggestion, index (suggestion.user_id)}
                   <button
                     type="button"
                     role="option"
+                    id={`friend-option-${index}`}
                     aria-selected={index === suggestionIndex}
                     on:mousedown|preventDefault
                     on:click={() => chooseSuggestion(suggestion)}
@@ -591,12 +592,14 @@
               <span class="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-border border-t-primary"></span>
             {/if}
           </div>
-          <Button type="submit" disabled={!friendInput.trim() || busy !== null} loading={busy === 'friend'}>{copy.add}</Button>
+          <Button type="submit" fullWidth disabled={!friendInput.trim() || busy !== null} loading={busy === 'friend'}>{copy.add}</Button>
         </form>
       {/if}
     {/if}
 
-    {#if !isOwner && !started}
+    {#if !$hasFullAccess}
+      <ActionLink href="/verification" fullWidth size="lg" className="mt-6">{ar ? 'تحقق من هويتك للانضمام' : 'Verify ID to join'}</ActionLink>
+    {:else if !isOwner && !started}
       <div class="mt-5">
         {#if details.reserved_by_me}
           <div class="rounded-[14px] bg-success-light px-4 py-3 text-center text-sm font-bold text-success">{copy.yourSpot}</div>
@@ -608,11 +611,11 @@
       </div>
     {/if}
 
-    {#if isOwner && !started}
+    {#if $hasFullAccess && isOwner && !started}
       <button
         type="button"
         disabled={busy !== null}
-        on:click={cancelMine}
+        on:click={() => cancelDialogOpen = true}
         class="mt-7 min-h-11 w-full rounded-[14px] text-sm font-bold text-danger hover:bg-danger-light disabled:opacity-40"
       >
         {copy.cancel}
@@ -620,3 +623,12 @@
     {/if}
   {/if}
 </main>
+
+<Modal bind:open={cancelDialogOpen} title={copy.cancelConfirm} closeDisabled={busy === 'cancel'} size="sm">
+  <p class="text-sm leading-6 text-text-secondary">{ar ? 'سيصبح هذا الموعد متاحاً لطلاب آخرين.' : 'This time will become available to other students.'}</p>
+  <svelte:fragment slot="footer">
+    <Button variant="secondary" disabled={busy === 'cancel'} on:click={() => cancelDialogOpen = false}>{ar ? 'الاحتفاظ بالحجز' : 'Keep booking'}</Button>
+    <Button className="!bg-danger !text-white" loading={busy === 'cancel'} on:click={cancelMine}>{copy.cancel}</Button>
+  </svelte:fragment>
+</Modal>
+<style>.friend-suggestions { max-height: min(240px, calc(var(--visual-height, 100dvh) * .4)); }</style>

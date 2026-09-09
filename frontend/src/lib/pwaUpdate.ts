@@ -101,8 +101,11 @@ export function initPwaUpdates(): () => void {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return () => undefined
   if (initialized) return () => undefined
   initialized = true
+  let hadController = Boolean(navigator.serviceWorker.controller)
 
   const handleControllerChange = () => {
+    // First installation must not reload a page while someone is typing.
+    if (!hadController) { hadController = true; return }
     if (reloading) return
     reloading = true
     window.location.reload()

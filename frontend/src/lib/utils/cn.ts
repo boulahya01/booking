@@ -87,10 +87,10 @@ export function isValidUsername(username: string): boolean {
 }
 
 /**
- * Validate student ID: 1 uppercase letter followed by 9 digits (e.g., S123456789)
+ * Validate student ID: S/s followed by digits (e.g., S123), up to 50 characters
  */
 export function isValidStudentId(id: string): boolean {
-  return /^[A-Z][0-9]{9}$/.test(id)
+  return /^S[0-9]{1,49}$/i.test(id)
 }
 
 export type PasswordRequirements = {

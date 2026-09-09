@@ -1,4 +1,5 @@
 import { writable, derived } from 'svelte/store'
+import { canParticipate } from '$lib/access'
 import type { AccountState } from '$lib/types'
 
 export type UserStatus = 'pending' | 'approved' | 'suspended'
@@ -66,7 +67,7 @@ export const isAuthenticated = derived(
 
 export const hasFullAccess = derived(
   authState,
-  ($state) => !!$state.user && !!$state.account?.can_use_sports
+  ($state) => !!$state.user && canParticipate($state.account)
 )
 
 export const isAdmin = derived(

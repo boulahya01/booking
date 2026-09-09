@@ -2,6 +2,9 @@
   import { onMount } from 'svelte'
   import { language, uiState } from '$lib/stores/ui'
   import Icon from '$lib/components/Icon.svelte'
+  import Button from '$lib/components/Button.svelte'
+  import ActionLink from '$lib/components/ActionLink.svelte'
+  import Modal from '$lib/components/Modal.svelte'
   import SegmentedControl from '$lib/components/SegmentedControl.svelte'
   import {
     listAdminUsers,
@@ -161,18 +164,18 @@
 <svelte:head><title>{copy.title} · UNEEM Admin</title></svelte:head>
 
 <main class="uneem-page max-w-6xl">
-  <header class="uneem-page-header">
-    <div><p class="uneem-kicker">Admin</p><h1 class="uneem-title">{copy.title}</h1><p class="uneem-subtitle">{copy.subtitle}</p></div>
-    <a href="/admin/verification" class="uneem-secondary-action min-h-11 shrink-0 px-3 text-sm"><Icon name="shield" size={16}/>{copy.verification}</a>
+  <header class="mb-6 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+    <div><h1 class="uneem-title">{copy.title}</h1><p class="uneem-subtitle">{copy.subtitle}</p></div>
+    <ActionLink href="/admin/verification" variant="secondary" className="w-full sm:w-auto"><Icon name="shield" size={18}/>{copy.verification}</ActionLink>
   </header>
 
   <section class="mb-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
     <form class="flex min-w-0 gap-2" on:submit|preventDefault={applySearch}>
       <div class="relative min-w-0 flex-1">
         <Icon name="search" size={17} className="pointer-events-none absolute start-4 top-1/2 -translate-y-1/2 text-text-muted"/>
-        <input bind:value={search} class="uneem-field ps-11" placeholder={copy.search}/>
+        <input bind:value={search} class="uneem-field ps-11" type="search" aria-label={copy.search} placeholder={copy.search}/>
       </div>
-      <button class="uneem-secondary-action shrink-0 px-4" disabled={loading}>{copy.searchAction}</button>
+      <Button type="submit" variant="secondary" className="shrink-0" loading={loading}>{copy.searchAction}</Button>
     </form>
     <SegmentedControl
       options={statusOptions}
@@ -185,7 +188,7 @@
 
   <div class="mb-3 flex items-center justify-between gap-3">
     <p class="text-sm font-semibold text-text-secondary">{total} {copy.users}</p>
-    {#if loading && users.length > 0}<span class="text-xs text-text-muted">…</span>{/if}
+    {#if loading && users.length > 0}<span class="text-xs text-text-muted" role="status">{ar ? 'جارٍ التحديث…' : 'Updating…'}</span>{/if}
   </div>
 
   {#if error}<div class="mb-4 rounded-2xl bg-danger-light px-4 py-3 text-sm font-semibold text-danger" role="alert">{error}</div>{/if}
@@ -197,25 +200,25 @@
   {:else}
     <section class="uneem-panel px-4 sm:px-5">
       {#each users as user (user.user_id)}
-        <div class="uneem-list-row">
-          <div class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary-light text-sm font-extrabold text-primary">{user.full_name?.trim()?.[0]?.toUpperCase() || 'U'}</div>
-          <div class="min-w-0 flex-1">
-            <div class="flex flex-wrap items-center gap-2"><p class="truncate text-sm font-bold text-text">{user.full_name}</p>{#if user.username}<span class="truncate text-xs font-semibold text-primary">@{user.username}</span>{/if}{#if user.role === 'admin'}<span class="rounded-full bg-primary-light px-2 py-0.5 text-[10px] font-bold text-primary">{copy.admin}</span>{/if}</div>
+        <article class="user-row">
+          <div class="user-avatar grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-surface-level-1 text-sm font-semibold text-text-secondary">{user.full_name?.trim()?.[0]?.toUpperCase() || 'U'}</div>
+          <div class="user-info min-w-0">
+            <div class="flex flex-wrap items-center gap-2"><p class="break-words text-base font-semibold text-text">{user.full_name}</p>{#if user.username}<span class="break-all text-xs font-medium text-primary">@{user.username}</span>{/if}{#if user.role === 'admin'}<span class="rounded-full bg-primary-light px-2 py-0.5 text-[10px] font-bold text-primary">{copy.admin}</span>{/if}</div>
             <div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-text-muted">
-              <span>{user.student_id || '—'}</span>
+              <span class="font-medium text-text-secondary"><bdi>{user.student_id || '—'}</bdi></span>
               <span>{user.email_kind === 'academic' ? copy.academic : copy.personal}</span>
-              <span>{identityLabel(user.identity_status)}</span>
+              <span class={user.identity_status === 'verified' ? 'text-success' : 'text-warning'}>{ar ? 'الهوية' : 'Identity'}: {identityLabel(user.identity_status)}</span>
             </div>
           </div>
-          <div class="flex shrink-0 flex-col items-end gap-1.5">
+          <div class="user-actions flex flex-wrap items-center gap-2">
             <span class={`rounded-full px-2.5 py-1 text-xs font-bold ${statusTone(user.access_status)}`}>{statusLabel(user.access_status)}</span>
             {#if user.role === 'student' && user.access_status !== 'pending'}
-              <button on:click={() => openModeration(user)} class={`min-h-8 text-xs font-bold ${user.access_status === 'suspended' ? 'text-primary' : 'text-danger'}`}>
+              <button on:click={() => openModeration(user)} class={`min-h-11 rounded-xl px-3 text-sm font-semibold ${user.access_status === 'suspended' ? 'bg-primary-light text-primary' : 'bg-danger-light text-danger'}`}>
                 {user.access_status === 'suspended' ? copy.restore : copy.suspend}
               </button>
             {/if}
           </div>
-        </div>
+        </article>
       {/each}
     </section>
   {/if}
@@ -230,34 +233,25 @@
 </main>
 
 {#if moderationTarget}
-  <div class="fixed inset-0 z-50 flex items-end bg-black/55 sm:items-center sm:justify-center sm:p-5" role="presentation">
-    <button type="button" tabindex="-1" aria-label="Close moderation dialog" class="absolute inset-0 cursor-default" disabled={moderating} on:click={closeModeration}></button>
-    <section class="relative z-10 w-full rounded-t-[28px] bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-[28px]" role="dialog" aria-modal="true" tabindex="-1">
-      <div class="flex items-start justify-between gap-4">
-        <div>
-          <p class={`text-xs font-extrabold uppercase tracking-[0.1em] ${nextStatus === 'suspended' ? 'text-danger' : 'text-primary'}`}>{moderationTarget.full_name}</p>
-          <h2 class="mt-1 text-xl font-extrabold text-text">{nextStatus === 'suspended' ? copy.suspendTitle : copy.restoreTitle}</h2>
-        </div>
-        <button disabled={moderating} on:click={closeModeration} class="grid h-10 w-10 place-items-center rounded-full bg-surface-level-1 text-text-secondary"><Icon name="x" size={18}/></button>
-      </div>
-
-      <p class="mt-3 text-sm leading-6 text-text-secondary">{nextStatus === 'suspended' ? copy.suspendBody : copy.restoreBody}</p>
-
-      <label class="mt-5 block">
-        <span class="text-sm font-bold text-text">{copy.reason}</span>
-        <select bind:value={moderationReason} class="uneem-field mt-2">
-          {#each moderationReasons as reason}
-            <option value={reason.value}>{reason.label()}</option>
-          {/each}
-        </select>
-      </label>
-
-      <div class="mt-5 grid grid-cols-2 gap-2">
-        <button disabled={moderating} on:click={closeModeration} class="uneem-secondary-action">{copy.cancel}</button>
-        <button disabled={moderating} on:click={confirmModeration} class={nextStatus === 'suspended' ? 'min-h-12 rounded-2xl bg-danger px-4 font-bold text-white disabled:opacity-60' : 'uneem-primary-action'}>
-          {moderating ? copy.saving : nextStatus === 'suspended' ? copy.confirmSuspend : copy.confirmRestore}
-        </button>
-      </div>
-    </section>
-  </div>
+  <Modal open title={nextStatus === 'suspended' ? copy.suspendTitle : copy.restoreTitle} closeDisabled={moderating} on:close={closeModeration}>
+    <p class="font-semibold text-text">{moderationTarget.full_name}</p>
+    <p class="mt-2 text-sm leading-6 text-text-secondary">{nextStatus === 'suspended' ? copy.suspendBody : copy.restoreBody}</p>
+    <label class="mt-5 block">
+      <span class="text-sm font-medium text-text-secondary">{copy.reason}</span>
+      <select bind:value={moderationReason} disabled={moderating} class="uneem-field mt-2">
+        {#each moderationReasons as reason}<option value={reason.value}>{reason.label()}</option>{/each}
+      </select>
+    </label>
+    <svelte:fragment slot="footer">
+      <Button variant="secondary" disabled={moderating} on:click={closeModeration} className="sm:flex-1">{copy.cancel}</Button>
+      <Button variant={nextStatus === 'suspended' ? 'danger' : 'primary'} loading={moderating} on:click={confirmModeration} className="sm:flex-1">{nextStatus === 'suspended' ? copy.confirmSuspend : copy.confirmRestore}</Button>
+    </svelte:fragment>
+  </Modal>
 {/if}
+
+<style>
+  .user-row { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px 16px; align-items: start; padding: 20px 0; }
+  .user-row + .user-row { border-top: 1px solid var(--border-light); }
+  .user-actions { grid-column: 2; }
+  @media (min-width: 640px) { .user-row { grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; } .user-actions { grid-column: 3; justify-content: flex-end; max-width: 250px; } }
+</style>

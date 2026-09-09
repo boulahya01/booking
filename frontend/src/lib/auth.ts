@@ -189,7 +189,7 @@ export async function getMyAccountState(): Promise<AccountState | null> {
       identity_status: profile.identity_status || 'required',
       student_id: profile.student_id || null,
       restriction_reason: profile.restriction_reason || null,
-      can_use_sports: profile.status === 'approved',
+      can_use_sports: profile.status === 'approved' && profile.identity_status === 'verified',
       needs_identity_action: (profile.identity_status || 'required') === 'required'
     }
   }

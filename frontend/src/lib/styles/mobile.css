@@ -16,7 +16,6 @@ input, textarea, select, [contenteditable='true'] { scroll-margin-block: 24px; }
 .uneem-topbar-inner { height: 60px; }
 .uneem-bottom-nav { padding-inline: var(--app-safe-left) var(--app-safe-right); background: var(--surface); box-shadow: 0 -1px 0 var(--border-light); }
 .uneem-bottom-nav-inner { min-height: calc(var(--mobile-nav-height) + var(--app-safe-bottom)); padding-bottom: var(--app-safe-bottom); }
-.uneem-side-nav { padding-top: var(--app-safe-top); padding-bottom: var(--app-safe-bottom); }
 .uneem-mobile-sheet { padding: 24px max(24px, var(--app-safe-right)) max(24px, var(--app-safe-bottom)) max(24px, var(--app-safe-left)); }
 html[data-keyboard-open] { scroll-padding-block: 16px; }
 html[data-keyboard-open] .uneem-bottom-nav { display: none; }
@@ -28,3 +27,5 @@ html[data-keyboard-open] .uneem-page, html[data-keyboard-open] .uneem-page-narro
 @media (min-width: 1024px) {
   .uneem-page, .uneem-page-narrow { padding-block: 32px 48px; }
 }
+
+html:has(.verification-notice) { scroll-padding-top: calc(132px + var(--app-safe-top)); }

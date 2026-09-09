@@ -4,7 +4,6 @@
   import { getMyAccountState, signOut } from '$lib/auth'
   import type { AccountState } from '$lib/types'
   import { language } from '$lib/stores/ui'
-  import AuthShell from '$lib/components/AuthShell.svelte'
   import ActionLink from '$lib/components/ActionLink.svelte'
   import Button from '$lib/components/Button.svelte'
   import Icon from '$lib/components/Icon.svelte'
@@ -17,17 +16,17 @@
     ? {
         title: 'حالة الحساب', loadError: 'تعذر تحميل حالة الحساب', retry: 'حاول مرة أخرى', help: 'المساعدة', signOut: 'تسجيل الخروج',
         restrictedLabel: 'الحساب مقيد', restrictedTitle: 'الوصول الرياضي متوقف مؤقتاً', restrictedBody: 'يمكنك حماية حسابك وطلب مراجعة. إنشاء حساب آخر لن يزيل هذا التقييد.', reason: 'السبب', reviewRequired: 'مراجعة الحساب مطلوبة', requestReview: 'طلب مراجعة', security: 'الحساب والأمان',
-        conflictLabel: 'تأكيد الهوية مطلوب', conflictTitle: 'نحتاج لتأكيد ملكية الحساب', conflictBody: 'لا تغيّر رقم الطالب ولا تنشئ حساباً جديداً. الدعم يمكنه حل المشكلة بأمان.', contactSupport: 'تواصل مع الدعم', verificationStatus: 'حالة التحقق',
+        conflictLabel: 'تأكيد الهوية مطلوب', conflictTitle: 'نحتاج لتأكيد ملكية الحساب', conflictBody: 'صحح أي خطأ في رقم الطالب أو تواصل مع الدعم إذا كان الرقم صحيحاً.', contactSupport: 'تواصل مع الدعم', verificationStatus: 'حالة التحقق',
         actionLabel: 'إجراء مطلوب', rejectedTitle: 'التحقق يحتاج تصحيحاً', rejectedBody: 'احتفظ بنفس الحساب. صحح فقط المعلومة أو البطاقة المرفوضة ثم أرسلها من جديد.', fixVerification: 'تصحيح التحقق',
-        oneStep: 'خطوة واحدة متبقية', requiredTitle: 'أكد هويتك الطلابية', requiredBody: 'الحسابات بالبريد الشخصي تحتاج موافقة بطاقة الطالب قبل الحجز أو الانضمام للمباريات.', startVerification: 'ابدأ التحقق',
+        oneStep: 'خطوة واحدة متبقية', requiredTitle: 'أكد هويتك الطلابية', requiredBody: 'التحقق من الهوية مطلوب لجميع الطلاب قبل الحجز أو الانضمام. يمكنك التصفح أثناء الانتظار.', startVerification: 'ابدأ التحقق',
         reviewLabel: 'قيد المراجعة', pendingTitle: 'بطاقة الطالب قيد المراجعة', pendingBody: 'لا تحتاج لأي إجراء الآن. سيحصل نفس الحساب على الوصول بعد الموافقة.', viewSubmission: 'عرض الطلب', contactHelp: 'التواصل مع الدعم'
       }
     : {
         title: 'Account status', loadError: 'Couldn’t load your account', retry: 'Try again', help: 'Help', signOut: 'Sign out',
         restrictedLabel: 'Account restricted', restrictedTitle: 'Sports access is temporarily unavailable', restrictedBody: 'You can still secure your account and request a review. Creating another account will not remove this restriction.', reason: 'Reason', reviewRequired: 'Account review required', requestReview: 'Request review', security: 'Account & security',
-        conflictLabel: 'Identity review needed', conflictTitle: 'We need to confirm account ownership', conflictBody: 'Don’t change Student ID or create another account. Support can resolve ownership safely.', contactSupport: 'Contact support', verificationStatus: 'Verification status',
+        conflictLabel: 'Identity review needed', conflictTitle: 'We need to confirm account ownership', conflictBody: 'Correct a typo in your Student ID, or contact support if the ID is already correct.', contactSupport: 'Contact support', verificationStatus: 'Verification status',
         actionLabel: 'Action needed', rejectedTitle: 'Your verification needs a correction', rejectedBody: 'Keep this account. Fix only the rejected information or card and submit again.', fixVerification: 'Fix verification',
-        oneStep: 'One step left', requiredTitle: 'Verify your student identity', requiredBody: 'Personal-email accounts need student-card approval before booking or joining matches.', startVerification: 'Start verification',
+        oneStep: 'One step left', requiredTitle: 'Verify your student identity', requiredBody: 'Every student needs ID approval before booking or joining matches. You can browse while you wait.', startVerification: 'Start verification',
         reviewLabel: 'Under review', pendingTitle: 'Your student card is being reviewed', pendingBody: 'No action is needed right now. This same account will receive access after approval.', viewSubmission: 'View submission', contactHelp: 'Contact support'
       }
 
@@ -54,7 +53,7 @@
 
 <svelte:head><title>{copy.title} · UNEEM</title></svelte:head>
 
-<AuthShell maxWidth="max-w-lg">
+<div class="uneem-page-narrow !max-w-xl">
   {#if loading}
     <section class="space-y-3" aria-busy="true">
       <div class="h-52 animate-pulse rounded-3xl bg-surface-level-1"></div>
@@ -117,7 +116,7 @@
         <p class="text-sm font-semibold text-warning">{copy.reviewLabel}</p>
         <h1 class="mt-1 text-3xl font-semibold tracking-[-0.035em] text-text">{copy.pendingTitle}</h1>
         <p class="mt-3 text-sm leading-6 text-text-secondary">{copy.pendingBody}</p>
-        <div class="mt-6 grid grid-cols-2 gap-3">
+        <div class="mt-6 grid gap-3">
           <ActionLink href="/verification" variant="secondary" size="md" icon="shield">{copy.viewSubmission}</ActionLink>
           <ActionLink href="/help" variant="secondary" size="md" icon="info">{copy.contactHelp}</ActionLink>
         </div>
@@ -128,4 +127,4 @@
       </Button>
     </section>
   {/if}
-</AuthShell>
+</div>

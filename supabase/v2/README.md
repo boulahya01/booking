@@ -4,7 +4,7 @@ This directory is the canonical database/authorization source for UNEEM V2. The 
 
 ## Ordered source of truth
 
-Apply the full stack in this exact order:
+Apply the original layers below, then every numbered file from 025 through 060 in ascending order. The timestamped equivalents are in `../migrations/`.
 
 1. `schema.sql`
 2. `002_security_contract.sql`
@@ -35,7 +35,7 @@ No partial stack is a supported application target.
 
 ## Hosted state
 
-The fresh hosted V2 Supabase project has consumed all 24 layers. Validation evidence established during the release-candidate work includes:
+The following is historical evidence through layer 024, not a v2.1 sign-off:
 
 - auth lifecycle contract: PASS
 - guest support IP gate contract: PASS
@@ -48,15 +48,27 @@ The fresh hosted V2 Supabase project has consumed all 24 layers. Validation evid
 
 Do not infer future PASS state after a production-schema change. Any later schema/RLS/RPC change must rerun the affected contract gates.
 
+### v2.1 verification update
+
+`060_universal_student_verification.sql` is deployed to `hudjpcrjoryyhpphonsp` as
+`20260909163702_universal_student_verification_v21`. The full
+`tests/universal_verification_contract.sql` passed inside the migration transaction.
+Its fixtures were rolled back to a savepoint before committing the schema; follow-up
+queries confirmed no fixture users, facilities or storage records remained.
+This covers signup/confirmation, browse-only access, sports mutations, S/s ID
+correction, stale review, duplicate identity, verified immutability and suspension.
+It does not replace the separate multi-session race or physical-device gates.
+
 ## Authentication authority
 
 Supabase Auth owns credentials and email-link sessions. PostgreSQL owns application capabilities.
 
 - Every application profile starts `pending`.
 - `auth.users.email_confirmed_at` is an authorization prerequisite.
-- A confirmed `@usmba.ac.ma` mailbox proves university affiliation and may unlock sports access.
-- Academic signup may omit Student ID.
-- Personal-email signup requires a Student ID claim and private student-card review before sports access.
+- Email confirmation permits browsing; every email kind needs approved student-card verification before sports participation.
+- Signup may omit Student ID. Claims accept S/s followed by 1–49 digits and are stored uppercase.
+- Student ID can be corrected before verification. Editing a pending claim supersedes the review attempt while preserving its evidence and history.
+- A verified Student ID is immutable through student APIs; mailbox domain and client metadata never replace approval.
 - A normal signed-in session is never password-recovery authority.
 - Only the real Supabase `PASSWORD_RECOVERY` flow may create recovery continuity.
 - Browser-visible metadata never overrides PostgreSQL authorization state.

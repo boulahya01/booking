@@ -258,6 +258,8 @@ button:disabled {
 
 .uneem-field {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: var(--control-height);
   border: 1px solid transparent;
   border-radius: var(--radius-lg);

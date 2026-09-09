@@ -27,7 +27,7 @@ test('notifications update across routes, roll back failed dismissals and clear 
         if (key.endsWith('/auth/v1/logout'))
             return route.fulfill({ status: 204 });
         if (key.endsWith('/rpc/get_my_session_context'))
-            return json([{ user_id: uid, full_name: 'Yasmine El Amrani', username: 'yasmine', student_id: null, role: 'student', access_status: 'approved', email_kind: 'academic', identity_status: 'not_required', can_use_sports: true, needs_identity_action: false, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z' }]);
+            return json([{ user_id: uid, full_name: 'Yasmine El Amrani', username: 'yasmine', student_id: 'S123', role: 'student', access_status: 'approved', email_kind: 'academic', identity_status: 'verified', can_use_sports: true, needs_identity_action: false, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z' }]);
         if (key.endsWith('/rpc/get_next_booking'))
             return json([]);
         if (key.endsWith('/pitches'))

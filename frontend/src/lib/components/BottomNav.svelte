@@ -9,10 +9,11 @@
     { label: ['Home', 'الرئيسية'], href: '/home', icon: 'home' },
     { label: ['Matches', 'المباريات'], href: '/matches', icon: 'users' },
     { label: ['My Sports', 'رياضتي'], href: '/bookings', icon: 'calendar-days' },
-    { label: ['Profile', 'حسابي'], href: '/profile', icon: 'user' }
+    { label: ['Menu', 'القائمة'], href: '/menu', icon: 'menu' }
   ]
 
   function isActive(href: string): boolean {
+    if (href === '/menu') return ['/menu', '/profile', '/verification', '/pending-approval', '/notifications', '/report', '/admin'].some(path => $page.url.pathname === path || $page.url.pathname.startsWith(`${path}/`))
     return $page.url.pathname === href || $page.url.pathname.startsWith(`${href}/`)
   }
 </script>

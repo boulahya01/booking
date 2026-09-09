@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { hasFullAccess } from '$lib/stores/auth'
   import { onMount } from 'svelte'
   import { browser } from '$app/environment'
   import { goto } from '$app/navigation'
@@ -7,6 +8,7 @@
   import SlotCard from '$lib/components/SlotCard.svelte'
   import BookingModal from '$lib/components/BookingModal.svelte'
   import Icon from '$lib/components/Icon.svelte'
+  import Button from '$lib/components/Button.svelte'
   import { _, locale } from 'svelte-i18n'
   import { USE_MOCK, mockPitches, mockSlots } from '$lib/mock'
   import { logger } from '$lib/logger'
@@ -42,7 +44,7 @@
       && start < currentTime.getTime() + 24 * 60 * 60 * 1000
   })
   $: activeBooking = myBookings.find(
-    (booking) => booking.status === 'scheduled' && new Date(booking.ends_at).getTime() > currentTime.getTime()
+    (booking) => ['scheduled', 'in_progress'].includes(booking.status) && new Date(booking.ends_at).getTime() > currentTime.getTime()
   ) || null
   $: decoratedVisibleSlots = visibleSlots.map((slot) => decoratedSlot(slot))
   $: policyBlockedSlots = decoratedVisibleSlots.filter(
@@ -64,7 +66,7 @@
 
   function startAutoRefresh() {
     refreshInterval = setInterval(() => {
-      if (pitchId) void fetchSlots()
+      if (!document.hidden && pitchId && !showModal) void fetchSlots()
     }, 120_000)
 
     const handleVisibility = () => {
@@ -168,6 +170,7 @@
     startAutoRefresh()
 
     return () => {
+      fetchVersion++
       clearInterval(timer)
       stopAutoRefresh()
     }
@@ -231,6 +234,7 @@
   }
 
   function openBooking(slot: any) {
+    if (!$hasFullAccess) { void goto('/verification'); return }
     const decorated = decoratedSlot(slot)
     if (decorated.booking_blocked || !decorated.is_available) return
     selectedSlot = decorated
@@ -293,14 +297,14 @@
   <title>{pitch?.name || (ar ? 'المرفق' : 'Facility')} · UNEEM</title>
 </svelte:head>
 
-<main class="uneem-page-narrow">
+<main class="uneem-page-narrow pitch-page">
   {#if loading}
     <div class="space-y-4" aria-busy="true">
       <div class="h-10 w-24 animate-pulse rounded-xl bg-surface-level-1"></div>
-      <div class="h-28 animate-pulse rounded-[18px] bg-surface-level-1"></div>
-      <div class="space-y-2">
+      <div class="h-32 animate-pulse rounded-[22px] bg-surface-level-1"></div>
+      <div class="slot-grid">
         {#each [1,2,3,4] as _}
-          <div class="h-[82px] animate-pulse rounded-[16px] bg-surface-level-1"></div>
+          <div class="h-[144px] animate-pulse rounded-[18px] bg-surface-level-1"></div>
         {/each}
       </div>
     </div>
@@ -309,9 +313,9 @@
       <p class="font-bold text-text">
         {error || (ar ? 'المرفق غير موجود' : 'Facility not found')}
       </p>
-      <button on:click={fetchPitch} class="mt-3 min-h-10 text-sm font-bold text-primary">
+      <Button on:click={fetchPitch} variant="secondary" className="mt-4">
         {$_('common.retry')}
-      </button>
+      </Button>
     </section>
   {:else}
     <a href="/home" class="uneem-text-action mb-4">
@@ -319,29 +323,18 @@
       {ar ? 'رجوع' : 'Back'}
     </a>
 
-    <header class="mb-5 rounded-[18px] border border-border-light bg-surface p-4">
-      <div class="flex items-start justify-between gap-4">
-        <div class="min-w-0">
-          <h1 class="truncate text-[24px] font-extrabold tracking-[-0.035em] text-text">
-            {pitch.name}
-          </h1>
-          <p class="mt-1 flex items-center gap-1.5 text-sm text-text-secondary">
-            <Icon name="map-pin" size={14}/>
-            {pitch.location || $_('bookings.unknown_location')}
-          </p>
-          <p class="mt-2 text-xs font-semibold text-text-muted">
-            {hoursLabel()}
-            {#if pitch.capacity > 1}
-              <span> · {pitch.capacity} {ar ? 'لاعبين' : 'players'}</span>
-            {/if}
-          </p>
-        </div>
+    <header class="pitch-heading">
+      <h1>{pitch.name}</h1>
+      <p class="pitch-location"><Icon name="map-pin" size={17}/><span>{pitch.location || $_('bookings.unknown_location')}</span></p>
+      <div class="pitch-facts">
+        {#if hoursLabel()}<span><Icon name="clock" size={16}/><bdi>{hoursLabel()}</bdi></span>{/if}
+        {#if pitch.capacity > 1}<span><Icon name="users" size={16}/>{pitch.capacity} {ar ? 'لاعبين' : 'players'}</span>{/if}
       </div>
     </header>
 
     <section>
-      <div class="mb-3 flex items-center justify-between gap-4">
-        <h2 class="text-lg font-bold text-text">{ar ? 'الأوقات' : 'Times'}</h2>
+      <div class="times-heading">
+        <div><h2>{ar ? 'اختر وقتك' : 'Choose your time'}</h2><p>{ar ? 'خلال 24 ساعة القادمة' : 'Next 24 hours'}</p></div>
         {#if loadingSlots && slots.length > 0}
           <span class="text-xs font-semibold text-text-muted">
             {ar ? 'تحديث…' : 'Refreshing…'}
@@ -350,19 +343,17 @@
       </div>
 
       {#if loadingSlots && slots.length === 0}
-        <div class="overflow-hidden rounded-[16px] border border-border-light bg-surface" aria-busy="true">
+        <div class="slot-grid" aria-busy="true">
           {#each [1,2,3,4] as _}
-            <div class="h-[82px] border-b border-border-light last:border-0">
-              <div class="m-3 h-12 animate-pulse rounded-xl bg-surface-level-1"></div>
-            </div>
+            <div class="h-[144px] animate-pulse rounded-[18px] bg-surface-level-1"></div>
           {/each}
         </div>
       {:else if errorSlots && slots.length === 0}
-        <div class="flex items-center justify-between gap-3 py-4">
+        <div class="flex flex-col gap-4 rounded-[22px] bg-surface p-5" role="alert">
           <p class="text-sm font-semibold text-danger">{errorSlots}</p>
-          <button on:click={fetchSlots} class="min-h-10 text-sm font-bold text-primary">
+          <Button on:click={fetchSlots} variant="secondary" fullWidth>
             {$_('common.retry')}
-          </button>
+          </Button>
         </div>
       {:else if visibleSlots.length === 0}
         <div class="uneem-empty py-8">
@@ -372,17 +363,17 @@
         {#if errorSlots}
           <div class="mb-3 flex items-center justify-between gap-3 rounded-[14px] bg-danger-light px-3.5 py-3 text-sm font-semibold text-danger">
             <span>{errorSlots}</span>
-            <button on:click={fetchSlots} class="shrink-0 font-bold">{$_('common.retry')}</button>
+            <Button on:click={fetchSlots} variant="ghost" size="sm">{$_('common.retry')}</Button>
           </div>
         {/if}
 
-        <div class="space-y-4">
+        <div class="space-y-7">
           {#each slotGroups as group}
             <div>
-              <p class="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-text-muted">
+              <h3 class="mb-3 text-sm font-semibold text-text-secondary">
                 {groupLabel(group.date)}
-              </p>
-              <div class="divide-y divide-border-light overflow-hidden rounded-[16px] border border-border-light bg-surface">
+              </h3>
+              <div class="slot-grid">
                 {#each group.slots as slot, i (slot.id || `${slot.datetime_start}-${i}`)}
                   <SlotCard
                     slotData={slot}
@@ -417,3 +408,17 @@
     onBooked={onBookingCompleted}
   />
 {/if}
+
+<style>
+  .pitch-heading { padding: 4px 0 28px; }
+  .pitch-heading h1 { font-size: clamp(28px, 5vw, 36px); font-weight: 650; letter-spacing: -.04em; line-height: 1.2; overflow-wrap: anywhere; }
+  .pitch-location { display: flex; align-items: flex-start; gap: 8px; margin-top: 12px; color: var(--text-secondary); font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+  .pitch-location :global(svg) { margin-top: 2px; flex-shrink: 0; }
+  .pitch-facts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+  .pitch-facts > span { display: inline-flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 12px; background: var(--surface); color: var(--text-secondary); font-size: 13px; }
+  .times-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; }
+  .times-heading h2 { font-size: 21px; font-weight: 650; letter-spacing: -.025em; }
+  .times-heading p { margin-top: 5px; color: var(--text-muted); font-size: 13px; }
+  .slot-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  @media (min-width: 640px) { .slot-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; } }
+</style>

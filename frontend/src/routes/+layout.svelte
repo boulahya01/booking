@@ -1,14 +1,16 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
-  import { onMount } from 'svelte'
+  import { onMount, tick } from 'svelte'
   import { browser } from '$app/environment'
   import { page } from '$app/stores'
   import '$lib/styles/global.css'
   import '$lib/styles/fonts.css'
   import '$lib/styles/system.css'
   import '$lib/styles/mobile.css'
+  import { canBrowse, accountHome } from '$lib/access'
+  import { afterSignIn, rememberInvite, clearArrivedInvite } from '$lib/inviteNavigation'
+  import VerificationNotice from '$lib/components/VerificationNotice.svelte'
   import TopBar from '$lib/components/TopBar.svelte'
-  import SideNav from '$lib/components/SideNav.svelte'
   import Toast from '$lib/components/Toast.svelte'
   import PwaRuntime from '$lib/components/PwaRuntime.svelte'
   import { theme, toasts, uiState, interfaceReady } from '$lib/stores/ui'
@@ -28,7 +30,6 @@
   import { locale } from 'svelte-i18n'
   import { USE_MOCK } from '$lib/mock'
 
-  let sideNavOpen = false
   let toastRegion: HTMLDivElement
   $: if (browser && toastRegion && typeof toastRegion.showPopover === 'function') {
     if ($toasts.length) {
@@ -64,10 +65,6 @@
     unsubEarlyRecovery = () => earlyRecoveryListener.subscription.unsubscribe()
   }
 
-  function toggleSideNav() {
-    sideNavOpen = !sideNavOpen
-  }
-
   initializeI18n('en')
 
   const authPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/logout']
@@ -90,7 +87,7 @@
     const isAuthPath = authPaths.includes(pathname)
     const isSupportPath = publicSupportPaths.includes(pathname)
     const isPendingPath = pathname === '/pending-approval'
-    const isProfilePath = pathname === '/profile'
+    const isProfilePath = pathname === '/profile' || pathname === '/menu'
     const isVerificationPath = pathname === '/verification'
     const isVerifyEmailPath = pathname === '/verify-email'
     const isRecoveryPath = pathname === '/reset-password'
@@ -100,7 +97,7 @@
                          pathname.startsWith('/pitch/') ||
                          pathname.startsWith('/matches') ||
                          pathname.startsWith('/notifications')
-    const canUseSports = account?.can_use_sports === true
+    const canBrowseApp = canBrowse(account)
     const isAdminAccount = account?.role === 'admin'
     const recoveryActive = $passwordRecoveryActive
 
@@ -109,20 +106,20 @@
     if (recoveryActive && hasSession && !isRecoveryPath && !isSupportPath && pathname !== '/logout') {
       targetPath = '/reset-password'
     } else if (!hasSession && !isAuthPath && !isSupportPath) {
-      targetPath = '/login'
-    } else if (hasSession && isAuthPath && !isVerifyEmailPath && !(isRecoveryPath && recoveryActive)) {
-      targetPath = canUseSports ? '/home' : '/pending-approval'
+      targetPath = rememberInvite(pathname) ? `/login?next=${encodeURIComponent(pathname)}` : '/login'
+    } else if (hasSession && isAuthPath && pathname !== '/logout' && !isVerifyEmailPath && !(isRecoveryPath && recoveryActive)) {
+      targetPath = afterSignIn(account)
     } else if (hasSession && !account && !isSupportPath && !isVerifyEmailPath && !isRecoveryPath) {
       targetPath = '/pending-approval'
     } else if (hasSession && isAdminPath && !isAdminAccount) {
-      targetPath = canUseSports ? '/home' : '/pending-approval'
-    } else if (hasSession && !canUseSports && (isSportsPath || isAdminPath)) {
+      targetPath = accountHome(account)
+    } else if (hasSession && !canBrowseApp && (isSportsPath || isAdminPath)) {
       targetPath = '/pending-approval'
-    } else if (hasSession && canUseSports && isPendingPath) {
+    } else if (hasSession && canBrowseApp && account?.can_use_sports && isPendingPath) {
       targetPath = '/home'
     } else if (
       hasSession &&
-      !canUseSports &&
+      !canBrowseApp &&
       !isPendingPath &&
       !isProfilePath &&
       !isVerificationPath &&
@@ -132,6 +129,7 @@
       targetPath = '/pending-approval'
     }
 
+    if (hasSession && canBrowseApp && !targetPath) clearArrivedInvite(pathname)
     if (targetPath && targetPath !== pathname) {
       routeGuardProcessing = true
       goto(targetPath).finally(() => {
@@ -141,7 +139,7 @@
   }
 
   onMount(() => {
-    interfaceReady.set(true)
+    void tick().then(() => interfaceReady.set(true))
     const stopViewport = observeViewport()
     const storedTheme = localStorage.getItem('theme') as 'light' | 'dark' | 'auto' | null
     const storedLang = localStorage.getItem('language') as 'en' | 'ar' | null
@@ -174,6 +172,7 @@
         restorePasswordRecovery(session.user.id)
 
         const context = await getMySessionContext()
+        if (cacheUserId !== session.user.id) return
         if (!context) {
           authState.clear()
           return
@@ -190,7 +189,7 @@
           status: profile.status
         }, account)
       } catch {
-        authState.clear()
+        if (cacheUserId === session.user.id) authState.clear()
       }
     }
 
@@ -281,7 +280,7 @@
 
           if (!processingAuth) {
             processingAuth = true
-            authState.setLoading(true)
+            authState.setLoading($authState.user?.id !== session.user.id)
             void applySession(session).finally(() => {
               processingAuth = false
               authState.setLoading(false)
@@ -333,15 +332,13 @@
 
 <div class="app-shell" inert={!$interfaceReady}>
   <a href="#main-content" class="skip-link">{$uiState.language === 'ar' ? 'انتقل إلى المحتوى' : 'Skip to content'}</a>
-  {#if !chromeFreePage}
-    <TopBar onMenuToggle={toggleSideNav} />
-  {/if}
+  <div class="app-header">
+    {#if !chromeFreePage}<TopBar />{/if}
+    {#if !isAuthPage}<VerificationNotice />{/if}
+  </div>
   <main id="main-content" tabindex="-1" class:app-content={!chromeFreePage} class:app-content-plain={chromeFreePage}>
     <slot />
   </main>
-  {#if !chromeFreePage}
-    <SideNav bind:isOpen={sideNavOpen} on:close={() => sideNavOpen = false} />
-  {/if}
 
   <div bind:this={toastRegion} popover="manual" role="region" class="ui-toast-region" aria-label={$uiState.language === 'ar' ? 'تحديثات' : 'Updates'}>
     {#each $toasts as toast (toast.id)}
@@ -358,6 +355,7 @@
 </div>
 
 <style>
+  .app-header { position: sticky; top: 0; z-index: 40; }
   :global(.app-content-plain) {
     flex: 1;
     width: 100%;

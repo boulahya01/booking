@@ -74,7 +74,8 @@ const expectedMigrationVersions = [
   '20260907045500',
   '20260908001000',
   '20260908002000',
-  '20260908041000'
+  '20260908041000',
+  '20260908190000'
 ]
 
 const failures = []
@@ -178,6 +179,9 @@ const requiredPaths = [
   'supabase/v2/057_unified_booking_match_model.sql',
   'supabase/v2/058_named_reservation_integrity.sql',
   'supabase/v2/059_username_search.sql',
+  'supabase/v2/060_universal_student_verification.sql',
+  'supabase/migrations/20260908190000_060_universal_student_verification.sql',
+  'supabase/v2/tests/universal_verification_contract.sql',
   'supabase/functions/guest-support/index.ts',
   'supabase/v2/tests/concurrency_contract.ps1',
   'frontend/tests/e2e/public-launch-smoke.spec.ts',

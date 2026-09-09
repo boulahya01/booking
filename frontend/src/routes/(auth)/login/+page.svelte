@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { afterSignIn } from '$lib/inviteNavigation'
   import { goto } from '$app/navigation'
   import { onMount } from 'svelte'
   import Button from '$lib/components/Button.svelte'
@@ -53,7 +54,7 @@
     if (hintedEmail && isValidEmail(hintedEmail)) email = hintedEmail.trim().toLowerCase()
     if ($isAuthenticated) {
       const account = $authState.account
-      void goto(account?.role === 'admin' ? '/admin' : account?.can_use_sports ? '/home' : '/pending-approval')
+      void goto(afterSignIn(account))
     }
   })
 
@@ -101,7 +102,7 @@
         status: profile.status
       }, account)
 
-      const nextPath = account.role === 'admin' ? '/admin' : account.can_use_sports ? '/home' : '/pending-approval'
+      const nextPath = afterSignIn(account)
       await goto(nextPath)
     } catch (error: any) {
       authFailureKind = classifyAuthFailure(error?.message, error?.status)

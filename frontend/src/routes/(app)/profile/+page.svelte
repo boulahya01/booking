@@ -2,13 +2,12 @@
   import { onMount } from 'svelte'
   import { goto } from '$app/navigation'
   import { supabase } from '$lib/supabaseClient'
-  import { signOut, updatePassword } from '$lib/auth'
+  import { updatePassword } from '$lib/auth'
   import { uiState, language } from '$lib/stores/ui'
   import { authState } from '$lib/stores/auth'
   import Button from '$lib/components/Button.svelte'
   import TextField from '$lib/components/TextField.svelte'
   import Icon from '$lib/components/Icon.svelte'
-  import PwaInstallCard from '$lib/components/PwaInstallCard.svelte'
   import PasswordRequirements from '$lib/components/PasswordRequirements.svelte'
   import { USE_MOCK, mockProfile, mockDelay } from '$lib/mock'
   import { sanitizeInput, sanitizeName } from '$lib/validation'
@@ -208,11 +207,6 @@
     passwordAttempted = false
   }
 
-  async function logout() {
-    await signOut()
-    authState.clear()
-    await goto('/login')
-  }
 </script>
 
 <svelte:head><title>{copy.title} · UNEEM</title></svelte:head>
@@ -227,22 +221,23 @@
     <div class="uneem-card text-center">
       <div class="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-danger-light text-danger"><Icon name="alert-triangle" size={22}/></div>
       <p class="mt-3 font-semibold text-danger">{error}</p>
-      <button on:click={loadProfile} class="mt-3 min-h-10 text-sm font-bold text-primary">Retry</button>
+      <button on:click={loadProfile} class="mt-3 min-h-11 px-3 text-sm font-semibold text-primary">Retry</button>
     </div>
   {:else if profile}
+    <a href="/menu" class="uneem-text-action mb-5"><Icon name={ar ? 'arrow-right' : 'arrow-left'} size={17}/>{ar ? 'القائمة' : 'Menu'}</a>
     <header class="mb-6 flex items-center gap-4">
       <div class="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-primary-light text-lg font-extrabold text-primary">{getInitials(profile.full_name)}</div>
       <div class="min-w-0 flex-1">
-        <h1 class="truncate text-2xl font-extrabold tracking-[-0.03em] text-text">{profile.full_name}</h1>
+        <h1 class="break-words text-2xl font-semibold leading-8 tracking-[-0.03em] text-text">{profile.full_name}</h1>
         {#if profile.username}<p class="mt-0.5 truncate text-sm font-semibold text-primary">@{profile.username}</p>{/if}
-        <p class="mt-1 truncate text-sm text-text-muted">{email}</p>
+        <p class="mt-1 break-all text-sm text-text-muted">{email}</p>
       </div>
     </header>
 
     {#if error}<div class="mb-4 rounded-2xl bg-danger-light px-4 py-3 text-sm font-semibold text-danger" role="alert">{error}</div>{/if}
 
     {#if account?.identity_status !== 'verified' || account?.access_status !== 'approved'}
-      <a href={account?.access_status === 'approved' ? '/verification' : '/pending-approval'} class="mb-5 flex items-center gap-3 rounded-[22px] bg-warning-light p-4 text-warning">
+      <a href={account?.access_status === 'suspended' ? '/pending-approval' : '/verification'} class="mb-5 flex items-center gap-3 rounded-[22px] bg-warning-light p-4 text-warning">
         <div class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-surface/70"><Icon name="shield" size={20}/></div>
         <div class="min-w-0 flex-1"><p class="font-bold">{account?.access_status === 'suspended' ? copy.statusAction : copy.identity}</p><p class="mt-0.5 text-sm opacity-80">{account?.access_status === 'suspended' ? copy.suspended : identityLabel(account?.identity_status)}</p></div>
         <Icon name={ar ? 'chevron-left' : 'chevron-right'} size={18}/>
@@ -250,21 +245,21 @@
     {/if}
 
     <section class="uneem-panel overflow-hidden">
-      <div class="flex min-h-14 items-center justify-between border-b border-border-light px-4">
+      <div class="flex min-h-14 items-center justify-between px-5">
         <h2 class="font-bold text-text">{copy.profile}</h2>
-        {#if !editing}<button on:click={() => { editing = true; error = '' }} class="min-h-10 text-sm font-bold text-primary">{copy.edit}</button>{/if}
+        {#if !editing}<button on:click={() => { editing = true; error = '' }} class="min-h-11 px-3 text-sm font-semibold text-primary">{copy.edit}</button>{/if}
       </div>
 
       {#if editing}
         <div class="space-y-4 p-4">
           <TextField label={copy.fullName} placeholder={copy.namePlaceholder} icon="user" autocomplete="name" maxlength={120} bind:value={fullName} validation={nameState} hint={nameState === 'invalid' ? copy.invalidName : ''} validHint={copy.nameReady} disabled={saving}/>
-          <div class="flex gap-3"><Button size="lg" className="flex-1" loading={saving} on:click={saveProfile}>{copy.save}</Button><Button variant="secondary" size="lg" className="flex-1" disabled={saving} on:click={() => { editing = false; fullName = profile.full_name; error = ''; profileAttempted = false }}>{copy.cancel}</Button></div>
+          <div class="flex flex-col gap-3 sm:flex-row"><Button size="lg" className="flex-1" loading={saving} on:click={saveProfile}>{copy.save}</Button><Button variant="secondary" size="lg" className="flex-1" disabled={saving} on:click={() => { editing = false; fullName = profile.full_name; error = ''; profileAttempted = false }}>{copy.cancel}</Button></div>
         </div>
       {:else}
         <div class="px-4">
-          <div class="uneem-list-row"><span class="flex-1 text-sm text-text-muted">{copy.username}</span><span class="max-w-[60%] truncate text-sm font-bold text-text">{profile.username ? `@${profile.username}` : '—'}</span></div>
-          <div class="uneem-list-row"><span class="flex-1 text-sm text-text-muted">{copy.email}</span><span class="max-w-[60%] truncate text-sm font-semibold text-text">{email}</span></div>
-          <div class="uneem-list-row"><span class="flex-1 text-sm text-text-muted">{copy.studentId}</span><span class="text-sm font-semibold text-text">{profile.student_id || '—'}</span></div>
+          <div class="uneem-list-row"><span class="flex-1 text-sm text-text-muted">{copy.username}</span><span class="max-w-[65%] break-all text-end text-sm font-bold text-text">{profile.username ? `@${profile.username}` : '—'}</span></div>
+          <div class="uneem-list-row"><span class="flex-1 text-sm text-text-muted">{copy.email}</span><span class="max-w-[65%] break-all text-end text-sm font-semibold text-text">{email}</span></div>
+          <div class="uneem-list-row"><span class="flex-1 text-sm text-text-muted">{copy.studentId}</span><span class="max-w-[60%] break-all text-sm font-semibold text-text" dir="ltr">{account?.student_id || profile.student_id || '—'}</span>{#if account?.identity_status !== 'verified'}<a href="/verification" class="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-primary">{copy.edit}</a>{/if}</div>
           <div class="uneem-list-row"><span class="flex-1 text-sm text-text-muted">{copy.status}</span><span class="rounded-full bg-surface-level-1 px-2.5 py-1 text-xs font-bold text-text-secondary">{statusLabel(account?.access_status || profile.status)}</span></div>
           <div class="uneem-list-row"><span class="flex-1 text-sm text-text-muted">{copy.identity}</span><span class={`rounded-full px-2.5 py-1 text-xs font-bold ${identityTone(account?.identity_status || profile.identity_status)}`}>{identityLabel(account?.identity_status || profile.identity_status)}</span></div>
           <div class="uneem-list-row"><span class="flex-1 text-sm text-text-muted">{copy.role}</span><span class="text-sm font-semibold text-text">{profile.role === 'admin' ? copy.admin : copy.student}</span></div>
@@ -273,9 +268,9 @@
     </section>
 
     <section class="mt-4 uneem-panel overflow-hidden">
-      <div class="flex min-h-14 items-center justify-between border-b border-border-light px-4">
+      <div class="flex min-h-14 items-center justify-between px-5">
         <div><h2 class="font-bold text-text">{copy.security}</h2>{#if !editingPassword}<p class="mt-0.5 text-xs text-text-muted">{copy.passwordHint}</p>{/if}</div>
-        {#if !editingPassword}<button on:click={() => { editingPassword = true; error = ''; currentPasswordError = '' }} class="min-h-10 text-sm font-bold text-primary">{copy.changePassword}</button>{/if}
+        {#if !editingPassword}<button on:click={() => { editingPassword = true; error = ''; currentPasswordError = '' }} class="min-h-11 px-3 text-sm font-semibold text-primary">{copy.changePassword}</button>{/if}
       </div>
       {#if editingPassword}
         <div class="space-y-4 p-4">
@@ -283,18 +278,10 @@
           <TextField label={copy.newPassword} type="password" placeholder="8+ characters" icon="lock" autocomplete="new-password" bind:value={newPassword} validation={passwordState} hint={passwordState === 'invalid' && passwordAttempted && !newPassword ? copy.requiredPassword : ''} validHint={copy.ready} disabled={saving}/>
           <PasswordRequirements password={newPassword} lengthLabel={copy.ruleLength} numberOrSymbolLabel={copy.ruleNumberOrSymbol} />
           <TextField label={copy.confirmPassword} type="password" placeholder={copy.confirmPassword} icon="lock" autocomplete="new-password" bind:value={confirmPassword} validation={confirmState} hint={confirmState === 'invalid' ? copy.mismatch : ''} validHint={copy.match} disabled={saving}/>
-          <div class="flex gap-3"><Button size="lg" className="flex-1" loading={saving} on:click={changePassword}>{copy.updatePassword}</Button><Button variant="secondary" size="lg" className="flex-1" disabled={saving} on:click={cancelPasswordEdit}>{copy.cancel}</Button></div>
+          <div class="flex flex-col gap-3 sm:flex-row"><Button size="lg" className="flex-1" loading={saving} on:click={changePassword}>{copy.updatePassword}</Button><Button variant="secondary" size="lg" className="flex-1" disabled={saving} on:click={cancelPasswordEdit}>{copy.cancel}</Button></div>
         </div>
       {/if}
     </section>
 
-    <div class="mt-4">
-      <PwaInstallCard alwaysVisible />
-    </div>
-
-    <div class="mt-5 grid gap-2.5 sm:grid-cols-2">
-      <a href="/help" class="uneem-secondary-action"><Icon name="mail" size={17}/>{ar ? 'المساعدة' : 'Help & support'}</a>
-      <button on:click={logout} class="flex min-h-[50px] items-center justify-center gap-2 rounded-[18px] bg-danger-light px-4 font-bold text-danger"><Icon name="log-out" size={17}/>{copy.signOut}</button>
-    </div>
   {/if}
 </main>

@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { goto } from '$app/navigation'
+  import ActionLink from '$lib/components/ActionLink.svelte'
+  import Button from '$lib/components/Button.svelte'
   import Icon from '$lib/components/Icon.svelte'
   import { locale } from 'svelte-i18n'
   import { authState } from '$lib/stores/auth'
@@ -81,7 +83,7 @@
     matches.find((match) => match.booking_id === bookingId) || null
 
   const upcoming = (booking: MyBooking) =>
-    booking.lifecycle_status === 'upcoming' && booking.status === 'scheduled'
+    (booking.lifecycle_status === 'upcoming' || booking.lifecycle_status === 'in_progress') && booking.status === 'scheduled'
 
   $: upcomingBookings = bookings.filter(upcoming)
   $: history = bookings.filter((booking) => !upcoming(booking))
@@ -114,10 +116,10 @@
     <h1 class="uneem-title">{copy.title}</h1>
   </header>
 
-  <a href="/home" class="uneem-primary-action mb-7 min-h-[50px] w-full text-base">
+  <ActionLink href="/home" fullWidth size="lg" className="mb-7">
     <Icon name="calendar-plus" size={19}/>
     {copy.book}
-  </a>
+  </ActionLink>
 
   {#if loading}
     <div class="space-y-2" aria-busy="true">
@@ -150,7 +152,7 @@
               ? Math.min(match.capacity, 1 + match.reserved_spots + match.joined_count)
               : 1}
 
-            <article class="flex min-h-[112px] items-center gap-4 rounded-[18px] border border-border-light bg-surface p-4">
+            <article class="flex flex-col gap-5 rounded-[22px] bg-surface p-5">
               <div class="min-w-0 flex-1">
                 <p class="flex items-baseline gap-1.5">
                   <span class="text-[26px] font-extrabold tracking-[-0.04em] text-text">
@@ -160,10 +162,10 @@
                     – {timeText(booking.ends_at, zone)}
                   </span>
                 </p>
-                <h3 class="mt-2 truncate font-bold text-text">
+                <h3 class="mt-2 break-words font-bold text-text">
                   {booking.pitches?.name || 'Facility'}
                 </h3>
-                <p class="mt-1 truncate text-sm text-text-muted">
+                <p class="mt-1 break-words text-sm text-text-muted">
                   {dateText(booking.starts_at, zone)}
                   {#if booking.pitches?.location} · {booking.pitches.location}{/if}
                 </p>
@@ -179,7 +181,7 @@
 
               <a
                 href={`/bookings/${booking.id}`}
-                class="uneem-secondary-action min-h-10 min-w-[72px] shrink-0 px-4 text-sm"
+                class="uneem-secondary-action w-full"
               >
                 {copy.view}
               </a>
@@ -192,11 +194,11 @@
     {#if history.length > 0}
       <section class="mt-8">
         <h2 class="mb-3 text-lg font-bold text-text">{copy.history}</h2>
-        <div class="overflow-hidden rounded-[18px] border border-border-light bg-surface px-4">
-          {#each history.slice(0,8) as booking (booking.id)}
+        <div class="overflow-hidden rounded-[22px] bg-surface px-4">
+          {#each history as booking (booking.id)}
             <div class="uneem-list-row">
               <div class="min-w-0 flex-1">
-                <p class="truncate font-semibold text-text">
+                <p class="break-words font-semibold text-text">
                   {booking.pitches?.name || 'Facility'}
                 </p>
                 <p class="mt-0.5 text-sm text-text-muted">

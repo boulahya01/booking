@@ -62,7 +62,7 @@
 </dialog>
 
 <style>
-  .ui-dialog { position: fixed; inset: var(--visual-top, 0px) 0 auto; width: 100%; max-width: none; height: var(--visual-height, 100dvh); max-height: none; margin: 0; border: 0; padding: 16px 0 0; overflow: hidden; background: transparent; color: var(--text); }
+  .ui-dialog { position: fixed; inset: var(--visual-top, 0px) 0 auto; width: 100%; max-width: 100vw; height: min(var(--visual-height, 100dvh), 100dvh); max-height: none; margin: 0; border: 0; padding: 16px 0 0; overflow: hidden; background: transparent; color: var(--text); }
   .ui-dialog[open] { display: flex; align-items: flex-end; justify-content: center; }
   .ui-dialog::backdrop { background: rgb(10 12 16 / .4); }
   .ui-dialog-panel { display: flex; flex-direction: column; width: 100%; max-height: 100%; border-radius: 28px 28px 0 0; background: var(--surface-raised); box-shadow: var(--shadow-xl); overflow: hidden; }

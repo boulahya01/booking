@@ -44,7 +44,7 @@
   .auth-shell-header { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 16px; }
   .auth-brand { display: inline-flex; min-height: 44px; align-items: center; gap: 10px; font-size: 16px; font-weight: 800; letter-spacing: .1em; }
   .auth-brand img { border-radius: 11px; }
-  .auth-language { min-height: 44px; padding-inline: 12px; border-radius: 999px; background: var(--surface); font-size: 14px; font-weight: 600; }
+  .auth-language { min-height: 44px; padding-inline: 12px; border-radius: 999px; background: var(--surface); font-family: system-ui, sans-serif; font-size: 14px; font-weight: 600; }
   .auth-shell-main { display: flex; flex: 1; align-items: flex-start; padding-block: clamp(32px, 6dvh, 56px) 32px; }
   .auth-shell-footer { padding-top: 16px; text-align: center; }
   @media (min-width: 768px) { .auth-shell { padding-block: 32px; } .auth-shell-main { align-items: center; padding-block: 56px; } }

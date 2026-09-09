@@ -1,3 +1,4 @@
+import { canBrowse } from '$lib/access'
 import { get, writable } from 'svelte/store'
 import { supabase } from '$lib/supabaseClient'
 import { authState } from './auth'
@@ -122,7 +123,7 @@ export function startNotifications(): () => void {
   let initialTimer: ReturnType<typeof setTimeout> | undefined
   const unsubscribe = authState.subscribe((state) => {
     if (state.loading) return
-    const nextId = state.account?.can_use_sports || state.account?.role === 'admin' ? state.user?.id ?? null : null
+    const nextId = canBrowse(state.account) ? state.user?.id ?? null : null
     if (nextId === activeUserId) return
     reset(nextId)
     clearTimeout(initialTimer)

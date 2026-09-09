@@ -1,6 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import Icon from '$lib/components/Icon.svelte'
+  import Button from '$lib/components/Button.svelte'
+  import Modal from '$lib/components/Modal.svelte'
+  import TextField from '$lib/components/TextField.svelte'
+  import Toggle from '$lib/components/Toggle.svelte'
   import SegmentedControl from '$lib/components/SegmentedControl.svelte'
   import { language, uiState } from '$lib/stores/ui'
   import {
@@ -22,13 +26,14 @@
   let archiveTarget: AdminFacility | null = null
   let archiveReason: FacilityArchiveReason = 'maintenance'
 
-  const defaults: AdminFacilityInput = {
+  type FacilityForm = Omit<AdminFacilityInput, 'sport_type'> & { sport_type: string }
+  const defaults: FacilityForm = {
     name: '', location: '', sport_type: '', capacity: 10, timezone: 'Africa/Casablanca',
     open_time: '08:00', close_time: '22:00', slot_duration_minutes: 60, booking_window_hours: 24,
     booking_frequency_enabled: false, booking_frequency_days: 7, cancellation_cutoff_minutes: 60,
     is_active: true, sort_order: 0
   }
-  let form: AdminFacilityInput = { ...defaults }
+  let form: FacilityForm = { ...defaults }
 
   $: ar = $language === 'ar'
   $: visible = showInactive ? facilities : facilities.filter((f) => f.is_active)
@@ -38,13 +43,13 @@
   ]
   const durationOptions = [30, 45, 60, 90, 120].map((minutes) => ({ value: String(minutes), label: `${minutes} min` }))
   $: copy = ar ? {
-    eyebrow:'عمليات UNEEM', title:'المرافق', subtitle:'تحكم في أوقات الحجز والسعة والقواعد من مكان واحد.', add:'إضافة مرفق', active:'النشطة', all:'الكل', empty:'لم يتم إعداد أي مرفق بعد.', emptyAction:'إعداد أول مرفق',
+    eyebrow:'عمليات UNEEM', title:'المرافق', subtitle:'الأوقات والسعة وقواعد الحجز.', add:'إضافة مرفق', active:'النشطة', all:'الكل', empty:'لم يتم إعداد أي مرفق بعد.', emptyAction:'إعداد أول مرفق',
     retry:'إعادة المحاولة', edit:'تعديل', archive:'إيقاف المرفق', inactive:'غير نشط', capacity:'السعة', duration:'مدة الحجز', window:'نافذة الحجز', cutoff:'آخر وقت للإلغاء', frequency:'تكرار الحجز', days:'أيام',
     createTitle:'مرفق جديد', editTitle:'إعدادات المرفق', name:'الاسم', location:'الموقع', sport:'الرياضة', open:'الفتح', close:'الإغلاق', sort:'الترتيب', enabled:'نشط للطلاب', save:'حفظ', cancel:'إلغاء', saving:'جارٍ الحفظ…',
     overnight:'يمكن أن يبقى المرفق مفتوحاً بعد منتصف الليل، مثلاً 08:00 → 01:00.', windowHint:'أقصى مدة ظاهرة للطلبة هي 24 ساعة.',
     archiveTitle:'إيقاف هذا المرفق؟', archiveHint:'لن يُحذف التاريخ. سيختفي المرفق من الحجز الجديد ويمكن إعادة تفعيله لاحقاً.', reason:'السبب', keep:'إبقاؤه نشطاً', confirmArchive:'إيقاف المرفق'
   } : {
-    eyebrow:'UNEEM operations', title:'Facilities', subtitle:'Control availability, capacity and booking rules from one place.', add:'Add facility', active:'Active', all:'All', empty:'No facilities have been configured.', emptyAction:'Set up first facility',
+    eyebrow:'UNEEM operations', title:'Facilities', subtitle:'Hours, capacity and booking rules.', add:'Add facility', active:'Active', all:'All', empty:'No facilities have been configured.', emptyAction:'Set up first facility',
     retry:'Retry', edit:'Edit', archive:'Archive facility', inactive:'Inactive', capacity:'Capacity', duration:'Slot duration', window:'Booking window', cutoff:'Cancellation cutoff', frequency:'Booking frequency', days:'days',
     createTitle:'New facility', editTitle:'Facility settings', name:'Name', location:'Location', sport:'Sport', open:'Opens', close:'Closes', sort:'Display order', enabled:'Available to students', save:'Save facility', cancel:'Cancel', saving:'Saving…',
     overnight:'Facilities can close after midnight, for example 08:00 → 01:00.', windowHint:'Students can see at most the next 24 hours.',
@@ -90,6 +95,7 @@
   }
 
   async function save() {
+    if (saving) return
     if (!form.name.trim() || !form.location.trim()) { uiState.addToast(ar ? 'الاسم والموقع مطلوبان' : 'Name and location are required', 'error'); return }
     saving = true
     try {
@@ -104,7 +110,7 @@
   }
 
   async function archive() {
-    if (!archiveTarget) return
+    if (!archiveTarget || saving) return
     saving = true
     try {
       const saved = await adminArchiveFacility(archiveTarget.id, archiveReason)
@@ -118,10 +124,10 @@
 
 <svelte:head><title>{copy.title} · UNEEM Admin</title></svelte:head>
 
-<div class="mx-auto w-full max-w-6xl px-4 pb-28 pt-5 sm:px-6 sm:pb-10 sm:pt-7">
-  <header class="mb-6 flex items-end justify-between gap-4">
-    <div><p class="text-xs font-extrabold uppercase tracking-[0.12em] text-primary">{copy.eyebrow}</p><h1 class="mt-1 text-3xl font-extrabold tracking-[-0.04em] text-text">{copy.title}</h1><p class="mt-1 max-w-xl text-sm leading-6 text-text-secondary">{copy.subtitle}</p></div>
-    <button on:click={openCreate} class="uneem-primary-action shrink-0"><Icon name="plus" size={17}/><span class="hidden sm:inline">{copy.add}</span></button>
+<main class="uneem-page max-w-6xl">
+  <header class="mb-6 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+    <div><h1 class="uneem-title">{copy.title}</h1><p class="mt-1 max-w-xl text-sm leading-6 text-text-secondary">{copy.subtitle}</p></div>
+    <Button on:click={openCreate} className="w-full sm:w-auto"><Icon name="plus" size={18}/>{copy.add}</Button>
   </header>
 
   <div class="mb-4 max-w-xs">
@@ -142,57 +148,60 @@
   {:else}
     <div class="grid gap-3 sm:grid-cols-2">
       {#each visible as facility (facility.id)}
-        <article class={`uneem-card ${facility.is_active ? '' : 'opacity-70'}`}>
+        <article class="uneem-card flex flex-col">
           <div class="flex items-start justify-between gap-3">
-            <div class="min-w-0"><div class="flex flex-wrap items-center gap-2">{#if facility.sport_type}<span class="text-xs font-extrabold uppercase tracking-[0.08em] text-primary">{facility.sport_type}</span>{/if}{#if !facility.is_active}<span class="uneem-chip text-warning">{copy.inactive}</span>{/if}</div><h2 class="mt-1 truncate text-lg font-extrabold text-text">{facility.name}</h2><p class="mt-1 flex items-center gap-1.5 text-sm text-text-secondary"><Icon name="map-pin" size={14}/>{facility.location}</p></div>
-            <button on:click={() => openEdit(facility)} class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-surface-level-1 text-text-secondary" aria-label={copy.edit}><Icon name="pencil" size={17}/></button>
+            <div class="min-w-0"><div class="flex flex-wrap items-center gap-2">{#if facility.sport_type}<span class="text-xs font-semibold text-primary">{facility.sport_type}</span>{/if}{#if !facility.is_active}<span class="rounded-lg bg-warning-light px-2 py-1 text-xs font-medium text-warning">{copy.inactive}</span>{/if}</div><h2 class="mt-2 text-xl font-semibold tracking-tight text-text">{facility.name}</h2><p class="mt-1 flex items-center gap-1.5 text-sm text-text-secondary"><Icon name="map-pin" size={14}/>{facility.location}</p></div>
+            <button on:click={() => openEdit(facility)} class="uneem-icon-button shrink-0 bg-surface-level-1" aria-label={`${copy.edit}: ${facility.name}`}><Icon name="pencil" size={17}/></button>
           </div>
-          <dl class="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+          <dl class="my-5 grid grid-cols-2 gap-x-4 gap-y-4 rounded-2xl bg-surface-level-1 p-4 text-sm">
             <div><dt class="text-xs text-text-muted">{copy.capacity}</dt><dd class="mt-0.5 font-bold text-text">{facility.capacity}</dd></div>
             <div><dt class="text-xs text-text-muted">{copy.duration}</dt><dd class="mt-0.5 font-bold text-text">{facility.slot_duration_minutes} min</dd></div>
             <div><dt class="text-xs text-text-muted">{copy.window}</dt><dd class="mt-0.5 font-bold text-text">{Math.min(facility.booking_window_hours, 24)}h</dd></div>
             <div><dt class="text-xs text-text-muted">{copy.cutoff}</dt><dd class="mt-0.5 font-bold text-text">{facility.cancellation_cutoff_minutes} min</dd></div>
           </dl>
-          <div class="mt-4 flex items-center justify-between border-t border-border-light pt-3"><p class="text-xs text-text-muted">{facilityHours(facility)}{facility.booking_frequency_enabled ? ` · ${facility.booking_frequency_days} ${copy.days}` : ''}</p>{#if facility.is_active}<button on:click={() => { archiveTarget = facility; archiveReason = 'maintenance' }} class="min-h-9 text-sm font-bold text-danger">{copy.archive}</button>{/if}</div>
+          <div class="mt-auto flex flex-wrap items-center justify-between gap-2"><p class="text-xs text-text-muted">{facilityHours(facility)}{facility.booking_frequency_enabled ? ` · ${facility.booking_frequency_days} ${copy.days}` : ''}</p>{#if facility.is_active}<button on:click={() => { archiveTarget = facility; archiveReason = 'maintenance' }} class="min-h-11 rounded-xl px-2 text-sm font-semibold text-danger hover:bg-danger-light">{copy.archive}</button>{/if}</div>
         </article>
       {/each}
     </div>
   {/if}
-</div>
+</main>
 
-{#if showForm}
-  <div class="fixed inset-0 z-50 flex items-end bg-black/50 sm:items-center sm:justify-center sm:p-5" role="presentation">
-    <button type="button" tabindex="-1" aria-label="Close facility form" class="absolute inset-0 cursor-default" disabled={saving} on:click={() => showForm = false}></button>
-    <section class="relative z-10 max-h-[94vh] w-full overflow-y-auto rounded-t-[28px] bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-2xl sm:rounded-[28px]" role="dialog" aria-modal="true" tabindex="-1">
-      <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-extrabold uppercase tracking-[0.1em] text-primary">UNEEM</p><h2 class="mt-1 text-xl font-extrabold text-text">{editing ? copy.editTitle : copy.createTitle}</h2></div><button disabled={saving} on:click={() => showForm = false} class="grid h-10 w-10 place-items-center rounded-full bg-surface-level-1"><Icon name="x" size={18}/></button></div>
-      <div class="mt-5 grid gap-4 sm:grid-cols-2">
-        <label class="sm:col-span-2"><span class="text-sm font-bold text-text">{copy.name}</span><input bind:value={form.name} class="uneem-field mt-2" /></label>
-        <label><span class="text-sm font-bold text-text">{copy.location}</span><input bind:value={form.location} class="uneem-field mt-2" /></label>
-        <label><span class="text-sm font-bold text-text">{copy.sport}</span><input bind:value={form.sport_type} class="uneem-field mt-2" placeholder="Football" /></label>
-        <label><span class="text-sm font-bold text-text">{copy.open}</span><input bind:value={form.open_time} type="time" class="uneem-field mt-2" /></label>
-        <label><span class="text-sm font-bold text-text">{copy.close}</span><input bind:value={form.close_time} type="time" class="uneem-field mt-2" /></label>
-        <p class="-mt-2 text-xs leading-5 text-text-muted sm:col-span-2">{copy.overnight}</p>
-        <label><span class="text-sm font-bold text-text">{copy.capacity}</span><input bind:value={form.capacity} type="number" min="1" max="200" class="uneem-field mt-2" /></label>
-        <div><span class="text-sm font-bold text-text">{copy.duration}</span><div class="mt-2"><SegmentedControl options={durationOptions} value={String(form.slot_duration_minutes)} ariaLabel={copy.duration} scrollable onChange={(value) => (form.slot_duration_minutes = Number(value))} /></div></div>
-        <label><span class="text-sm font-bold text-text">{copy.window}</span><input bind:value={form.booking_window_hours} type="number" min="1" max="24" class="uneem-field mt-2" /><span class="mt-1 block text-xs text-text-muted">{copy.windowHint}</span></label>
-        <label><span class="text-sm font-bold text-text">{copy.cutoff}</span><input bind:value={form.cancellation_cutoff_minutes} type="number" min="0" max="1440" class="uneem-field mt-2" /></label>
-        <label><span class="text-sm font-bold text-text">{copy.sort}</span><input bind:value={form.sort_order} type="number" class="uneem-field mt-2" /></label>
-        <label><span class="text-sm font-bold text-text">{copy.frequency}</span><div class="mt-2 flex min-h-12 items-center justify-between rounded-2xl bg-surface-level-1 px-4"><span class="text-sm text-text-secondary">{form.booking_frequency_enabled ? 'On' : 'Off'}</span><input bind:checked={form.booking_frequency_enabled} type="checkbox" class="h-5 w-5 accent-primary" /></div></label>
-        {#if form.booking_frequency_enabled}<label><span class="text-sm font-bold text-text">{copy.frequency} · {copy.days}</span><input bind:value={form.booking_frequency_days} type="number" min="1" max="365" class="uneem-field mt-2" /></label>{/if}
-        <label class="sm:col-span-2"><div class="flex min-h-12 items-center justify-between rounded-2xl bg-surface-level-1 px-4"><span class="font-bold text-text">{copy.enabled}</span><input bind:checked={form.is_active} type="checkbox" class="h-5 w-5 accent-primary" /></div></label>
-      </div>
-      <div class="mt-6 flex gap-3"><button disabled={saving} on:click={() => showForm = false} class="uneem-secondary-action flex-1">{copy.cancel}</button><button disabled={saving} on:click={save} class="uneem-primary-action flex-1">{saving ? copy.saving : copy.save}</button></div>
-    </section>
-  </div>
-{/if}
+<Modal bind:open={showForm} title={editing ? copy.editTitle : copy.createTitle} size="lg" closeDisabled={saving}>
+  <form id="facility-form" on:submit|preventDefault={save} class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+    <div class="sm:col-span-2"><TextField label={copy.name} bind:value={form.name} required disabled={saving}/></div>
+    <TextField label={copy.location} bind:value={form.location} required disabled={saving}/>
+    <TextField label={copy.sport} bind:value={form.sport_type} disabled={saving}/>
+    <fieldset class="grid min-w-0 grid-cols-2 gap-4 sm:col-span-2">
+      <legend class="mb-3 text-sm font-semibold text-text">{ar ? 'ساعات العمل' : 'Opening hours'}</legend>
+      <label class="min-w-0"><span class="text-sm font-medium text-text-secondary">{copy.open}</span><input bind:value={form.open_time} type="time" required disabled={saving} class="uneem-field mt-2" /></label>
+      <label class="min-w-0"><span class="text-sm font-medium text-text-secondary">{copy.close}</span><input bind:value={form.close_time} type="time" required disabled={saving} class="uneem-field mt-2" /></label>
+      <p class="col-span-2 text-xs leading-5 text-text-muted">{copy.overnight}</p>
+    </fieldset>
+    <label><span class="text-sm font-medium text-text-secondary">{copy.capacity}</span><input bind:value={form.capacity} type="number" inputmode="numeric" min="1" max="200" required disabled={saving} class="uneem-field mt-2" /></label>
+    <label><span class="text-sm font-medium text-text-secondary">{copy.sort}</span><input bind:value={form.sort_order} type="number" inputmode="numeric" disabled={saving} class="uneem-field mt-2" /></label>
+    <div class="sm:col-span-2"><span class="text-sm font-medium text-text-secondary">{copy.duration}</span><div class="mt-2"><SegmentedControl options={durationOptions} value={String(form.slot_duration_minutes)} ariaLabel={copy.duration} scrollable onChange={(value) => { if (!saving) form.slot_duration_minutes = Number(value) }} /></div></div>
+    <label><span class="text-sm font-medium text-text-secondary">{copy.window} · {ar ? 'ساعة' : 'hours'}</span><input bind:value={form.booking_window_hours} type="number" inputmode="numeric" min="1" max="24" required disabled={saving} class="uneem-field mt-2" /><span class="mt-2 block text-xs leading-5 text-text-muted">{copy.windowHint}</span></label>
+    <label><span class="text-sm font-medium text-text-secondary">{copy.cutoff} · {ar ? 'دقيقة' : 'min'}</span><input bind:value={form.cancellation_cutoff_minutes} type="number" inputmode="numeric" min="0" max="1440" required disabled={saving} class="uneem-field mt-2" /></label>
+    <div class="space-y-4 rounded-2xl bg-surface-level-1 p-4 sm:col-span-2">
+      <Toggle checked={form.booking_frequency_enabled} label={copy.frequency} disabled={saving} onToggle={() => form.booking_frequency_enabled = !form.booking_frequency_enabled}/>
+      {#if form.booking_frequency_enabled}<label class="block"><span class="text-sm font-medium text-text-secondary">{copy.days}</span><input bind:value={form.booking_frequency_days} type="number" inputmode="numeric" min="1" max="365" required disabled={saving} class="uneem-field mt-2 !bg-surface" /></label>{/if}
+      <Toggle checked={form.is_active} label={copy.enabled} disabled={saving} onToggle={() => form.is_active = !form.is_active}/>
+    </div>
+  </form>
+  <svelte:fragment slot="footer">
+    <Button variant="secondary" disabled={saving} on:click={() => showForm = false} className="sm:flex-1">{copy.cancel}</Button>
+    <Button type="submit" form="facility-form" loading={saving} className="sm:flex-1">{copy.save}</Button>
+  </svelte:fragment>
+</Modal>
 
 {#if archiveTarget}
-  <div class="fixed inset-0 z-[60] flex items-end bg-black/55 sm:items-center sm:justify-center sm:p-5" role="presentation">
-    <button type="button" tabindex="-1" aria-label="Close archive dialog" class="absolute inset-0 cursor-default" disabled={saving} on:click={() => archiveTarget = null}></button>
-    <section class="relative z-10 w-full rounded-t-[28px] bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-[28px]" role="dialog" aria-modal="true" tabindex="-1">
-      <h2 class="text-xl font-extrabold text-text">{copy.archiveTitle}</h2><p class="mt-2 text-sm leading-6 text-text-secondary">{copy.archiveHint}</p>
-      <label class="mt-5 block text-sm font-bold text-text">{copy.reason}<select bind:value={archiveReason} class="uneem-field mt-2">{#each archiveReasons as item}<option value={item.value}>{ar ? item.ar : item.en}</option>{/each}</select></label>
-      <div class="mt-5 flex gap-3"><button disabled={saving} on:click={() => archiveTarget = null} class="uneem-secondary-action flex-1">{copy.keep}</button><button disabled={saving} on:click={archive} class="min-h-12 flex-1 rounded-2xl bg-danger px-4 font-bold text-white disabled:opacity-50">{copy.confirmArchive}</button></div>
-    </section>
-  </div>
+  <Modal open title={copy.archiveTitle} closeDisabled={saving} on:close={() => archiveTarget = null}>
+    <p class="font-semibold text-text">{archiveTarget.name}</p>
+    <p class="mt-2 text-sm leading-6 text-text-secondary">{copy.archiveHint}</p>
+    <label class="mt-5 block text-sm font-medium text-text-secondary">{copy.reason}<select bind:value={archiveReason} disabled={saving} class="uneem-field mt-2">{#each archiveReasons as item}<option value={item.value}>{ar ? item.ar : item.en}</option>{/each}</select></label>
+    <svelte:fragment slot="footer">
+      <Button variant="secondary" disabled={saving} on:click={() => archiveTarget = null} className="sm:flex-1">{copy.keep}</Button>
+      <Button variant="danger" loading={saving} on:click={archive} className="sm:flex-1">{copy.confirmArchive}</Button>
+    </svelte:fragment>
+  </Modal>
 {/if}

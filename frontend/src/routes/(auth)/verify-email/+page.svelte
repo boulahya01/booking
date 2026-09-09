@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { afterSignIn } from '$lib/inviteNavigation'
   import { onMount } from 'svelte'
   import { goto } from '$app/navigation'
   import { page } from '$app/stores'
@@ -83,7 +84,7 @@
         status: profile.status
       }, account)
 
-      nextPath = account.can_use_sports ? '/home' : '/pending-approval'
+      nextPath = afterSignIn(account)
       status = 'success'
       errorMessage = ''
       resendMessage = ''

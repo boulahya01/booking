@@ -3,6 +3,7 @@
   import { authState } from '$lib/stores/auth'
   import { language, uiState } from '$lib/stores/ui'
   import Icon from '$lib/components/Icon.svelte'
+  import Button from '$lib/components/Button.svelte'
   import {
     addAuthenticatedSupportMessage,
     addGuestSupportMessage,
@@ -121,6 +122,9 @@
   async function refreshCurrentThread() {
     if (!thread || refreshing || submitting || document.visibilityState === 'hidden') return
     refreshing = true
+    const activeThread = thread.id
+    const activeAuth = authKey
+    const nearBottom = !messagesElement || messagesElement.scrollHeight - messagesElement.scrollTop - messagesElement.clientHeight < 80
     try {
       const before = thread.messages.length
       const fresh = signedIn
@@ -128,9 +132,9 @@
         : guestToken
           ? await getGuestSupportThread(guestToken)
           : null
-      if (fresh) {
+      if (fresh && thread?.id === activeThread && authKey === activeAuth) {
         thread = fresh
-        if (fresh.messages.length > before) await scrollToLatest()
+        if (fresh.messages.length > before && nearBottom) await scrollToLatest()
       }
     } catch {
       // Background refresh never replaces an active conversation with an error state.
@@ -185,7 +189,7 @@
 
   async function reply() {
     const body = message.trim()
-    if (!thread || !body) return
+    if (!thread || !body || submitting) return
 
     submitting = true
     error = ''
@@ -225,24 +229,24 @@
 
 <svelte:head><title>{copy.title} · UNEEM</title></svelte:head>
 
-<div class="flex min-h-[100dvh] flex-col bg-background">
-  <header class="border-b border-border-light bg-background/95 backdrop-blur-xl" style="padding-top: var(--app-safe-top);">
+<div class="support-shell flex flex-col bg-background">
+  <header class="shrink-0 bg-background" style="padding-top: var(--app-safe-top);">
     <div class="mx-auto flex h-[56px] w-full max-w-3xl items-center justify-between px-3 sm:px-6">
-      <a href={backHref} class="grid h-10 w-10 place-items-center rounded-xl text-text-secondary hover:bg-surface-level-1 hover:text-text" aria-label={copy.back}>
+      <a href={backHref} class="uneem-icon-button" aria-label={copy.back}>
         <Icon name={ar ? 'arrow-right' : 'arrow-left'} size={19} />
       </a>
       <h1 class="text-[16px] font-semibold text-text">{copy.title}</h1>
-      <button on:click={toggleLanguage} class="grid h-10 min-w-10 place-items-center rounded-xl px-2 text-xs font-bold text-text-secondary hover:bg-surface-level-1 hover:text-text">{ar ? 'EN' : 'AR'}</button>
+      <button on:click={toggleLanguage} class="uneem-icon-button text-sm font-semibold">{ar ? 'EN' : 'AR'}</button>
     </div>
   </header>
 
-  <main class="mx-auto flex w-full max-w-3xl flex-1 flex-col">
+  <main class="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
     {#if loading}
       <div class="flex flex-1 items-center justify-center px-6" aria-busy="true">
         <span class="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-primary" aria-hidden="true"></span>
       </div>
     {:else if !thread}
-      <section class="mx-auto w-full max-w-xl px-4 pb-10 pt-10 sm:px-6 sm:pt-16">
+      <section class="mx-auto w-full max-w-xl overflow-y-auto px-5 pb-10 pt-8 sm:px-6 sm:pt-12">
         <div class="mb-7">
           <h2 class="text-[26px] font-semibold tracking-[-0.035em] text-text">{copy.intro}</h2>
           {#if signedIn && identity}<p class="mt-2 text-sm text-text-muted">{copy.signedAs} <span class="font-semibold text-text-secondary">{identity}</span></p>{/if}
@@ -258,21 +262,19 @@
             </div>
           {/if}
           <textarea bind:value={message} rows="4" maxlength="4000" class="uneem-field resize-none" placeholder={copy.messagePlaceholder} aria-label={copy.messagePlaceholder}></textarea>
-          <button disabled={submitting || !message.trim()} class="uneem-primary-action w-full">
-            {submitting ? copy.sending : copy.send}
-          </button>
+          <Button type="submit" fullWidth size="lg" loading={submitting} disabled={!message.trim()}>{copy.send}</Button>
         </form>
         <p class="mt-4 text-xs leading-5 text-text-muted">{copy.safe}</p>
       </section>
     {:else}
       <section class="flex min-h-0 flex-1 flex-col">
-        <div class="flex min-h-14 items-center justify-between gap-3 border-b border-border-light px-4 sm:px-6">
+        <div class="flex min-h-14 shrink-0 items-center justify-between gap-3 px-5 sm:px-6">
           <div class="min-w-0">
-            <p class="truncate text-sm font-semibold text-text">{thread.subject || copy.title}</p>
+            <p class="break-words text-sm font-semibold text-text">{thread.subject || copy.title}</p>
             {#if thread.status === 'resolved'}<p class="mt-0.5 text-xs font-medium text-success">{copy.resolved}</p>{/if}
           </div>
           {#if thread.status === 'resolved'}
-            <button on:click={startNewConversation} class="min-h-10 shrink-0 text-sm font-semibold text-primary">{copy.newChat}</button>
+            <button on:click={startNewConversation} class="min-h-11 shrink-0 px-2 text-sm font-semibold text-primary">{copy.newChat}</button>
           {/if}
         </div>
 
@@ -283,7 +285,7 @@
             {@const fromAdmin = item.sender_role === 'admin'}
             <div class={`max-w-[82%] ${fromAdmin ? 'me-auto' : 'ms-auto'}`}>
               <div class={`rounded-2xl px-4 py-3 ${fromAdmin ? 'bg-surface-level-1 text-text' : 'bg-primary-light text-text'}`}>
-                <p class="whitespace-pre-wrap text-sm leading-6">{item.body}</p>
+                <p class="whitespace-pre-wrap break-words text-sm leading-6">{item.body}</p>
               </div>
               <time class={`mt-1 block px-1 text-[10px] text-text-muted ${fromAdmin ? 'text-start' : 'text-end'}`}>
                 {new Date(item.created_at).toLocaleString(ar ? 'ar-MA' : 'en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
@@ -292,7 +294,7 @@
           {/each}
         </div>
 
-        <form on:submit|preventDefault={reply} class="border-t border-border-light bg-background/98 px-4 pt-3 sm:px-6" style="padding-bottom: max(0.9rem, var(--app-safe-bottom));">
+        <form on:submit|preventDefault={reply} class="shrink-0 bg-background px-4 pt-3 sm:px-6" style="padding-bottom: max(0.9rem, var(--app-safe-bottom));">
           <div class="flex items-end gap-2">
             <textarea bind:value={message} rows="1" maxlength="4000" class="uneem-field max-h-32 min-h-[48px] flex-1 resize-none" placeholder={copy.messagePlaceholder} aria-label={copy.messagePlaceholder}></textarea>
             <button disabled={submitting || !message.trim()} class="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary-action text-white disabled:opacity-40" aria-label={copy.send}>
@@ -304,3 +306,7 @@
     {/if}
   </main>
 </div>
+
+<style>
+  .support-shell { height: calc(var(--visual-height, 100dvh) - var(--verification-notice-height, 0px)); }
+</style>

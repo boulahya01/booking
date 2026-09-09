@@ -597,6 +597,10 @@ export type Database = {
       }
     }
     Functions: {
+      update_my_student_id: {
+        Args: { p_student_id: string }
+        Returns: undefined
+      }
       add_guest_support_message: {
         Args: { p_access_token: string; p_body: string }
         Returns: string

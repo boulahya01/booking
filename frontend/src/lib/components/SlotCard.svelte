@@ -1,4 +1,7 @@
 <script lang="ts">
+  import Button from './Button.svelte'
+  import ActionLink from './ActionLink.svelte'
+  import { hasFullAccess } from '$lib/stores/auth'
   import { _, locale } from 'svelte-i18n'
 
   export let slotData: any
@@ -14,6 +17,7 @@
     Number(slot.capacity || 1),
     1 + Number(slot.reserved_spots || 0) + Number(slot.joined_count || 0)
   )
+  $: placesLeft = Math.max(0, Number(slot.capacity || 1) - usedSpots)
 
   function formatTime(value: string) {
     return new Intl.DateTimeFormat($locale || 'en', {
@@ -25,61 +29,54 @@
   }
 </script>
 
-<article class="flex min-h-[82px] items-center gap-3 bg-surface px-3.5 py-3">
-  <div class="w-[112px] shrink-0">
-    <div class="flex items-baseline gap-1.5">
-      <span class="text-[25px] font-extrabold leading-none tracking-[-0.04em] text-text">
-        {formatTime(slot.datetime_start)}
-      </span>
-      {#if slot.datetime_end}
-        <span class="text-xs font-semibold text-text-muted">– {formatTime(slot.datetime_end)}</span>
-      {/if}
+<article class="slot-card" aria-label={`${formatTime(slot.datetime_start)} – ${formatTime(slot.datetime_end)}`}>
+  <div class="slot-top">
+    <div class="slot-time" dir="ltr">
+      <time datetime={slot.datetime_start}>{formatTime(slot.datetime_start)}</time>
+      <span aria-hidden="true">–</span>
+      <time class="slot-end" datetime={slot.datetime_end}>{formatTime(slot.datetime_end)}</time>
     </div>
+    <span class="slot-status" class:slot-status--available={available} class:slot-status--open={!available && open && placesLeft > 0}>
+      <span class="slot-dot" aria-hidden="true"></span>
+      {available ? (ar ? 'متاح' : 'Available') : open && placesLeft > 0 ? (ar ? 'مفتوح' : 'Open') : (ar ? 'محجوز' : 'Booked')}
+    </span>
   </div>
-
-  <div class="min-w-0 flex-1">
+  {#if !available || blocked}
+  <div class="slot-details">
     {#if available}
-      <p class="flex items-center gap-2 text-sm font-semibold text-text-secondary">
-        <span class="h-2 w-2 rounded-full bg-success"></span>
-        {ar ? 'متاح' : 'Available'}
-      </p>
-      {#if blocked}
-        <p class="mt-1 truncate text-xs font-semibold text-text-muted">
-          {slot.booking_block_label || (ar ? 'يمكنك الحجز لاحقاً' : 'Available later')}
-        </p>
-      {/if}
+      {#if blocked}<p class="slot-policy">{slot.booking_block_label || (ar ? 'يمكنك الحجز لاحقاً' : 'Available later')}</p>{/if}
     {:else}
-      <p class="truncate text-sm font-semibold text-text-secondary">
-        {ar ? 'محجوز بواسطة' : 'Booked by'}
-        <span class="font-bold text-text">
-          {slot.booker_username ? `@${slot.booker_username}` : slot.booker_name || (ar ? 'طالب' : 'student')}
-        </span>
-      </p>
+      <p>{ar ? 'محجوز بواسطة' : 'Booked by'} <strong>{slot.booker_username ? `@${slot.booker_username}` : slot.booker_name || (ar ? 'طالب' : 'student')}</strong></p>
       {#if open}
-        <p class="mt-1 flex items-center gap-1.5 text-xs font-bold text-success">
-          <span class="h-1.5 w-1.5 rounded-full bg-success"></span>
-          {ar ? 'مفتوح' : 'Open'} · {usedSpots}/{slot.capacity}
-        </p>
+        <p>{placesLeft > 0 ? (ar ? `${placesLeft} أماكن متاحة` : `${placesLeft} places left`) : (ar ? 'مكتمل' : 'Full')}</p>
       {/if}
     {/if}
   </div>
-
-  {#if available}
-    <button
-      type="button"
-      disabled={blocked}
-      on:click={() => onBook(slot)}
-      class="min-h-10 min-w-[72px] rounded-[11px] bg-[var(--primary-action)] px-4 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-35"
-    >
-      {$_('pitch.book')}
-    </button>
-  {:else}
-    <button
-      type="button"
-      on:click={() => onView(slot)}
-      class="min-h-10 min-w-[72px] rounded-[11px] bg-surface-level-1 px-4 text-sm font-extrabold text-text hover:bg-surface-level-2"
-    >
-      {ar ? 'عرض' : 'View'}
-    </button>
   {/if}
+  <div class="slot-action">
+    {#if available && !$hasFullAccess}
+      <ActionLink href="/verification" variant="secondary" size="sm" fullWidth>{ar ? 'تحقق' : 'Verify'}</ActionLink>
+    {:else if available}
+      <Button fullWidth size="sm" disabled={blocked} on:click={() => onBook(slot)}>{$_('pitch.book')}</Button>
+    {:else}
+      <Button fullWidth size="sm" variant="secondary" disabled={!slot.booking_id} on:click={() => onView(slot)}>{ar ? 'عرض الحجز' : 'View booking'}</Button>
+    {/if}
+  </div>
 </article>
+
+<style>
+  .slot-card { display: flex; min-width: 0; height: 100%; flex-direction: column; gap: 14px; padding: 16px; border-radius: var(--radius-lg); background: var(--surface); }
+  .slot-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  .slot-status { display: inline-flex; align-items: center; gap: 7px; padding: 6px 10px; border-radius: 99px; background: var(--surface-level-1); color: var(--text-secondary); font-size: 12px; font-weight: 650; line-height: 18px; }
+  .slot-status--available { color: var(--success); background: var(--success-light); }
+  .slot-status--open { color: var(--primary); background: var(--primary-light); }
+  .slot-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+  .slot-time { display: flex; align-items: baseline; flex-wrap: wrap; gap: 7px; align-self: flex-start; font-variant-numeric: tabular-nums; }
+  .slot-time time { font-size: 26px; font-weight: 650; letter-spacing: -.035em; line-height: 1.2; }
+  .slot-time > span { font-size: 18px; color: var(--text-muted); }
+  .slot-time .slot-end { font-size: 18px; font-weight: 500; color: var(--text-secondary); }
+  .slot-details { display: grid; gap: 4px; color: var(--text-secondary); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+  .slot-details strong { font-weight: 600; color: var(--text); }
+  .slot-policy { font-size: 13px; }
+  .slot-action { margin-top: auto; }
+</style>

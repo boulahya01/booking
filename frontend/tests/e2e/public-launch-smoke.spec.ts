@@ -141,10 +141,10 @@ test('registration stays concise and returns wrapped database conflicts to edita
   await expect(page.getByText('Personal email · card approval required')).toHaveCount(0);
   await page.getByRole('button', { name: 'Continue' }).click();
 
-  await expect(page.getByText('Student card required before booking')).toBeVisible();
+  await expect(page.getByText('ID approval required before booking')).toBeVisible();
   await page.getByLabel('Full name', { exact: true }).fill('Release Check');
   await page.getByLabel('Username', { exact: true }).fill('releasecheck');
-  await page.getByLabel('Student ID', { exact: true }).fill('S987654321');
+  await page.getByLabel('Student ID (optional)', { exact: true }).fill('S987654321');
   await expect(page.getByText('Looks good')).toHaveCount(0);
   await expect(page.getByText(/Format valid/)).toHaveCount(0);
   await page.getByRole('button', { name: 'Continue' }).click();
