@@ -37,9 +37,10 @@ Allowed redirects are intentionally narrow:
 
 - `https://uneem.site/verify-email`
 - `https://uneem.site/reset-password`
-- `https://*-marwaneboulahya-5125s-projects.vercel.app/**` for canonical Vercel preview validation
 - `http://localhost:5173/verify-email` for local development
 - `http://localhost:5173/reset-password` for local development
+
+Preview deployment redirect URLs must not embed a contributor's personal name, email, account slug, or other personal identifier in versioned repository files. If preview Auth is needed, configure an organization/project-owned preview hostname or manage the temporary preview redirect outside Git.
 
 Do not replace the production entries with a broad domain wildcard.
 
