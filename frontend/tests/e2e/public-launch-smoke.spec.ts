@@ -1,6 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
 
 const publicRoutes = [
+  '/',
+  '/privacy',
+  '/terms',
+  '/data-deletion',
   '/login',
   '/register',
   '/forgot-password',
@@ -91,6 +95,30 @@ for (const language of languages) {
   });
 }
 
+test('public OAuth branding surfaces identify UNEM Sports and explain the product', async ({ page }) => {
+  await seedUi(page, 'en');
+  const response = await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+  expect(response).not.toBeNull();
+  expect(response!.status()).toBeLessThan(400);
+  await expect(page.getByRole('heading', { name: 'Book. Play. Meet.' })).toBeVisible();
+  await expect(page.getByText(/UNEM Sports helps students discover university sports facilities/i)).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Privacy' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Terms' })).toBeVisible();
+});
+
+test('privacy policy contains Google sign-in data-use disclosure', async ({ page }) => {
+  await seedUi(page, 'en');
+  const response = await page.goto('/privacy', { waitUntil: 'domcontentloaded' });
+
+  expect(response).not.toBeNull();
+  expect(response!.status()).toBeLessThan(400);
+  await expect(page.getByRole('heading', { name: 'Privacy Policy' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Google Sign-In' })).toBeVisible();
+  await expect(page.getByText(/openid.*email.*profile/i)).toBeVisible();
+  await expect(page.getByText(/do not request access to Gmail/i)).toBeVisible();
+});
+
 test.describe('public auth authority negatives', () => {
   test('direct reset-password visit cannot create recovery authority', async ({ page }) => {
     await seedUi(page, 'en');
@@ -166,7 +194,7 @@ test('PWA install metadata is reachable', async ({ page }) => {
   expect(manifestResponse.ok()).toBe(true);
 
   const manifest = await manifestResponse.json();
-  expect(manifest.name).toBe('UNEEM');
+  expect(manifest.name).toBe('UNEM Sports');
   expect(manifest.icons).toEqual(
     expect.arrayContaining([
       expect.objectContaining({ sizes: '192x192' }),

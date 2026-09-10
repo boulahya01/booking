@@ -16,9 +16,9 @@
             <Icon name={$language === 'ar' ? 'arrow-right' : 'arrow-left'} size={21} />
           </a>
         {:else}
-          <a href={brandHref} class="auth-brand" aria-label="UNEEM">
+          <a href={brandHref} class="auth-brand" aria-label="UNEM Sports">
             <img src="/assets/brand/app-icon.svg" width="36" height="36" alt="" />
-            <span>UNEEM</span>
+            <span>UNEM Sports</span>
           </a>
         {/if}
       </div>
@@ -42,7 +42,7 @@
   }
   .auth-shell-frame { display: flex; flex: 1; flex-direction: column; width: 100%; min-width: 0; margin-inline: auto; }
   .auth-shell-header { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 16px; }
-  .auth-brand { display: inline-flex; min-height: 44px; align-items: center; gap: 10px; font-size: 16px; font-weight: 800; letter-spacing: .1em; }
+  .auth-brand { display: inline-flex; min-height: 44px; align-items: center; gap: 10px; font-size: 16px; font-weight: 800; letter-spacing: -.025em; }
   .auth-brand img { border-radius: 11px; }
   .auth-language { min-height: 44px; padding-inline: 12px; border-radius: 999px; background: var(--surface); font-family: system-ui, sans-serif; font-size: 14px; font-weight: 600; }
   .auth-shell-main { display: flex; flex: 1; align-items: flex-start; padding-block: clamp(32px, 6dvh, 56px) 32px; }

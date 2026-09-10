@@ -22,9 +22,9 @@
 
 <header class={`uneem-topbar bg-background ${mobileDetailPage ? 'hidden lg:block' : ''}`}>
   <div class="uneem-topbar-inner mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-5 sm:px-8">
-    <a href={$isAuthenticated ? '/home' : '/login'} class="flex min-h-11 items-center gap-2.5 rounded-xl">
+    <a href={$isAuthenticated ? '/home' : '/login'} class="flex min-h-11 items-center gap-2.5 rounded-xl" aria-label="UNEM Sports">
       <img src="/assets/brand/app-icon.svg" alt="" width="36" height="36" decoding="async" class="h-9 w-9 shrink-0 rounded-xl" />
-      <span class="text-[17px] font-bold tracking-[0.08em] text-text">UNEEM</span>
+      <span class="text-[17px] font-bold tracking-[-0.025em] text-text">UNEM Sports</span>
     </a>
     {#if $isAuthenticated}
       <nav class="hidden items-center gap-2 lg:flex" aria-label={$language === 'ar' ? 'التنقل الرئيسي' : 'Primary navigation'}>
