@@ -30,7 +30,8 @@
           join open matches.
         </p>
         <p>
-          For privacy questions, contact <a class="inline-link" href="mailto:marwaneboulahya@gmail.com">marwaneboulahya@gmail.com</a>.
+          For privacy questions or data requests, use the
+          <a class="inline-link" href="/help">UNEM Sports Support</a> page.
         </p>
       </section>
 
