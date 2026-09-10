@@ -6,6 +6,7 @@
   import ActionLink from '$lib/components/ActionLink.svelte'
   import TextField from '$lib/components/TextField.svelte'
   import Icon from '$lib/components/Icon.svelte'
+  import SocialSignIn from '$lib/components/SocialSignIn.svelte'
   import AuthShell from '$lib/components/AuthShell.svelte'
   import { language } from '$lib/stores/ui'
   import { authState, isAuthenticated } from '$lib/stores/auth'
@@ -17,6 +18,7 @@
   let email = ''
   let password = ''
   let loading = false
+  let socialLoading = false
   let loginAttempted = false
   let emailTouched = false
   let submitError = ''
@@ -66,7 +68,7 @@
   }
 
   async function handleLogin() {
-    if (loading) return
+    if (loading || socialLoading) return
     loginAttempted = true
     submitError = ''
     authFailureKind = null
@@ -133,15 +135,17 @@
       </div>
     {/if}
 
+    <SocialSignIn disabled={loading} bind:busy={socialLoading} />
+
     <form on:submit|preventDefault={handleLogin} class="login-form" novalidate>
-      <TextField label={copy.email} name="email" type="email" placeholder={copy.emailPlaceholder} autocomplete="email" inputmode="email" autocapitalize="none" spellcheck={false} enterkeyhint="next" bind:value={email} on:blur={() => emailTouched = true} validation={emailState} hint={emailState === 'invalid' ? copy.invalidEmail : ''} disabled={loading} />
-      <TextField label={copy.password} name="password" type="password" placeholder={copy.passwordPlaceholder} autocomplete="current-password" enterkeyhint="go" bind:value={password} error={passwordError} disabled={loading}>
+      <TextField label={copy.email} name="email" type="email" placeholder={copy.emailPlaceholder} autocomplete="email" inputmode="email" autocapitalize="none" spellcheck={false} enterkeyhint="next" bind:value={email} on:blur={() => emailTouched = true} validation={emailState} hint={emailState === 'invalid' ? copy.invalidEmail : ''} disabled={loading || socialLoading} />
+      <TextField label={copy.password} name="password" type="password" placeholder={copy.passwordPlaceholder} autocomplete="current-password" enterkeyhint="go" bind:value={password} error={passwordError} disabled={loading || socialLoading}>
         {#snippet labelAction()}
           <a href={forgotHref} class="login-recovery">{copy.forgot}</a>
         {/snippet}
       </TextField>
 
-      <div class="pt-3"><Button type="submit" variant="primary" size="lg" {loading} disabled={loading} fullWidth>{copy.signIn}</Button></div>
+      <div class="pt-3"><Button type="submit" variant="primary" size="lg" {loading} disabled={loading || socialLoading} fullWidth>{copy.signIn}</Button></div>
     </form>
 
     <div class="mt-3">

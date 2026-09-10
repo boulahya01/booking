@@ -23,6 +23,7 @@ test('all students browse, see a persistent reminder and correct ID before appro
     const url = new URL(request.url())
     const key = url.pathname.split('/').at(-1)!
     const json = (body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
+    if (key === 'settings') return json({ external: { google: true, facebook: true } })
     if (key === 'token') return json(session)
     if (key === 'user') return json(user)
     if (key === 'logout') return route.fulfill({ status: 204 })

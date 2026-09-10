@@ -20,6 +20,7 @@ async function fixture(page: Page, admin = false) {
   await page.route('**/*.supabase.co/**', async route => {
     const req = route.request(), url = new URL(req.url()), key = url.pathname.split('/').at(-1)!
     const json = (body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
+    if (key === 'settings') return json({ external: { google: true, facebook: true } })
     if (key === 'token') return json(session)
     if (key === 'user') return json(user)
     if (key === 'logout') return route.fulfill({ status: 204 })

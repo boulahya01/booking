@@ -20,6 +20,7 @@ test('notifications update across routes, roll back failed dismissals and clear 
         const key = u.pathname;
         counts[key] = (counts[key] || 0) + 1;
         const json = (body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+        if (key.endsWith('/auth/v1/settings')) return json({ external: { google: true, facebook: true } });
         if (key.endsWith('/auth/v1/token'))
             return json(session);
         if (key.endsWith('/auth/v1/user'))

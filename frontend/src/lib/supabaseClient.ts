@@ -34,3 +34,23 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
 })
 
 export const supabaseClient = supabase
+
+
+export type SocialProvider = 'google' | 'facebook'
+let providerRequest: Promise<Record<SocialProvider, boolean>> | null = null
+
+// Public Auth configuration only. One non-blocking read shared by auth screens.
+export function getSocialProviders(): Promise<Record<SocialProvider, boolean>> {
+  if (providerRequest) return providerRequest
+  providerRequest = fetch(`${supabaseUrl}/auth/v1/settings`, {
+    headers: { apikey: supabaseKey }, signal: AbortSignal.timeout(5000)
+  }).then(async response => {
+    if (!response.ok) throw new Error('auth_settings_unavailable')
+    const settings = await response.json()
+    return { google: settings.external?.google === true, facebook: settings.external?.facebook === true }
+  }).catch(() => {
+    providerRequest = null
+    return { google: false, facebook: false }
+  })
+  return providerRequest
+}

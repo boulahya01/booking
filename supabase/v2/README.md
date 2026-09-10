@@ -4,7 +4,7 @@ This directory is the canonical database/authorization source for UNEEM V2. The 
 
 ## Ordered source of truth
 
-Apply the original layers below, then every numbered file from 025 through 061 in ascending order. The timestamped equivalents are in `../migrations/`.
+Apply the original layers below, then every numbered file from 025 through 062 in ascending order. The timestamped equivalents are in `../migrations/`.
 
 1. `schema.sql`
 2. `002_security_contract.sql`
@@ -67,6 +67,13 @@ The two-argument function definition matches the local source. The complete
 `tests/profile_editing_contract.sql` passed against that hosted definition in a
 transaction ending in rollback. Name/username changes preserve identity, role,
 access and other accounts; anonymous calls and verified-ID edits are denied.
+
+### v2.1 OAuth bootstrap
+
+Layer `062_oauth_profile_bootstrap.sql` is hosted as
+`20260910031617_oauth_profile_bootstrap_v21`. OAuth and universal verification
+contracts passed before application; the OAuth contract also passed afterward
+and fixtures were confirmed absent. Provider identity is authentication only.
 
 ## Authentication authority
 
