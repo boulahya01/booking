@@ -37,9 +37,10 @@ Allowed redirects are intentionally narrow:
 
 - `https://uneem.site/verify-email`
 - `https://uneem.site/reset-password`
-- `https://*-marwaneboulahya-5125s-projects.vercel.app/**` for canonical Vercel preview validation
 - `http://localhost:5173/verify-email` for local development
 - `http://localhost:5173/reset-password` for local development
+
+Preview deployment redirect URLs must not embed a contributor's personal name, email, account slug, or other personal identifier in versioned repository files. If preview Auth is needed, configure an organization/project-owned preview hostname or manage the temporary preview redirect outside Git.
 
 Do not replace the production entries with a broad domain wildcard.
 
@@ -83,10 +84,10 @@ Never expose service-role, secret-key, database-owner, SMTP, or Management API c
 
 ## Production email transport
 
-Supabase Auth owns tokens and the authentication lifecycle. The configured delivery infrastructure is Resend custom SMTP. The product owner confirmed real signup-confirmation delivery on 2026-09-10.
+Supabase Auth owns tokens and the authentication lifecycle. The configured delivery infrastructure is Resend custom SMTP.
 
 Sender: `UNEM Sports <auth@uneem.site>`; domain: `uneem.site`.
-Keep link/open tracking off and SMTP/API credentials outside Git. Hosted templates for confirmation, recovery, email change, magic link, reauthentication and account-security notifications were customized by the owner; do not overwrite them with older local templates.
+Keep link/open tracking off and SMTP/API credentials outside Git. Hosted templates for confirmation, recovery, email change, magic link, reauthentication and account-security notifications must remain aligned with the production configuration; do not overwrite them with older local templates.
 
 The remaining release evidence must cover real password recovery, both email-change confirmations, and provider linking/removal. Local intercepted tests do not prove mailbox delivery or hosted provider configuration.
 
