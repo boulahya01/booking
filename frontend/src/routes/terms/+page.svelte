@@ -116,8 +116,8 @@
       <section>
         <h2>Contact</h2>
         <p>
-          Questions about these terms can be sent to
-          <a class="inline-link" href="mailto:marwaneboulahya@gmail.com">marwaneboulahya@gmail.com</a>.
+          For questions about these terms, use the
+          <a class="inline-link" href="/help">UNEM Sports Support</a> page.
         </p>
       </section>
     </div>
