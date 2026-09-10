@@ -46,14 +46,14 @@
   }
 
   $: copy = ar ? {
-    title: 'الدعم', intro: 'كيف يمكننا مساعدتك؟', name: 'اسمك', namePlaceholder: 'مثال: مروان',
+    title: 'الدعم', intro: 'كيف يمكننا مساعدتك؟', name: 'اسمك', namePlaceholder: 'مثال: طالب',
     messagePlaceholder: 'صف المشكلة التي تواجهها…', send: 'إرسال', sending: 'جارٍ الإرسال…',
     safe: 'لا ترسل كلمة المرور أو معلومات الدفع.', resolved: 'تم الحل', newChat: 'محادثة جديدة',
     signedAs: 'مسجل باسم', back: 'رجوع', generic: 'تعذر إكمال العملية. حاول مرة أخرى.',
     nameRequired: 'أدخل اسمك للمتابعة.', messageRequired: 'صف المشكلة التي تواجهها.',
     appeal: 'مراجعة الحساب'
   } : {
-    title: 'Support', intro: 'How can we help?', name: 'Your name', namePlaceholder: 'e.g. Marwan',
+    title: 'Support', intro: 'How can we help?', name: 'Your name', namePlaceholder: 'e.g. Student',
     messagePlaceholder: 'Describe your problem…', send: 'Send', sending: 'Sending…',
     safe: 'Never send your password or payment details.', resolved: 'Resolved', newChat: 'New conversation',
     signedAs: 'Signed in as', back: 'Back', generic: 'Couldn’t complete that action. Try again.',
@@ -227,7 +227,7 @@
   }
 </script>
 
-<svelte:head><title>{copy.title} · UNEEM</title></svelte:head>
+<svelte:head><title>{copy.title} · UNEM Sports</title></svelte:head>
 
 <div class="support-shell flex flex-col bg-background">
   <header class="shrink-0 bg-background" style="padding-top: var(--app-safe-top);">
