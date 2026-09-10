@@ -24,14 +24,14 @@
       <section>
         <h2>How to request deletion</h2>
         <p>
-          Send an email from the address associated with your account to
-          <a class="inline-link" href="mailto:marwaneboulahya@gmail.com?subject=UNEM%20Sports%20data%20deletion%20request">marwaneboulahya@gmail.com</a>
-          with the subject <strong>UNEM Sports data deletion request</strong>.
+          Open the <a class="inline-link" href="/help">UNEM Sports Support</a> page and send a
+          <strong>data deletion request</strong>. If you are signed in, submit the request from the
+          account you want deleted whenever possible.
         </p>
         <p>
           You may include your username to help us locate the account. Do not send your password,
-          authentication codes or recovery links. We will request additional identity information only
-          when it is necessary to prevent an account takeover or mistaken deletion.
+          authentication codes, payment details or recovery links. We will request additional identity
+          information only when necessary to prevent an account takeover or mistaken deletion.
         </p>
       </section>
 
@@ -68,9 +68,9 @@
       <section>
         <h2>Questions</h2>
         <p>
-          If you are unsure which account information is associated with you, contact
-          <a class="inline-link" href="mailto:marwaneboulahya@gmail.com">marwaneboulahya@gmail.com</a>
-          and we will guide you through a privacy-preserving verification process.
+          If you are unsure which account information is associated with you, use
+          <a class="inline-link" href="/help">UNEM Sports Support</a> and we will guide you through
+          a privacy-preserving verification process.
         </p>
       </section>
     </div>
