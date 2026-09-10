@@ -83,13 +83,12 @@ Never expose service-role, secret-key, database-owner, SMTP, or Management API c
 
 ## Production email transport
 
-The built-in Supabase sender is development-only and is not the UNEEM launch transport. Before launch configure a UNEEM-controlled custom SMTP sender, verify its domain authentication, disable provider link tracking/rewriting, and test delivery to real non-team addresses.
+Supabase Auth owns tokens and the authentication lifecycle. The configured delivery infrastructure is Resend custom SMTP. The product owner confirmed real signup-confirmation delivery on 2026-09-10.
 
-Target sender identity remains:
+Sender: `UNEM Sports <auth@uneem.site>`; domain: `uneem.site`.
+Keep link/open tracking off and SMTP/API credentials outside Git. Hosted templates for confirmation, recovery, email change, magic link, reauthentication and account-security notifications were customized by the owner; do not overwrite them with older local templates.
 
-`UNEEM <no-reply@auth.uneem.site>`
-
-If the final provider requires a different verified sender during setup, do not silently change the product contract; record and review the exact sender used for launch testing.
+The remaining release evidence must cover real password recovery, both email-change confirmations, and provider linking/removal. Local intercepted tests do not prove mailbox delivery or hosted provider configuration.
 
 ## Launch smoke tests
 

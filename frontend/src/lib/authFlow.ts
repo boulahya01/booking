@@ -59,13 +59,14 @@ export async function completeAuthFlow(url: URL, expected: AuthFlowKind): Promis
   const suppliedType = url.searchParams.get('type')
 
   if (tokenHash) {
-    if (suppliedType && suppliedType !== expected) {
+    const otpType = expected === 'email' && suppliedType === 'email_change' ? 'email_change' : expected
+    if (suppliedType && suppliedType !== otpType) {
       return { handled: true, session: null, error: new Error('unexpected_auth_flow') }
     }
 
     const { data, error } = await supabase.auth.verifyOtp({
       token_hash: tokenHash,
-      type: expected as EmailOtpType
+      type: otpType as EmailOtpType
     })
     return { handled: true, session: data.session ?? null, error }
   }

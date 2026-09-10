@@ -1210,7 +1210,7 @@ export type Database = {
         }
       }
       update_my_profile: {
-        Args: { p_full_name: string }
+        Args: { p_full_name: string; p_username?: string }
         Returns: {
           access_restriction_reason: string | null
           created_at: string

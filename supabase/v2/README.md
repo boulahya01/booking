@@ -4,7 +4,7 @@ This directory is the canonical database/authorization source for UNEEM V2. The 
 
 ## Ordered source of truth
 
-Apply the original layers below, then every numbered file from 025 through 060 in ascending order. The timestamped equivalents are in `../migrations/`.
+Apply the original layers below, then every numbered file from 025 through 061 in ascending order. The timestamped equivalents are in `../migrations/`.
 
 1. `schema.sql`
 2. `002_security_contract.sql`
@@ -58,6 +58,15 @@ queries confirmed no fixture users, facilities or storage records remained.
 This covers signup/confirmation, browse-only access, sports mutations, S/s ID
 correction, stale review, duplicate identity, verified immutability and suspension.
 It does not replace the separate multi-session race or physical-device gates.
+
+### v2.1 profile editing
+
+Layer `061_profile_details_editing.sql` was already hosted as
+`20260909173637_profile_details_editing_v21` when work resumed on 2026-09-10.
+The two-argument function definition matches the local source. The complete
+`tests/profile_editing_contract.sql` passed against that hosted definition in a
+transaction ending in rollback. Name/username changes preserve identity, role,
+access and other accounts; anonymous calls and verified-ID edits are denied.
 
 ## Authentication authority
 
