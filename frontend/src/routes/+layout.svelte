@@ -68,7 +68,7 @@
   initializeI18n('en')
 
   const authPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/logout']
-  const publicSupportPaths = ['/help']
+  const publicSupportPaths = ['/help', '/', '/privacy', '/terms', '/data-deletion']
   $: isAuthPage = authPaths.includes($page.url.pathname)
   $: isPublicSupportPage = publicSupportPaths.includes($page.url.pathname)
   $: chromeFreePage = isAuthPage || isPublicSupportPage
@@ -325,7 +325,7 @@
 </script>
 
 <svelte:head>
-  <title>UNEEM</title>
+  <title>UNEM Sports</title>
 </svelte:head>
 
 <PwaRuntime />
@@ -334,7 +334,7 @@
   <a href="#main-content" class="skip-link">{$uiState.language === 'ar' ? 'انتقل إلى المحتوى' : 'Skip to content'}</a>
   <div class="app-header">
     {#if !chromeFreePage}<TopBar />{/if}
-    {#if !isAuthPage}<VerificationNotice />{/if}
+    {#if !isAuthPage && !isPublicSupportPage}<VerificationNotice />{/if}
   </div>
   <main id="main-content" tabindex="-1" class:app-content={!chromeFreePage} class:app-content-plain={chromeFreePage}>
     <slot />

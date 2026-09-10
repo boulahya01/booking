@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "UNEEM",
-  "short_name": "UNEEM",
-  "description": "University sport, bookings and open matches.",
+  "name": "UNEM Sports",
+  "short_name": "UNEM Sports",
+  "description": "Student sports facilities, bookings and open matches.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
