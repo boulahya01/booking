@@ -39,7 +39,6 @@ additional_redirect_urls = [
   "https://www.uneem.site/reset-password",
   "https://uneem.site/verify-email",
   "https://uneem.site/reset-password",
-  "https://*-marwaneboulahya-5125s-projects.vercel.app/**",
   "http://localhost:5173/verify-email",
   "http://localhost:5173/reset-password"
 ]
