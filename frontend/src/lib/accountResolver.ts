@@ -75,6 +75,7 @@ export function resolveAccountRoute(ctx: ResolverContext): string | null {
   }
 
   if (!hasSession) {
+    if (authErrorPath) return '/login'
     if (authPath || publicPath) return null
     return '/login'
   }
