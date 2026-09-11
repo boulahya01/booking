@@ -40,3 +40,11 @@ jobs:
       - name: Production build
         working-directory: frontend
         run: npm run build
+
+      - name: Install Chromium for auth routing smoke
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Auth and PWA launch routing smoke
+        working-directory: frontend
+        run: npx playwright test tests/e2e/auth-launch-routing.spec.ts --project=desktop-chromium
