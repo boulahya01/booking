@@ -30,6 +30,20 @@ export type AccountState = {
   needs_identity_action: boolean
 }
 
+export type ConnectedProvider = {
+  provider: 'google' | 'facebook' | 'email' | 'phone'
+  connected: boolean
+  email?: string
+  lastSignInAt?: string
+}
+
+export type AccountIdentity = {
+  providers: ConnectedProvider[]
+  hasPassword: boolean
+  primaryEmail: string
+  canAddPassword: boolean
+}
+
 export type Pitch = {
   id: string
   name: string

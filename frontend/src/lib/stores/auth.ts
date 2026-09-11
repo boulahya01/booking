@@ -1,6 +1,7 @@
 import { writable, derived } from 'svelte/store'
 import { canParticipate } from '$lib/access'
 import type { AccountState } from '$lib/types'
+import type { AccountIdentity, ConnectedProvider } from '$lib/accountIdentity'
 
 export type UserStatus = 'pending' | 'approved' | 'suspended'
 
@@ -19,6 +20,7 @@ export type User = {
 type AuthState = {
   user: User | null
   account: AccountState | null
+  identity: AccountIdentity | null
   loading: boolean
   error: string | null
 }
@@ -27,6 +29,7 @@ const createAuthStore = () => {
   const { subscribe, set, update } = writable<AuthState>({
     user: null,
     account: null,
+    identity: null,
     // The first client render must not assume "signed out" before Supabase has
     // restored the persisted session. Route guards wait for this to resolve.
     loading: true,
@@ -35,13 +38,15 @@ const createAuthStore = () => {
 
   return {
     subscribe,
-    setSessionContext: (userData: User, account: AccountState) =>
-      set({ user: userData, account, loading: false, error: null }),
+    setSessionContext: (userData: User, account: AccountState, identity?: AccountIdentity | null) =>
+      set({ user: userData, account, identity: identity ?? null, loading: false, error: null }),
     setUser: (userData: User) =>
       update((state) => ({ ...state, user: userData, loading: false, error: null })),
     setAccount: (account: AccountState) =>
       update((state) => ({ ...state, account, loading: false, error: null })),
-    clear: () => set({ user: null, account: null, loading: false, error: null }),
+    setIdentity: (identity: AccountIdentity) =>
+      update((state) => ({ ...state, identity, loading: false, error: null })),
+    clear: () => set({ user: null, account: null, identity: null, loading: false, error: null }),
     setLoading: (loading: boolean) => update((state) => ({ ...state, loading })),
     setError: (error: string) => update((state) => ({ ...state, error, loading: false }))
   }
@@ -51,6 +56,7 @@ export const authState = createAuthStore()
 
 export const user = derived(authState, ($state) => $state.user)
 export const accountState = derived(authState, ($state) => $state.account)
+export const accountIdentity = derived(authState, ($state) => $state.identity)
 
 export function setUser(userData: User) {
   authState.setUser(userData)
@@ -88,4 +94,19 @@ export const isSuspended = derived(
 export const needsIdentityAction = derived(
   authState,
   ($state) => !!$state.account?.needs_identity_action
+)
+
+export const hasPassword = derived(
+  authState,
+  ($state) => $state.identity?.hasPassword ?? false
+)
+
+export const connectedProviders = derived(
+  authState,
+  ($state) => $state.identity?.providers ?? []
+)
+
+export const canAddPassword = derived(
+  authState,
+  ($state) => $state.identity?.canAddPassword ?? false
 )

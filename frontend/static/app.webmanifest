@@ -3,7 +3,7 @@
   "name": "UNEEM",
   "short_name": "UNEEM",
   "description": "University sport, bookings and open matches.",
-  "start_url": "/",
+  "start_url": "/launch",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f5f5f7",
