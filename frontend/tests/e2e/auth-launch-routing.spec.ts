@@ -53,6 +53,13 @@ test('returning signed-out installed-app launch resolves to login', async ({ pag
   await expect(page).toHaveURL(/\/login(?:\?|$)/)
 })
 
+test('signed-out users cannot remain on the account bootstrap error screen', async ({ page }) => {
+  await markWelcome(page)
+  await page.goto('/auth-error', { waitUntil: 'domcontentloaded' })
+
+  await expect(page).toHaveURL(/\/login(?:\?|$)/)
+})
+
 test('PWA manifest launches through /launch', async ({ page }) => {
   const response = await page.request.get('/app.webmanifest')
   expect(response.ok()).toBe(true)
