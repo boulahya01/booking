@@ -32,6 +32,19 @@ const publicPaths = new Set([
   '/data-deletion'
 ])
 
+export function classifyBootstrapError(error: unknown): Exclude<BootstrapError, null | 'profile_not_found'> {
+  const message = String((error as { message?: string })?.message || error || '').toLowerCase()
+  if (
+    message.includes('network') ||
+    message.includes('failed to fetch') ||
+    message.includes('fetcherror') ||
+    message.includes('connection')
+  ) {
+    return 'network_error'
+  }
+  return 'database_error'
+}
+
 export function isAuthPath(pathname: string): boolean {
   return authPaths.has(pathname)
 }
