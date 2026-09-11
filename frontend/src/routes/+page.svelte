@@ -5,11 +5,30 @@
   import { accountHome } from '$lib/access'
   import { authState } from '$lib/stores/auth'
 
+  const welcomeKey = 'unem:welcome-seen'
   let routed = false
 
-  $: if (browser && !$authState.loading && $authState.user && !routed) {
-    routed = true
-    void goto(accountHome($authState.account), { replaceState: true })
+  function welcomeSeen(): boolean {
+    if (!browser) return false
+    try { return localStorage.getItem(welcomeKey) === '1' } catch { return false }
+  }
+
+  function markWelcomeSeen() {
+    if (!browser) return
+    try { localStorage.setItem(welcomeKey, '1') } catch { /* Storage is optional. */ }
+  }
+
+  $: if (browser && !$authState.loading && !routed) {
+    if ($authState.user) {
+      routed = true
+      void goto(
+        $authState.bootstrapError ? '/auth-error' : accountHome($authState.account),
+        { replaceState: true }
+      )
+    } else if (welcomeSeen()) {
+      routed = true
+      void goto('/login', { replaceState: true })
+    }
   }
 </script>
 
@@ -39,8 +58,8 @@
     </p>
 
     <div class="hero-actions">
-      <a class="primary-action" href="/login">Sign in</a>
-      <a class="secondary-action" href="/register">Create account</a>
+      <a class="primary-action" href="/login" on:click={markWelcomeSeen}>Sign in</a>
+      <a class="secondary-action" href="/register" on:click={markWelcomeSeen}>Create account</a>
     </div>
   </section>
 
