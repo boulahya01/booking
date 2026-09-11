@@ -5,7 +5,7 @@
   import { emailConfirmationRedirectUrl } from '$lib/authFlow'
   import { clearRequestCache } from '$lib/requestCache'
   import { uiState, language } from '$lib/stores/ui'
-  import { authState, connectedProviders, hasPassword, canAddPassword } from '$lib/stores/auth'
+  import { authState } from '$lib/stores/auth'
   import { sanitizeName } from '$lib/validation'
   import { isValidEmail, isValidPassword, isValidUsername } from '$lib/utils/cn'
   import Button from '$lib/components/Button.svelte'
@@ -16,7 +16,7 @@
   import PasswordRequirements from '$lib/components/PasswordRequirements.svelte'
 
   type Profile = { id:string; full_name:string; username:string|null; student_id:string|null; identity_status:string }
-  type Editor = 'details'|'email'|'password'|'add-password'
+  type Editor = 'details'|'email'|'password'
   let profile: Profile | null = null
   let loading = true, saving = false, attempted = false, editorOpen = false, disposed = false
   let editor: Editor | null = null
@@ -24,9 +24,6 @@
   $: ar = $language === 'ar'
   $: account = $authState.account
   $: email = $authState.user?.email || ''
-  $: providers = $connectedProviders
-  $: userHasPassword = $hasPassword
-  $: userCanAddPassword = $canAddPassword
   $: verified = profile?.identity_status === 'verified' || account?.identity_status === 'verified'
   $: currentId = account?.student_id || profile?.student_id || ''
   $: identityStatus = verified ? (ar?'موثّق':'Verified') : account?.identity_status === 'pending' ? (ar?'قيد المراجعة':'Under review') : ['rejected','conflict'].includes(account?.identity_status || '') ? (ar?'يحتاج تصحيحاً':'Needs correction') : (ar?'مطلوب':'Required')
@@ -36,7 +33,7 @@
   $: usernameValid = isValidUsername(cleanUsername)
   $: emailValid = isValidEmail(nextEmail.trim())
   $: passwordValid = isValidPassword(newPassword) && newPassword.length <= 128
-  $: editorTitle = editor === 'details' ? (ar?'تعديل الملف الشخصي':'Edit profile') : editor === 'email' ? (ar?'تغيير البريد الإلكتروني':'Change email') : editor === 'password' ? (ar?'تغيير كلمة المرور':'Change password') : editor === 'add-password' ? (ar?'إضافة كلمة مرور':'Add password') : (ar?'تعديل رقم الطالب':'Edit Student ID')
+  $: editorTitle = editor === 'details' ? (ar?'تعديل الملف الشخصي':'Edit profile') : editor === 'email' ? (ar?'تغيير البريد الإلكتروني':'Change email') : editor === 'password' ? (ar?'تغيير كلمة المرور':'Change password') : (ar?'تعديل رقم الطالب':'Edit Student ID')
 
   onMount(() => { void load(); return () => { disposed = true } })
 
@@ -46,7 +43,7 @@
     loading = true; loadError = ''
     const {data,error:failure} = await supabase.from('profiles').select('id,full_name,username,student_id,identity_status').eq('id',uid).single()
     if (disposed || $authState.user?.id !== uid) return
-    if (failure || !data) loadError = ar?'تعذر تحميل الملف الشخصي.':'Couldn\'t load your profile.'
+    if (failure || !data) loadError = ar?'تعذر تحميل الملف الشخصي.':'Couldn’t load your profile.'
     else profile = data
     loading = false
   }
@@ -66,8 +63,7 @@
     attempted=true; error=''
     if (editor==='details' && (!nameValid || !usernameValid)) return
     if (editor==='email' && (!emailValid || nextEmail.trim().toLowerCase()===email.toLowerCase())) return
-    if ((editor==='password' || editor==='add-password') && (!newPassword || !passwordValid || newPassword!==confirmPassword)) return
-    if (editor==='password' && !currentPassword) return
+    if (editor==='password' && (!currentPassword || !passwordValid || newPassword!==confirmPassword)) return
     const uid=profile.id, action=editor
     saving=true
     try {
@@ -85,13 +81,9 @@
         if (failure) throw failure
         if (disposed || $authState.user?.id!==uid) return
         pendingEmail=nextEmail.trim().toLowerCase()
-      } else if (action==='password') {
+      } else {
         const result=await updatePassword(newPassword,currentPassword)
         if (result.error) throw new Error(result.error.message)
-      } else if (action==='add-password') {
-        // Add password to an account that only has OAuth
-        const { error: failure } = await supabase.auth.updateUser({ password: newPassword })
-        if (failure) throw failure
       }
       if (disposed || $authState.user?.id!==uid) return
       uiState.addToast(action==='email' ? (ar?'راجع بريدك لتأكيد التغيير.':'Check your email to confirm the change.') : (ar?'تم حفظ التغييرات.':'Changes saved.'),'success')
@@ -101,29 +93,8 @@
       const code=String((failure as {message?:string})?.message || '')
       if (code.includes('username_taken')) error=ar?'اسم المستخدم مستعمل. اختر اسماً آخر.':'That username is taken. Choose another.'
       else if (code.includes('current_password_invalid')) error=ar?'كلمة المرور الحالية غير صحيحة.':'Current password is incorrect.'
-      else if (code.includes('weak_password') || code.includes('password_should_be') || code.includes('password_too_short')) error=ar?'استخدم 8 أحرف على الأقل مع رقم أو رمز.':'Use 8+ characters with a number or symbol.'
-      else error=ar?'تعذر حفظ التغيير. حاول مجدداً.':'Couldn\'t save this change. Try again.'
+      else error=ar?'تعذر حفظ التغيير. حاول مجدداً.':'Couldn’t save this change. Try again.'
     } finally { saving=false }
-  }
-
-  function getProviderLabel(provider: string): string {
-    switch (provider) {
-      case 'google': return 'Google'
-      case 'facebook': return 'Facebook'
-      case 'email': return ar ? 'البريد الإلكتروني وكلمة المرور' : 'Email & password'
-      case 'phone': return ar ? 'الهاتف' : 'Phone'
-      default: return provider
-    }
-  }
-
-  function getProviderIcon(provider: string): string {
-    switch (provider) {
-      case 'google': return 'chrome'
-      case 'facebook': return 'facebook'
-      case 'email': return 'mail'
-      case 'phone': return 'smartphone'
-      default: return 'user'
-    }
   }
 </script>
 
@@ -146,47 +117,10 @@
       {#if !verified}<ActionLink href="/verification" variant="secondary" fullWidth>{ar?'عرض التحقق':'View verification'}</ActionLink>{/if}
     </section>
     <section class="profile-section" aria-labelledby="profile-security">
-      <h2 id="profile-security">{ar?'طرق تسجيل الدخول':'Sign-in methods'}</h2>
-      {#each providers as provider}
-        <div class="security-row">
-          <div>
-            <p>{getProviderLabel(provider.provider)}</p>
-            {#if provider.email}<span dir="ltr">{provider.email}</span>{/if}
-          </div>
-          <span class="provider-status connected">{ar?'مربوط':'Connected'}</span>
-        </div>
-      {/each}
-      {#if userCanAddPassword}
-        <div class="security-row">
-          <div>
-            <p>{ar?'البريد الإلكتروني وكلمة المرور':'Email & password'}</p>
-          </div>
-          <button class="add-password" on:click={()=>edit('add-password')}>{ar?'إضافة':'Add'}</button>
-        </div>
-      {/if}
-      <div class="security-row">
-        <div>
-          <p>{ar?'البريد الإلكتروني':'Email'}</p>
-          <span>{email}</span>
-        </div>
-        <button class="uneem-icon-button" on:click={()=>edit('email')} aria-label={ar?'تغيير البريد الإلكتروني':'Change email'}><Icon name="pencil" size={18}/></button>
-      </div>
+      <h2 id="profile-security">{ar?'الأمان':'Security'}</h2>
+      <div class="security-row"><div><p>{ar?'البريد الإلكتروني':'Email'}</p><span>{email}</span></div><button class="uneem-icon-button" on:click={()=>edit('email')} aria-label={ar?'تغيير البريد الإلكتروني':'Change email'}><Icon name="pencil" size={18}/></button></div>
       {#if pendingEmail}<p class="pending-email" role="status">{ar?'بانتظار تأكيد':'Waiting for confirmation:'} <bdi>{pendingEmail}</bdi></p>{/if}
-      {#if userHasPassword}
-        <div class="security-row">
-          <div>
-            <p>{ar?'كلمة المرور':'Password'}</p>
-          </div>
-          <button class="change-password" on:click={()=>edit('password')}>{ar?'تغيير':'Change password'}</button>
-        </div>
-      {:else if !userCanAddPassword}
-        <div class="security-row">
-          <div>
-            <p>{ar?'كلمة المرور':'Password'}</p>
-          </div>
-          <span class="provider-status not-available">{ar?'غير متاح':'Not available'}</span>
-        </div>
-      {/if}
+      <div class="security-row"><div><p>{ar?'كلمة المرور':'Password'}</p></div><button class="change-password" on:click={()=>edit('password')}>{ar?'تغيير':'Change password'}</button></div>
     </section>
   {/if}
 </div>
@@ -204,12 +138,7 @@
       <TextField label={ar?'كلمة المرور الحالية':'Current password'} type="password" autocomplete="current-password" bind:value={currentPassword} disabled={saving} error={attempted&&!currentPassword?(ar?'أدخل كلمة المرور الحالية.':'Enter your current password.') : ''}/>
       <TextField label={ar?'كلمة المرور الجديدة':'New password'} type="password" autocomplete="new-password" maxlength={128} bind:value={newPassword} disabled={saving} error={attempted&&!passwordValid?(ar?'استخدم 8 أحرف على الأقل مع رقم أو رمز.':'Use 8+ characters with a number or symbol.') : ''}/>
       <PasswordRequirements password={newPassword} lengthLabel={ar?'8 أحرف على الأقل':'8 characters minimum'} numberOrSymbolLabel={ar?'رقم أو رمز':'1 number or symbol'}/>
-      <TextField label={ar?'تأكيد كلمة المرور':'Confirm password'} type="password" autocomplete="new-password" maxlength={128} bind:value={confirmPassword} disabled={saving} error={attempted&&newPassword!==confirmPassword?(ar?'كلمتا المرور غير متطابقتين.':'Passwords don\'t match.') : ''}/>
-    {:else if editor==='add-password'}
-      <p class="text-sm leading-6 text-text-secondary">{ar?'أضف كلمة مرور لتتمكن من تسجيل الدخول ببريدك الإلكتروني وكلمة المرور.':'Add a password to enable email/password sign-in.'}</p>
-      <TextField label={ar?'كلمة المرور الجديدة':'New password'} type="password" autocomplete="new-password" maxlength={128} bind:value={newPassword} disabled={saving} error={attempted&&!passwordValid?(ar?'استخدم 8 أحرف على الأقل مع رقم أو رمز.':'Use 8+ characters with a number or symbol.') : ''}/>
-      <PasswordRequirements password={newPassword} lengthLabel={ar?'8 أحرف على الأقل':'8 characters minimum'} numberOrSymbolLabel={ar?'رقم أو رمز':'1 number or symbol'}/>
-      <TextField label={ar?'تأكيد كلمة المرور':'Confirm password'} type="password" autocomplete="new-password" maxlength={128} bind:value={confirmPassword} disabled={saving} error={attempted&&newPassword!==confirmPassword?(ar?'كلمتا المرور غير متطابقتين.':'Passwords don\'t match.') : ''}/>
+      <TextField label={ar?'تأكيد كلمة المرور':'Confirm password'} type="password" autocomplete="new-password" maxlength={128} bind:value={confirmPassword} disabled={saving} error={attempted&&newPassword!==confirmPassword?(ar?'كلمتا المرور غير متطابقتين.':'Passwords don’t match.') : ''}/>
     {/if}
   </form>
   <svelte:fragment slot="footer"><Button variant="secondary" fullWidth disabled={saving} on:click={()=>editorOpen=false}>{ar?'إلغاء':'Cancel'}</Button><Button type="submit" form="profile-editor" fullWidth loading={saving} disabled={editor==='email'&&nextEmail.trim().toLowerCase()===email.toLowerCase()}>{editor==='email'?(ar?'إرسال رابط التأكيد':'Send confirmation'):(ar?'حفظ':'Save')}</Button></svelte:fragment>
@@ -233,10 +162,6 @@
   .security-row p { font-size:14px; font-weight:550; }
   .security-row span { display:block; margin-top:6px; font-size:14px; color:var(--text-secondary); overflow-wrap:anywhere; }
   .security-row :global(button) { flex-shrink:0; }
-  .provider-status { display:inline-flex; align-items:center; gap:5px; border-radius:99px; padding:5px 9px; font-size:12px; font-weight:550; }
-  .provider-status.connected { color:var(--success); background:var(--success-light); }
-  .provider-status.not-available { color:var(--text-muted); background:var(--surface-level-2); }
-  .add-password { min-height:44px; padding:8px 12px; border-radius:12px; color:var(--primary); font-size:13px; font-weight:550; background:var(--primary-light); }
   .change-password { min-height:44px; padding:8px; border-radius:12px; color:var(--primary); font-size:13px; font-weight:550; }
   .pending-email { padding:12px; border-radius:12px; background:var(--primary-light); color:var(--text-secondary); font-size:13px; line-height:1.5; overflow-wrap:anywhere; }
 </style>

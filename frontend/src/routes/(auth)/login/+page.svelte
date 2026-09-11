@@ -2,6 +2,7 @@
   import { afterSignIn } from '$lib/inviteNavigation'
   import { goto } from '$app/navigation'
   import { onMount } from 'svelte'
+  import { page } from '$app/stores'
   import Button from '$lib/components/Button.svelte'
   import ActionLink from '$lib/components/ActionLink.svelte'
   import TextField from '$lib/components/TextField.svelte'
@@ -56,7 +57,9 @@
     if (hintedEmail && isValidEmail(hintedEmail)) email = hintedEmail.trim().toLowerCase()
     if ($isAuthenticated) {
       const account = $authState.account
-      void goto(afterSignIn(account))
+      const requested = new URLSearchParams(window.location.search).get('next') ||
+        (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('uneem:match-invite') : null)
+      void goto(afterSignIn(account, requested))
     }
   })
 
@@ -104,7 +107,8 @@
         status: profile.status
       }, account)
 
-      const nextPath = afterSignIn(account)
+      const nextPath = afterSignIn(account, $page.url.searchParams.get('next') ||
+      (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('uneem:match-invite') : null))
       await goto(nextPath)
     } catch (error: any) {
       authFailureKind = classifyAuthFailure(error?.message, error?.status)

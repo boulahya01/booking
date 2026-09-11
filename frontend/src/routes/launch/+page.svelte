@@ -3,10 +3,12 @@
   import { onMount } from 'svelte'
   import { browser } from '$app/environment'
   import { page } from '$app/stores'
-  import { authState } from '$lib/stores/auth'
+  import { authState, accountIdentity, bootstrapError } from '$lib/stores/auth'
   import { resolveAccountRoute, buildResolverContext } from '$lib/accountResolver'
   import { passwordRecoveryActive } from '$lib/authFlow'
   import { canBrowse } from '$lib/access'
+  import { initializeI18n } from '$lib/i18n'
+  import { get } from 'svelte/store'
 
   const WELCOME_SEEN_KEY = 'uneem:welcome-seen'
 
@@ -20,11 +22,13 @@
     localStorage.setItem(WELCOME_SEEN_KEY, 'true')
   }
 
-  let loading = true
   let disposed = false
 
   onMount(async () => {
     if (!browser) return
+
+    // Initialize i18n for this standalone page
+    initializeI18n('en')
 
     // Check for recovery flow first
     const recoveryActive = $passwordRecoveryActive
@@ -38,7 +42,7 @@
 
     const hasSession = $authState.user !== null
     const account = $authState.account
-    const identity = $authState.identity
+    const identity = $accountIdentity
 
     if (recoveryActive && hasSession) {
       await goto('/reset-password')
@@ -56,7 +60,9 @@
     }
 
     // Has session - use centralized resolver
-    const ctx = buildResolverContext(hasSession, account, identity, pathname, recoveryActive)
+    const requestedPath = $page.url.searchParams.get('next') ||
+      (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('uneem:match-invite') : null)
+    const ctx = buildResolverContext(hasSession, account, identity, pathname, recoveryActive, get(bootstrapError), requestedPath)
     const targetPath = resolveAccountRoute(ctx)
 
     if (targetPath && targetPath !== pathname) {
@@ -71,7 +77,6 @@
     disposed = true
   }
 
-  // Cleanup on unmount
   import { onDestroy } from 'svelte'
   onDestroy(cleanup)
 </script>

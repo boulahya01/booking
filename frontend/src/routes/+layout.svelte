@@ -9,7 +9,6 @@
   import '$lib/styles/mobile.css'
   import { canBrowse, accountHome } from '$lib/access'
   import { afterSignIn, rememberInvite, clearArrivedInvite } from '$lib/inviteNavigation'
-  import { resolveAccountRoute, buildResolverContext } from '$lib/accountResolver'
   import VerificationNotice from '$lib/components/VerificationNotice.svelte'
   import TopBar from '$lib/components/TopBar.svelte'
   import Toast from '$lib/components/Toast.svelte'
@@ -28,7 +27,6 @@
     passwordRecoveryActive,
     restorePasswordRecovery
   } from '$lib/authFlow'
-  import { getConnectedProviders, hasPasswordCredential, type AccountIdentity as AccountIdentityType } from '$lib/accountIdentity'
   import { locale } from 'svelte-i18n'
   import { USE_MOCK } from '$lib/mock'
 
@@ -78,7 +76,6 @@
   // Routing is driven by the authoritative account-state payload. Recovery is a
   // temporary authenticated capability and is intentionally trapped on the
   // reset flow until the password is changed or the user signs out.
-  // Uses centralized accountResolver for consistent post-auth routing.
   $: if (
     browser &&
     !$authState.loading &&
@@ -87,13 +84,52 @@
     const pathname = $page.url.pathname
     const hasSession = $authState.user !== null
     const account = $authState.account
-    const identity = $authState.identity
+    const isAuthPath = authPaths.includes(pathname)
+    const isSupportPath = publicSupportPaths.includes(pathname)
+    const isPendingPath = pathname === '/pending-approval'
+    const isProfilePath = pathname === '/profile' || pathname === '/menu'
+    const isVerificationPath = pathname === '/verification'
+    const isVerifyEmailPath = pathname === '/verify-email'
+    const isRecoveryPath = pathname === '/reset-password'
+    const isAdminPath = pathname === '/admin' || pathname.startsWith('/admin/')
+    const isSportsPath = pathname.startsWith('/home') ||
+                         pathname.startsWith('/bookings') ||
+                         pathname.startsWith('/pitch/') ||
+                         pathname.startsWith('/matches') ||
+                         pathname.startsWith('/notifications')
+    const canBrowseApp = canBrowse(account)
+    const isAdminAccount = account?.role === 'admin'
     const recoveryActive = $passwordRecoveryActive
 
-    const ctx = buildResolverContext(hasSession, account, identity, pathname, recoveryActive)
-    const targetPath = resolveAccountRoute(ctx)
+    let targetPath: string | null = null
 
-    if (hasSession && canBrowse(account) && !targetPath) clearArrivedInvite(pathname)
+    if (recoveryActive && hasSession && !isRecoveryPath && !isSupportPath && pathname !== '/logout') {
+      targetPath = '/reset-password'
+    } else if (!hasSession && !isAuthPath && !isSupportPath) {
+      targetPath = rememberInvite(pathname) ? `/login?next=${encodeURIComponent(pathname)}` : '/login'
+    } else if (hasSession && isAuthPath && pathname !== '/logout' && !isVerifyEmailPath && !(isRecoveryPath && recoveryActive)) {
+      targetPath = afterSignIn(account)
+    } else if (hasSession && !account && !isSupportPath && !isVerifyEmailPath && !isRecoveryPath) {
+      targetPath = '/pending-approval'
+    } else if (hasSession && isAdminPath && !isAdminAccount) {
+      targetPath = accountHome(account)
+    } else if (hasSession && !canBrowseApp && (isSportsPath || isAdminPath)) {
+      targetPath = '/pending-approval'
+    } else if (hasSession && canBrowseApp && account?.can_use_sports && isPendingPath) {
+      targetPath = '/home'
+    } else if (
+      hasSession &&
+      !canBrowseApp &&
+      !isPendingPath &&
+      !isProfilePath &&
+      !isVerificationPath &&
+      !isSupportPath &&
+      !isAuthPath
+    ) {
+      targetPath = '/pending-approval'
+    }
+
+    if (hasSession && canBrowseApp && !targetPath) clearArrivedInvite(pathname)
     if (targetPath && targetPath !== pathname) {
       routeGuardProcessing = true
       goto(targetPath).finally(() => {
@@ -143,17 +179,6 @@
         }
 
         const { profile, account } = context
-
-        // Compute account identity (connected providers, password status)
-        const providers = await getConnectedProviders(session.user)
-        const hasPassword = hasPasswordCredential(session.user)
-        const accountIdentity: AccountIdentityType = {
-          providers,
-          hasPassword,
-          primaryEmail: session.user.email || '',
-          canAddPassword: !hasPassword && providers.some(p => p.provider !== 'email')
-        }
-
         authState.setSessionContext({
           id: profile.id,
           email: session.user.email ?? undefined,
@@ -162,7 +187,7 @@
           full_name: profile.full_name,
           role: profile.role === 'admin' ? 'admin' : 'user',
           status: profile.status
-        }, account, accountIdentity)
+        }, account)
       } catch {
         if (cacheUserId === session.user.id) authState.clear()
       }
@@ -203,13 +228,6 @@
               authState.clear()
               return
             }
-            // Compute mock account identity (assume email/password for mock)
-            const mockIdentity: AccountIdentityType = {
-              providers: [{ provider: 'email', connected: true, email: user.email }],
-              hasPassword: true,
-              primaryEmail: user.email,
-              canAddPassword: false
-            }
             authState.setSessionContext({
               id: profile.id,
               email: user.email,
@@ -218,7 +236,7 @@
               full_name: profile.full_name,
               role: profile.role === 'admin' ? 'admin' : 'user',
               status: profile.status
-            }, account, mockIdentity)
+            }, account)
           }).catch(() => authState.clear())
         } catch {
           setCacheIdentity(null)

@@ -4,6 +4,7 @@ import type { AccountState } from '$lib/types'
 import type { AccountIdentity, ConnectedProvider } from '$lib/accountIdentity'
 
 export type UserStatus = 'pending' | 'approved' | 'suspended'
+export type BootstrapError = 'profile_not_found' | 'network_error' | 'database_error' | null
 
 export type User = {
   id: string
@@ -23,6 +24,7 @@ type AuthState = {
   identity: AccountIdentity | null
   loading: boolean
   error: string | null
+  bootstrapError: BootstrapError
 }
 
 const createAuthStore = () => {
@@ -33,20 +35,23 @@ const createAuthStore = () => {
     // The first client render must not assume "signed out" before Supabase has
     // restored the persisted session. Route guards wait for this to resolve.
     loading: true,
-    error: null
+    error: null,
+    bootstrapError: null
   })
 
   return {
     subscribe,
     setSessionContext: (userData: User, account: AccountState, identity?: AccountIdentity | null) =>
-      set({ user: userData, account, identity: identity ?? null, loading: false, error: null }),
+      set({ user: userData, account, identity: identity ?? null, loading: false, error: null, bootstrapError: null }),
     setUser: (userData: User) =>
-      update((state) => ({ ...state, user: userData, loading: false, error: null })),
+      update((state) => ({ ...state, user: userData, loading: false, error: null, bootstrapError: null })),
     setAccount: (account: AccountState) =>
-      update((state) => ({ ...state, account, loading: false, error: null })),
+      update((state) => ({ ...state, account, loading: false, error: null, bootstrapError: null })),
     setIdentity: (identity: AccountIdentity) =>
-      update((state) => ({ ...state, identity, loading: false, error: null })),
-    clear: () => set({ user: null, account: null, identity: null, loading: false, error: null }),
+      update((state) => ({ ...state, identity, loading: false, error: null, bootstrapError: null })),
+    setBootstrapError: (error: BootstrapError) =>
+      update((state) => ({ ...state, bootstrapError: error })),
+    clear: () => set({ user: null, account: null, identity: null, loading: false, error: null, bootstrapError: null }),
     setLoading: (loading: boolean) => update((state) => ({ ...state, loading })),
     setError: (error: string) => update((state) => ({ ...state, error, loading: false }))
   }
@@ -109,4 +114,9 @@ export const connectedProviders = derived(
 export const canAddPassword = derived(
   authState,
   ($state) => $state.identity?.canAddPassword ?? false
+)
+
+export const bootstrapError = derived(
+  authState,
+  ($state) => $state.bootstrapError
 )

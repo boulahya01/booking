@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient'
 import { getMyAccountState } from './auth'
-import type { AccountState, AccountIdentity } from './types'
+import { afterSignIn } from './inviteNavigation'
+import type { AccountState } from './types'
 import { getConnectedProviders, hasPasswordCredential, type AccountIdentity as AccountIdentityType } from './accountIdentity'
 import type { User } from '@supabase/supabase-js'
 
@@ -21,6 +22,7 @@ export type AccountRouteDestination =
   | '/verify-email'
   | '/reset-password'
   | '/help'
+  | '/auth-error'
   | null
 
 export interface ResolverContext {
@@ -31,6 +33,8 @@ export interface ResolverContext {
   recoveryActive: boolean
   isAdminAccount: boolean
   canBrowseApp: boolean
+  bootstrapError: 'profile_not_found' | 'network_error' | 'database_error' | null
+  requestedPath?: string | null
 }
 
 /**
@@ -60,7 +64,7 @@ export function accountHome(account: AccountState | null): AccountRouteDestinati
  * This should be called after any auth event: OAuth, email/password, session restore, email confirmation, PWA launch.
  */
 export function resolveAccountRoute(ctx: ResolverContext): AccountRouteDestination {
-  const { hasSession, account, identity, pathname, recoveryActive, isAdminAccount, canBrowseApp } = ctx
+  const { hasSession, account, identity, pathname, recoveryActive, isAdminAccount, canBrowseApp, bootstrapError } = ctx
 
   const authPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/logout']
   const publicSupportPaths = ['/help']
@@ -72,6 +76,7 @@ export function resolveAccountRoute(ctx: ResolverContext): AccountRouteDestinati
   const isVerifyEmailPath = pathname === '/verify-email'
   const isRecoveryPath = pathname === '/reset-password'
   const isAdminPath = pathname === '/admin' || pathname.startsWith('/admin/')
+  const isAuthErrorPath = pathname === '/auth-error'
   const isSportsPath = pathname.startsWith('/home') ||
                        pathname.startsWith('/bookings') ||
                        pathname.startsWith('/pitch/') ||
@@ -88,6 +93,11 @@ export function resolveAccountRoute(ctx: ResolverContext): AccountRouteDestinati
     return '/login'
   }
 
+  // Bootstrap error - show auth error page with retry
+  if (hasSession && bootstrapError && !isAuthErrorPath && !isSupportPath && !isVerifyEmailPath && !isRecoveryPath) {
+    return '/auth-error'
+  }
+
   // Has session but no account (profile not bootstrapped yet)
   if (hasSession && !account && !isSupportPath && !isVerifyEmailPath && !isRecoveryPath) {
     return '/pending-approval'
@@ -95,7 +105,7 @@ export function resolveAccountRoute(ctx: ResolverContext): AccountRouteDestinati
 
   // Authenticated user on auth pages (except logout, verify-email, recovery) -> go to app
   if (hasSession && isAuthPath && pathname !== '/logout' && !isVerifyEmailPath && !(isRecoveryPath && recoveryActive)) {
-    return accountHome(account)
+    return afterSignIn(account, ctx.requestedPath) as AccountRouteDestination
   }
 
   // Admin route access check
@@ -130,7 +140,9 @@ export function buildResolverContext(
   account: AccountState | null,
   identity: AccountIdentityType | null,
   pathname: string,
-  recoveryActive: boolean
+  recoveryActive: boolean,
+  bootstrapError: 'profile_not_found' | 'network_error' | 'database_error' | null = null,
+  requestedPath?: string | null
 ): ResolverContext {
   return {
     hasSession,
@@ -139,7 +151,9 @@ export function buildResolverContext(
     pathname,
     recoveryActive,
     isAdminAccount: account?.role === 'admin',
-    canBrowseApp: canBrowse(account)
+    canBrowseApp: canBrowse(account),
+    bootstrapError,
+    requestedPath
   }
 }
 
