@@ -2,6 +2,7 @@
   import { browser } from '$app/environment'
   import { goto } from '$app/navigation'
   import { page } from '$app/stores'
+  import { accountHome } from '$lib/access'
   import { authState } from '$lib/stores/auth'
   import { resolveAccountRoute } from '$lib/accountResolver'
 
@@ -21,7 +22,7 @@
         requestedPath: $page.url.searchParams.get('next')
       })
 
-      void goto(target || '/home', { replaceState: true })
+      void goto(target || accountHome($authState.account), { replaceState: true })
     } else {
       let seen = false
       try { seen = localStorage.getItem(welcomeKey) === '1' } catch { /* Storage is optional. */ }
