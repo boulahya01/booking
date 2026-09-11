@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { supabase } from '$lib/supabaseClient'
   import { updatePassword } from '$lib/auth'
+  import { getAccountIdentity, type AccountIdentity } from '$lib/accountIdentity'
   import { emailConfirmationRedirectUrl } from '$lib/authFlow'
   import { clearRequestCache } from '$lib/requestCache'
   import { uiState, language } from '$lib/stores/ui'
@@ -16,11 +17,14 @@
   import PasswordRequirements from '$lib/components/PasswordRequirements.svelte'
 
   type Profile = { id:string; full_name:string; username:string|null; student_id:string|null; identity_status:string }
-  type Editor = 'details'|'email'|'password'
+  type Editor = 'details'|'email'|'password'|'add-password'
+
   let profile: Profile | null = null
-  let loading = true, saving = false, attempted = false, editorOpen = false, disposed = false
+  let identity: AccountIdentity | null = null
+  let loading = true, identityLoading = true, saving = false, attempted = false, editorOpen = false, disposed = false
   let editor: Editor | null = null
-  let loadError = '', error = '', fullName = '', username = '', nextEmail = '', currentPassword = '', newPassword = '', confirmPassword = '', pendingEmail = ''
+  let loadError = '', identityError = '', error = '', fullName = '', username = '', nextEmail = '', currentPassword = '', newPassword = '', confirmPassword = '', pendingEmail = ''
+
   $: ar = $language === 'ar'
   $: account = $authState.account
   $: email = $authState.user?.email || ''
@@ -33,9 +37,21 @@
   $: usernameValid = isValidUsername(cleanUsername)
   $: emailValid = isValidEmail(nextEmail.trim())
   $: passwordValid = isValidPassword(newPassword) && newPassword.length <= 128
-  $: editorTitle = editor === 'details' ? (ar?'تعديل الملف الشخصي':'Edit profile') : editor === 'email' ? (ar?'تغيير البريد الإلكتروني':'Change email') : editor === 'password' ? (ar?'تغيير كلمة المرور':'Change password') : (ar?'تعديل رقم الطالب':'Edit Student ID')
+  $: passwordEditor = editor === 'password' || editor === 'add-password'
+  $: editorTitle = editor === 'details'
+    ? (ar?'تعديل الملف الشخصي':'Edit profile')
+    : editor === 'email'
+      ? (ar?'تغيير البريد الإلكتروني':'Change email')
+      : editor === 'add-password'
+        ? (ar?'إضافة كلمة مرور':'Add password')
+        : editor === 'password'
+          ? (ar?'تغيير كلمة المرور':'Change password')
+          : ''
 
-  onMount(() => { void load(); return () => { disposed = true } })
+  onMount(() => {
+    void Promise.all([load(), loadIdentity()])
+    return () => { disposed = true }
+  })
 
   async function load() {
     const uid = $authState.user?.id
@@ -48,22 +64,46 @@
     loading = false
   }
 
+  async function loadIdentity() {
+    identityLoading = true
+    identityError = ''
+    try {
+      const { data, error: userError } = await supabase.auth.getUser()
+      if (userError || !data.user) throw userError || new Error('missing_user')
+      const nextIdentity = await getAccountIdentity(data.user)
+      if (!disposed) identity = nextIdentity
+    } catch {
+      if (!disposed) {
+        identity = null
+        identityError = ar?'تعذر تحميل طرق تسجيل الدخول.':'Couldn’t load sign-in methods.'
+      }
+    } finally {
+      if (!disposed) identityLoading = false
+    }
+  }
+
   function edit(value: Editor) {
     if (saving || !profile) return
+    if (value === 'password' && !identity?.hasPassword) return
+    if (value === 'add-password' && !identity?.canAddPassword) return
     editor=value; error=''; attempted=false
     fullName=profile.full_name; username=profile.username || ''; nextEmail=email
     currentPassword=''; newPassword=''; confirmPassword=''; editorOpen=true
   }
+
   function closeEditor() {
     editorOpen=false; editor=null; error=''; attempted=false
     currentPassword=''; newPassword=''; confirmPassword=''
   }
+
   async function save() {
     if (saving || !editor || !profile) return
     attempted=true; error=''
     if (editor==='details' && (!nameValid || !usernameValid)) return
     if (editor==='email' && (!emailValid || nextEmail.trim().toLowerCase()===email.toLowerCase())) return
     if (editor==='password' && (!currentPassword || !passwordValid || newPassword!==confirmPassword)) return
+    if (editor==='add-password' && (!passwordValid || newPassword!==confirmPassword)) return
+
     const uid=profile.id, action=editor
     saving=true
     try {
@@ -81,10 +121,16 @@
         if (failure) throw failure
         if (disposed || $authState.user?.id!==uid) return
         pendingEmail=nextEmail.trim().toLowerCase()
-      } else {
+      } else if (action==='add-password') {
+        const result=await updatePassword(newPassword)
+        if (result.error) throw new Error(result.error.message)
+        await loadIdentity()
+      } else if (action==='password') {
         const result=await updatePassword(newPassword,currentPassword)
         if (result.error) throw new Error(result.error.message)
+        await loadIdentity()
       }
+
       if (disposed || $authState.user?.id!==uid) return
       uiState.addToast(action==='email' ? (ar?'راجع بريدك لتأكيد التغيير.':'Check your email to confirm the change.') : (ar?'تم حفظ التغييرات.':'Changes saved.'),'success')
       editorOpen=false
@@ -98,7 +144,7 @@
   }
 </script>
 
-<svelte:head><title>{ar?'الملف الشخصي':'Profile'} · UNEEM</title></svelte:head>
+<svelte:head><title>{ar?'الملف الشخصي':'Profile'} · UNEM Sports</title></svelte:head>
 <div class="uneem-page-narrow profile-page">
   <a href="/menu" class="uneem-text-action"><Icon name={ar?'arrow-right':'arrow-left'} size={18}/>{ar?'القائمة':'Menu'}</a>
   <h1 class="uneem-title">{ar?'الملف الشخصي':'Profile'}</h1>
@@ -111,16 +157,38 @@
       <div class="profile-person"><span class="profile-avatar" aria-hidden="true">{profile.full_name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toUpperCase()}</span><div><h2>{profile.full_name}</h2><p dir="ltr">@{profile.username}</p></div></div>
       <Button variant="secondary" fullWidth on:click={()=>edit('details')}>{ar?'تعديل الملف الشخصي':'Edit profile'}</Button>
     </section>
+
     <section class="profile-section" aria-labelledby="student-identity">
       <div class="profile-heading"><h2 id="student-identity">{ar?'رقم الطالب':'Student ID'}</h2><span class="identity-status" class:is-verified={verified}>{#if verified}<Icon name="lock" size={13}/>{/if}{identityStatus}</span></div>
       <p class="student-id" dir="ltr">{currentId || '—'}</p>
       {#if !verified}<ActionLink href="/verification" variant="secondary" fullWidth>{ar?'عرض التحقق':'View verification'}</ActionLink>{/if}
     </section>
+
     <section class="profile-section" aria-labelledby="profile-security">
       <h2 id="profile-security">{ar?'الأمان':'Security'}</h2>
       <div class="security-row"><div><p>{ar?'البريد الإلكتروني':'Email'}</p><span>{email}</span></div><button class="uneem-icon-button" on:click={()=>edit('email')} aria-label={ar?'تغيير البريد الإلكتروني':'Change email'}><Icon name="pencil" size={18}/></button></div>
       {#if pendingEmail}<p class="pending-email" role="status">{ar?'بانتظار تأكيد':'Waiting for confirmation:'} <bdi>{pendingEmail}</bdi></p>{/if}
-      <div class="security-row"><div><p>{ar?'كلمة المرور':'Password'}</p></div><button class="change-password" on:click={()=>edit('password')}>{ar?'تغيير':'Change password'}</button></div>
+
+      <div class="security-divider"></div>
+      <p class="security-label">{ar?'طرق تسجيل الدخول':'Sign-in methods'}</p>
+
+      {#if identityLoading}
+        <p class="method-status" aria-busy="true">{ar?'جارٍ التحقق…':'Checking…'}</p>
+      {:else if identityError}
+        <div class="method-error"><span>{identityError}</span><button on:click={loadIdentity}>{ar?'إعادة المحاولة':'Retry'}</button></div>
+      {:else if identity}
+        {#if identity.hasGoogle}
+          <div class="security-row"><div><p>Google</p><span>{ar?'متصل':'Connected'}</span></div></div>
+        {/if}
+        <div class="security-row">
+          <div><p>{ar?'البريد وكلمة المرور':'Email & password'}</p><span>{identity.hasPassword ? (ar?'متصل':'Connected') : (ar?'غير مضاف':'Not added')}</span></div>
+          {#if identity.hasPassword}
+            <button class="change-password" on:click={()=>edit('password')}>{ar?'تغيير':'Change'}</button>
+          {:else if identity.canAddPassword}
+            <button class="change-password" on:click={()=>edit('add-password')}>{ar?'إضافة':'Add'}</button>
+          {/if}
+        </div>
+      {/if}
     </section>
   {/if}
 </div>
@@ -134,14 +202,16 @@
     {:else if editor==='email'}
       <TextField label={ar?'البريد الإلكتروني الجديد':'New email'} type="email" autocomplete="email" inputmode="email" autocapitalize="none" bind:value={nextEmail} disabled={saving} error={attempted&&!emailValid?(ar?'أدخل بريداً صحيحاً.':'Enter a valid email.') : ''}/>
       <p class="text-sm leading-6 text-text-secondary">{ar?'سيتغير بريد تسجيل الدخول بعد التأكيد.':'Your sign-in email changes after confirmation.'}</p>
-    {:else if editor==='password'}
-      <TextField label={ar?'كلمة المرور الحالية':'Current password'} type="password" autocomplete="current-password" bind:value={currentPassword} disabled={saving} error={attempted&&!currentPassword?(ar?'أدخل كلمة المرور الحالية.':'Enter your current password.') : ''}/>
+    {:else if passwordEditor}
+      {#if editor==='password'}
+        <TextField label={ar?'كلمة المرور الحالية':'Current password'} type="password" autocomplete="current-password" bind:value={currentPassword} disabled={saving} error={attempted&&!currentPassword?(ar?'أدخل كلمة المرور الحالية.':'Enter your current password.') : ''}/>
+      {/if}
       <TextField label={ar?'كلمة المرور الجديدة':'New password'} type="password" autocomplete="new-password" maxlength={128} bind:value={newPassword} disabled={saving} error={attempted&&!passwordValid?(ar?'استخدم 8 أحرف على الأقل مع رقم أو رمز.':'Use 8+ characters with a number or symbol.') : ''}/>
       <PasswordRequirements password={newPassword} lengthLabel={ar?'8 أحرف على الأقل':'8 characters minimum'} numberOrSymbolLabel={ar?'رقم أو رمز':'1 number or symbol'}/>
       <TextField label={ar?'تأكيد كلمة المرور':'Confirm password'} type="password" autocomplete="new-password" maxlength={128} bind:value={confirmPassword} disabled={saving} error={attempted&&newPassword!==confirmPassword?(ar?'كلمتا المرور غير متطابقتين.':'Passwords don’t match.') : ''}/>
     {/if}
   </form>
-  <svelte:fragment slot="footer"><Button variant="secondary" fullWidth disabled={saving} on:click={()=>editorOpen=false}>{ar?'إلغاء':'Cancel'}</Button><Button type="submit" form="profile-editor" fullWidth loading={saving} disabled={editor==='email'&&nextEmail.trim().toLowerCase()===email.toLowerCase()}>{editor==='email'?(ar?'إرسال رابط التأكيد':'Send confirmation'):(ar?'حفظ':'Save')}</Button></svelte:fragment>
+  <svelte:fragment slot="footer"><Button variant="secondary" fullWidth disabled={saving} on:click={()=>editorOpen=false}>{ar?'إلغاء':'Cancel'}</Button><Button type="submit" form="profile-editor" fullWidth loading={saving} disabled={editor==='email'&&nextEmail.trim().toLowerCase()===email.toLowerCase()}>{editor==='email'?(ar?'إرسال رابط التأكيد':'Send confirmation'):editor==='add-password'?(ar?'إضافة كلمة المرور':'Add password'):(ar?'حفظ':'Save')}</Button></svelte:fragment>
 </Modal>
 
 <style>
@@ -162,6 +232,11 @@
   .security-row p { font-size:14px; font-weight:550; }
   .security-row span { display:block; margin-top:6px; font-size:14px; color:var(--text-secondary); overflow-wrap:anywhere; }
   .security-row :global(button) { flex-shrink:0; }
+  .security-divider { height:1px; background:var(--border-light); }
+  .security-label { margin:0; color:var(--text-secondary); font-size:12px; font-weight:650; text-transform:uppercase; letter-spacing:.04em; }
   .change-password { min-height:44px; padding:8px; border-radius:12px; color:var(--primary); font-size:13px; font-weight:550; }
   .pending-email { padding:12px; border-radius:12px; background:var(--primary-light); color:var(--text-secondary); font-size:13px; line-height:1.5; overflow-wrap:anywhere; }
+  .method-status { margin:0; color:var(--text-secondary); font-size:14px; }
+  .method-error { display:flex; align-items:center; justify-content:space-between; gap:12px; color:var(--text-secondary); font-size:14px; }
+  .method-error button { min-height:40px; padding-inline:8px; color:var(--primary); font-weight:600; }
 </style>
