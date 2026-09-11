@@ -2,12 +2,15 @@ import { expect, test } from '@playwright/test'
 
 const welcomeKey = 'unem:welcome-seen'
 
-async function clearWelcome(page: import('@playwright/test').Page) {
-  await page.addInitScript((key) => localStorage.removeItem(key), welcomeKey)
-}
-
-async function markWelcome(page: import('@playwright/test').Page) {
-  await page.addInitScript((key) => localStorage.setItem(key, '1'), welcomeKey)
+async function setWelcome(page: import('@playwright/test').Page, seen: boolean) {
+  // Seed same-origin storage from a public route. Avoid addInitScript here:
+  // a persistent init script would run on every navigation and overwrite the
+  // state that the landing page itself is supposed to change.
+  await page.goto('/help', { waitUntil: 'domcontentloaded' })
+  await page.evaluate(({ key, value }) => {
+    if (value) localStorage.setItem(key, '1')
+    else localStorage.removeItem(key)
+  }, { key: welcomeKey, value: seen })
 }
 
 test.beforeEach(async ({ page }) => {
@@ -19,7 +22,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('first browser visit keeps the public landing page', async ({ page }) => {
-  await clearWelcome(page)
+  await setWelcome(page, false)
   await page.goto('/', { waitUntil: 'domcontentloaded' })
 
   await expect(page).toHaveURL(/\/$/)
@@ -27,7 +30,7 @@ test('first browser visit keeps the public landing page', async ({ page }) => {
 })
 
 test('returning signed-out browser visit skips landing and opens login', async ({ page }) => {
-  await markWelcome(page)
+  await setWelcome(page, true)
   await page.goto('/', { waitUntil: 'domcontentloaded' })
 
   await expect(page).toHaveURL(/\/login(?:\?|$)/)
@@ -35,7 +38,7 @@ test('returning signed-out browser visit skips landing and opens login', async (
 })
 
 test('using a landing auth action marks the device as returning', async ({ page }) => {
-  await clearWelcome(page)
+  await setWelcome(page, false)
   await page.goto('/', { waitUntil: 'domcontentloaded' })
 
   await page.getByLabel('Book. Play. Meet.').getByRole('link', { name: 'Sign in' }).click()
@@ -47,7 +50,7 @@ test('using a landing auth action marks the device as returning', async ({ page 
 })
 
 test('fresh installed-app launch resolves to the public landing', async ({ page }) => {
-  await clearWelcome(page)
+  await setWelcome(page, false)
   await page.goto('/launch', { waitUntil: 'domcontentloaded' })
 
   await expect(page).toHaveURL(/\/$/)
@@ -55,14 +58,14 @@ test('fresh installed-app launch resolves to the public landing', async ({ page 
 })
 
 test('returning signed-out installed-app launch resolves to login', async ({ page }) => {
-  await markWelcome(page)
+  await setWelcome(page, true)
   await page.goto('/launch', { waitUntil: 'domcontentloaded' })
 
   await expect(page).toHaveURL(/\/login(?:\?|$)/)
 })
 
 test('signed-out users cannot remain on the account bootstrap error screen', async ({ page }) => {
-  await markWelcome(page)
+  await setWelcome(page, true)
   await page.goto('/auth-error', { waitUntil: 'domcontentloaded' })
 
   await expect(page).toHaveURL(/\/login(?:\?|$)/)
