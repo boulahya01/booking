@@ -38,7 +38,7 @@ test('using a landing auth action marks the device as returning', async ({ page 
   await clearWelcome(page)
   await page.goto('/', { waitUntil: 'domcontentloaded' })
 
-  await page.getByRole('link', { name: 'Sign in' }).click()
+  await page.getByLabel('Book. Play. Meet.').getByRole('link', { name: 'Sign in' }).click()
   await expect(page).toHaveURL(/\/login(?:\?|$)/)
   await expect.poll(() => page.evaluate((key) => localStorage.getItem(key), welcomeKey)).toBe('1')
 
