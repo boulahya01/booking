@@ -3,6 +3,7 @@ import { USE_MOCK, mockProfile, mockDelay } from './mock'
 import type { AccountState, Profile } from './types'
 import { logger } from './logger'
 import { getMySessionContext } from './sessionApi'
+import { classifyBootstrapError, type BootstrapError } from './accountResolver'
 import {
   clearPasswordRecovery,
   emailConfirmationRedirectUrl,
@@ -252,14 +253,13 @@ export async function loginWithEmail(email: string, password: string): Promise<A
     try {
       context = await getMySessionContext()
     } catch (contextError: any) {
-      await supabase.auth.signOut({ scope: 'local' })
       logger.error('[loginWithEmail] Signed in but account context could not be restored:', contextError?.message || contextError)
-      return { error: { message: 'Unable to restore account' } }
+      const bootstrapError: Exclude<BootstrapError, null> = classifyBootstrapError(contextError)
+      return { data: { user: data.user, bootstrapError } }
     }
 
     if (!context) {
-      await supabase.auth.signOut({ scope: 'local' })
-      return { error: { message: 'Unable to restore account' } }
+      return { data: { user: data.user, bootstrapError: 'profile_not_found' as const } }
     }
 
     return {
