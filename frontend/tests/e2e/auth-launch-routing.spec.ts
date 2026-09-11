@@ -10,6 +10,14 @@ async function markWelcome(page: import('@playwright/test').Page) {
   await page.addInitScript((key) => localStorage.setItem(key, '1'), welcomeKey)
 }
 
+test.beforeEach(async ({ page }) => {
+  await page.route('**/auth/v1/settings', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ external: { google: true } })
+  }))
+})
+
 test('first browser visit keeps the public landing page', async ({ page }) => {
   await clearWelcome(page)
   await page.goto('/', { waitUntil: 'domcontentloaded' })
