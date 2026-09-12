@@ -1,61 +1,17 @@
-<script lang="ts">
-  import { browser } from '$app/environment'
-  import { goto } from '$app/navigation'
-  import { page } from '$app/stores'
-  import { accountHome } from '$lib/access'
-  import { authState } from '$lib/stores/auth'
-  import { passwordRecoveryActive } from '$lib/authFlow'
-  import { resolveAccountRoute } from '$lib/accountResolver'
-
-  const welcomeKey = 'unem:welcome-seen'
-  let routed = false
-
-  $: if (browser && !$authState.loading && !routed) {
-    routed = true
-
-    if ($authState.user) {
-      if ($passwordRecoveryActive) {
-        void goto('/reset-password', { replaceState: true })
-      } else if ($authState.bootstrapError) {
-        void goto('/auth-error', { replaceState: true })
-      } else {
-        const target = resolveAccountRoute({
-          hasSession: true,
-          account: $authState.account,
-          pathname: '/launch',
-          recoveryActive: false,
-          bootstrapError: null,
-          requestedPath: $page.url.searchParams.get('next')
-        })
-
-        void goto(target || accountHome($authState.account), { replaceState: true })
-      }
-    } else {
-      let seen = false
-      try { seen = localStorage.getItem(welcomeKey) === '1' } catch { /* Storage is optional. */ }
-      void goto(seen ? '/login' : '/', { replaceState: true })
-    }
-  }
-</script>
-
 <svelte:head><title>Opening UNEM Sports…</title></svelte:head>
 
-<div class="launch-shell" aria-busy="true" aria-live="polite">
+<div class="launch-shell" role="status" aria-label="Opening UNEM Sports">
   <div class="launch-mark" aria-hidden="true"></div>
-  <p>Opening UNEM Sports…</p>
 </div>
 
 <style>
   .launch-shell {
     min-height: 100dvh;
     display: grid;
-    place-content: center;
-    justify-items: center;
-    gap: 14px;
+    place-items: center;
     background: var(--bg);
-    color: var(--text-secondary);
-    font-size: 14px;
   }
+
   .launch-mark {
     width: 34px;
     height: 34px;
