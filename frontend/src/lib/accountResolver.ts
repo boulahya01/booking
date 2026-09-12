@@ -11,6 +11,7 @@ export type ResolverContext = {
   recoveryActive: boolean
   bootstrapError: BootstrapError
   requestedPath?: string | null
+  welcomeSeen?: boolean
 }
 
 const authPaths = new Set([
@@ -53,10 +54,24 @@ export function isPublicPath(pathname: string): boolean {
   return publicPaths.has(pathname)
 }
 
+export function isEntryPath(pathname: string): boolean {
+  return pathname === '/' || pathname === '/launch'
+}
+
 export function resolveAccountRoute(ctx: ResolverContext): string | null {
-  const { hasSession, account, pathname, recoveryActive, bootstrapError, requestedPath } = ctx
+  const {
+    hasSession,
+    account,
+    pathname,
+    recoveryActive,
+    bootstrapError,
+    requestedPath,
+    welcomeSeen = false
+  } = ctx
+
   const authPath = isAuthPath(pathname)
   const publicPath = isPublicPath(pathname)
+  const entryPath = isEntryPath(pathname)
   const recoveryPath = pathname === '/reset-password'
   const verifyEmailPath = pathname === '/verify-email'
   const authErrorPath = pathname === '/auth-error'
@@ -70,17 +85,26 @@ export function resolveAccountRoute(ctx: ResolverContext): string | null {
     pathname.startsWith('/matches') ||
     pathname.startsWith('/notifications')
 
-  if (recoveryActive && hasSession && !recoveryPath && !publicPath && pathname !== '/logout') {
+  if (
+    recoveryActive &&
+    hasSession &&
+    !recoveryPath &&
+    pathname !== '/logout' &&
+    (!publicPath || entryPath)
+  ) {
     return '/reset-password'
   }
 
   if (!hasSession) {
     if (authErrorPath) return '/login'
+    if (pathname === '/launch') return welcomeSeen ? '/login' : '/'
+    if (pathname === '/' && welcomeSeen) return '/login'
     if (authPath || publicPath) return null
     return '/login'
   }
 
   if (bootstrapError) {
+    if (entryPath) return '/auth-error'
     if (authErrorPath || publicPath || verifyEmailPath || recoveryPath || pathname === '/logout') return null
     return '/auth-error'
   }
@@ -88,9 +112,12 @@ export function resolveAccountRoute(ctx: ResolverContext): string | null {
   // A completed bootstrap must always produce an account. Treat a missing
   // account as an initialization failure rather than a normal pending state.
   if (!account) {
+    if (entryPath) return '/auth-error'
     if (authErrorPath || publicPath || verifyEmailPath || recoveryPath || pathname === '/logout') return null
     return '/auth-error'
   }
+
+  if (entryPath) return afterSignIn(account, requestedPath)
 
   if (authErrorPath) return afterSignIn(account, requestedPath)
 
