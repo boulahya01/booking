@@ -1,6 +1,7 @@
 import { writable, derived } from 'svelte/store'
 import { canParticipate } from '$lib/access'
 import type { AccountState } from '$lib/types'
+import type { BootstrapError } from '$lib/accountResolver'
 
 export type UserStatus = 'pending' | 'approved' | 'suspended'
 
@@ -21,27 +22,31 @@ type AuthState = {
   account: AccountState | null
   loading: boolean
   error: string | null
+  bootstrapError: BootstrapError
+}
+
+const emptyState: AuthState = {
+  user: null,
+  account: null,
+  loading: true,
+  error: null,
+  bootstrapError: null
 }
 
 const createAuthStore = () => {
-  const { subscribe, set, update } = writable<AuthState>({
-    user: null,
-    account: null,
-    // The first client render must not assume "signed out" before Supabase has
-    // restored the persisted session. Route guards wait for this to resolve.
-    loading: true,
-    error: null
-  })
+  const { subscribe, set, update } = writable<AuthState>(emptyState)
 
   return {
     subscribe,
     setSessionContext: (userData: User, account: AccountState) =>
-      set({ user: userData, account, loading: false, error: null }),
+      set({ user: userData, account, loading: false, error: null, bootstrapError: null }),
+    setBootstrapError: (userData: User, bootstrapError: Exclude<BootstrapError, null>) =>
+      set({ user: userData, account: null, loading: false, error: null, bootstrapError }),
     setUser: (userData: User) =>
       update((state) => ({ ...state, user: userData, loading: false, error: null })),
     setAccount: (account: AccountState) =>
-      update((state) => ({ ...state, account, loading: false, error: null })),
-    clear: () => set({ user: null, account: null, loading: false, error: null }),
+      update((state) => ({ ...state, account, loading: false, error: null, bootstrapError: null })),
+    clear: () => set({ user: null, account: null, loading: false, error: null, bootstrapError: null }),
     setLoading: (loading: boolean) => update((state) => ({ ...state, loading })),
     setError: (error: string) => update((state) => ({ ...state, error, loading: false }))
   }

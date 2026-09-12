@@ -11,9 +11,12 @@
   import { language } from '$lib/stores/ui'
   import { authState, isAuthenticated } from '$lib/stores/auth'
   import { loginWithEmail } from '$lib/auth'
+  import type { BootstrapError } from '$lib/accountResolver'
   import { isValidEmail } from '$lib/utils/cn'
   import { sanitizeInput } from '$lib/validation'
   import { classifyAuthFailure, type AuthFailureKind } from '$lib/ux/authFailure'
+
+  const welcomeKey = 'unem:welcome-seen'
 
   let email = ''
   let password = ''
@@ -24,6 +27,7 @@
   let submitError = ''
   let authFailureKind: AuthFailureKind | null = null
   let emailState: 'idle' | 'valid' | 'invalid' = 'idle'
+  let requestedPath: string | null = null
 
   $: cleanEmail = email.trim().toLowerCase()
   $: emailValid = isValidEmail(cleanEmail)
@@ -37,14 +41,14 @@
     ? {
         title: 'مرحباً بعودتك', subtitle: 'سجّل الدخول للمتابعة', email: 'البريد الإلكتروني', emailPlaceholder: 'name@usmba.ac.ma',
         password: 'كلمة المرور', passwordPlaceholder: 'كلمة المرور', signIn: 'تسجيل الدخول', forgot: 'نسيت كلمة المرور؟',
-        newTo: 'جديد في UNEEM؟', create: 'إنشاء حساب', help: 'تحتاج مساعدة؟', invalidEmail: 'أدخل بريداً صحيحاً.',
+        newTo: 'جديد في UNEM Sports؟', create: 'إنشاء حساب', help: 'تحتاج مساعدة؟', invalidEmail: 'أدخل بريداً صحيحاً.',
         passwordRequired: 'أدخل كلمة المرور.', invalidCredentials: 'البريد أو كلمة المرور غير صحيحة.', rateLimited: 'محاولات كثيرة. حاول بعد قليل.',
         emailUnconfirmed: 'أكد بريدك الإلكتروني قبل تسجيل الدخول.', resendConfirmation: 'إعادة إرسال رابط التأكيد',
         trouble: 'تعذر تسجيل الدخول. حاول مرة أخرى أو اطلب المساعدة.'
       }
     : {
         title: 'Welcome back', subtitle: 'Sign in to continue', email: 'Email address', emailPlaceholder: 'name@usmba.ac.ma',
-        password: 'Password', passwordPlaceholder: 'Password', signIn: 'Sign in', forgot: 'Forgot password?', newTo: 'New to UNEEM?',
+        password: 'Password', passwordPlaceholder: 'Password', signIn: 'Sign in', forgot: 'Forgot password?', newTo: 'New to UNEM Sports?',
         create: 'Create account', help: 'Need help?', invalidEmail: 'Enter a valid email.', passwordRequired: 'Enter your password.',
         invalidCredentials: 'Email or password is incorrect.', rateLimited: 'Too many attempts. Try again shortly.',
         emailUnconfirmed: 'Confirm your email before signing in.', resendConfirmation: 'Resend confirmation link',
@@ -52,11 +56,15 @@
       }
 
   onMount(() => {
-    const hintedEmail = new URLSearchParams(window.location.search).get('email')
+    const params = new URLSearchParams(window.location.search)
+    const hintedEmail = params.get('email')
+    requestedPath = params.get('next')
+    try { localStorage.setItem(welcomeKey, '1') } catch { /* Storage is optional. */ }
+
     if (hintedEmail && isValidEmail(hintedEmail)) email = hintedEmail.trim().toLowerCase()
     if ($isAuthenticated) {
-      const account = $authState.account
-      void goto(afterSignIn(account))
+      if ($authState.bootstrapError) void goto('/auth-error', { replaceState: true })
+      else void goto(afterSignIn($authState.account, requestedPath), { replaceState: true })
     }
   })
 
@@ -86,9 +94,22 @@
         return
       }
 
+      const authUser = result.data?.user
+      const bootstrapError = result.data?.bootstrapError as Exclude<BootstrapError, null> | undefined
+      if (authUser && bootstrapError) {
+        authState.setBootstrapError({ id: authUser.id, email: authUser.email ?? undefined }, bootstrapError)
+        await goto('/auth-error', { replaceState: true })
+        return
+      }
+
       const profile = result.data?.profile
       const account = result.data?.accountState
-      if (!profile || !account) {
+      if (!authUser || !profile || !account) {
+        if (authUser) {
+          authState.setBootstrapError({ id: authUser.id, email: authUser.email ?? undefined }, 'profile_not_found')
+          await goto('/auth-error', { replaceState: true })
+          return
+        }
         authFailureKind = 'profile_missing'
         submitError = copy.trouble
         authState.setError(submitError)
@@ -97,15 +118,15 @@
 
       authState.setSessionContext({
         id: profile.id,
-        email: result.data.user?.email,
+        email: authUser.email,
+        username: profile.username,
         student_id: profile.student_id,
         full_name: profile.full_name,
         role: profile.role === 'admin' ? 'admin' : 'user',
         status: profile.status
       }, account)
 
-      const nextPath = afterSignIn(account)
-      await goto(nextPath)
+      await goto(afterSignIn(account, requestedPath), { replaceState: true })
     } catch (error: any) {
       authFailureKind = classifyAuthFailure(error?.message, error?.status)
       submitError = loginError(authFailureKind)
@@ -117,7 +138,7 @@
   }
 </script>
 
-<svelte:head><title>{copy.title} · UNEEM</title></svelte:head>
+<svelte:head><title>{copy.title} · UNEM Sports</title></svelte:head>
 
 <AuthShell>
   <section class="w-full">

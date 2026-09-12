@@ -7,8 +7,16 @@
   import '$lib/styles/fonts.css'
   import '$lib/styles/system.css'
   import '$lib/styles/mobile.css'
-  import { canBrowse, accountHome } from '$lib/access'
-  import { afterSignIn, rememberInvite, clearArrivedInvite } from '$lib/inviteNavigation'
+  import { canBrowse } from '$lib/access'
+  import {
+    classifyBootstrapError,
+    isAuthPath,
+    isEntryPath,
+    isPublicPath,
+    resolveAccountRoute
+  } from '$lib/accountResolver'
+  import { entryState, initializeEntryState, markWelcomeSeen } from '$lib/entryState'
+  import { rememberInvite, clearArrivedInvite } from '$lib/inviteNavigation'
   import VerificationNotice from '$lib/components/VerificationNotice.svelte'
   import TopBar from '$lib/components/TopBar.svelte'
   import Toast from '$lib/components/Toast.svelte'
@@ -16,7 +24,7 @@
   import { theme, toasts, uiState, interfaceReady } from '$lib/stores/ui'
   import { initializeI18n } from '$lib/i18n'
   import { supabase } from '$lib/supabaseClient'
-  import { authState } from '$lib/stores/auth'
+  import { authState, type User } from '$lib/stores/auth'
   import { getMyAccountState, getUserProfile } from '$lib/auth'
   import { getMySessionContext } from '$lib/sessionApi'
   import { clearRequestCache } from '$lib/requestCache'
@@ -33,11 +41,11 @@
   let toastRegion: HTMLDivElement
   $: if (browser && toastRegion && typeof toastRegion.showPopover === 'function') {
     if ($toasts.length) {
-      // Toast feedback must also be visible above a native dialog.
       toastRegion.hidePopover()
       toastRegion.showPopover()
     } else toastRegion.hidePopover()
   }
+
   let routeGuardProcessing = false
   let unsubAuth: (() => void) | null = null
   let unsubEarlyRecovery: (() => void) | null = null
@@ -49,10 +57,13 @@
     cacheUserId = nextUserId
   }
 
-  // Supabase may resolve an implicit recovery URL before child route onMount
-  // callbacks run. Register this minimal listener during client component setup so
-  // the only trusted recovery grant comes from PASSWORD_RECOVERY itself, never
-  // from a user-editable `?type=recovery` URL marker.
+  function sessionUser(sessionUser: any): User {
+    return {
+      id: sessionUser.id,
+      email: sessionUser.email ?? undefined
+    }
+  }
+
   if (browser && !USE_MOCK) {
     const { data: earlyRecoveryListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY' && session?.user) {
@@ -67,93 +78,57 @@
 
   initializeI18n('en')
 
-  const authPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/logout']
-  const publicSupportPaths = ['/help', '/', '/privacy', '/terms', '/data-deletion']
-  $: isAuthPage = authPaths.includes($page.url.pathname)
-  $: isPublicSupportPage = publicSupportPaths.includes($page.url.pathname)
+  $: isAuthPage = isAuthPath($page.url.pathname)
+  $: isPublicSupportPage = isPublicPath($page.url.pathname)
   $: chromeFreePage = isAuthPage || isPublicSupportPage
 
-  // Routing is driven by the authoritative account-state payload. Recovery is a
-  // temporary authenticated capability and is intentionally trapped on the
-  // reset flow until the password is changed or the user signs out.
   $: if (
     browser &&
     !$authState.loading &&
-    !routeGuardProcessing
+    !routeGuardProcessing &&
+    (!isEntryPath($page.url.pathname) || $entryState.ready)
   ) {
     const pathname = $page.url.pathname
     const hasSession = $authState.user !== null
     const account = $authState.account
-    const isAuthPath = authPaths.includes(pathname)
-    const isSupportPath = publicSupportPaths.includes(pathname)
-    const isPendingPath = pathname === '/pending-approval'
-    const isProfilePath = pathname === '/profile' || pathname === '/menu'
-    const isVerificationPath = pathname === '/verification'
-    const isVerifyEmailPath = pathname === '/verify-email'
-    const isRecoveryPath = pathname === '/reset-password'
-    const isAdminPath = pathname === '/admin' || pathname.startsWith('/admin/')
-    const isSportsPath = pathname.startsWith('/home') ||
-                         pathname.startsWith('/bookings') ||
-                         pathname.startsWith('/pitch/') ||
-                         pathname.startsWith('/matches') ||
-                         pathname.startsWith('/notifications')
-    const canBrowseApp = canBrowse(account)
-    const isAdminAccount = account?.role === 'admin'
     const recoveryActive = $passwordRecoveryActive
+    const requestedPath = $page.url.searchParams.get('next')
 
-    let targetPath: string | null = null
+    let targetPath = resolveAccountRoute({
+      hasSession,
+      account,
+      pathname,
+      recoveryActive,
+      bootstrapError: $authState.bootstrapError,
+      requestedPath,
+      welcomeSeen: $entryState.welcomeSeen
+    })
 
-    if (recoveryActive && hasSession && !isRecoveryPath && !isSupportPath && pathname !== '/logout') {
-      targetPath = '/reset-password'
-    } else if (!hasSession && !isAuthPath && !isSupportPath) {
-      targetPath = rememberInvite(pathname) ? `/login?next=${encodeURIComponent(pathname)}` : '/login'
-    } else if (hasSession && isAuthPath && pathname !== '/logout' && !isVerifyEmailPath && !(isRecoveryPath && recoveryActive)) {
-      targetPath = afterSignIn(account)
-    } else if (hasSession && !account && !isSupportPath && !isVerifyEmailPath && !isRecoveryPath) {
-      targetPath = '/pending-approval'
-    } else if (hasSession && isAdminPath && !isAdminAccount) {
-      targetPath = accountHome(account)
-    } else if (hasSession && !canBrowseApp && (isSportsPath || isAdminPath)) {
-      targetPath = '/pending-approval'
-    } else if (hasSession && canBrowseApp && account?.can_use_sports && isPendingPath) {
-      targetPath = '/home'
-    } else if (
-      hasSession &&
-      !canBrowseApp &&
-      !isPendingPath &&
-      !isProfilePath &&
-      !isVerificationPath &&
-      !isSupportPath &&
-      !isAuthPath
-    ) {
-      targetPath = '/pending-approval'
+    if (!hasSession && targetPath === '/login' && rememberInvite(pathname)) {
+      targetPath = `/login?next=${encodeURIComponent(pathname)}`
     }
 
-    if (hasSession && canBrowseApp && !targetPath) clearArrivedInvite(pathname)
+    if (hasSession && canBrowse(account) && !targetPath) clearArrivedInvite(pathname)
+
     if (targetPath && targetPath !== pathname) {
       routeGuardProcessing = true
-      goto(targetPath).finally(() => {
+      goto(targetPath, { replaceState: true }).finally(() => {
         routeGuardProcessing = false
       })
     }
   }
 
   onMount(() => {
+    initializeEntryState()
     void tick().then(() => interfaceReady.set(true))
     const stopViewport = observeViewport()
     const storedTheme = localStorage.getItem('theme') as 'light' | 'dark' | 'auto' | null
     const storedLang = localStorage.getItem('language') as 'en' | 'ar' | null
 
-    if (storedTheme) {
-      uiState.setTheme(storedTheme)
-    } else {
-      uiState.setTheme('auto')
-    }
+    if (storedTheme) uiState.setTheme(storedTheme)
+    else uiState.setTheme('auto')
 
-    if (storedLang) {
-      uiState.setLanguage(storedLang)
-      locale.set(storedLang)
-    }
+    if (storedLang) uiState.setLanguage(storedLang)
 
     restorePasswordRecovery()
     let processingAuth = false
@@ -166,7 +141,9 @@
         return
       }
 
+      markWelcomeSeen()
       setCacheIdentity(session.user.id)
+      const fallbackUser = sessionUser(session.user)
 
       try {
         restorePasswordRecovery(session.user.id)
@@ -174,7 +151,7 @@
         const context = await getMySessionContext()
         if (cacheUserId !== session.user.id) return
         if (!context) {
-          authState.clear()
+          authState.setBootstrapError(fallbackUser, 'profile_not_found')
           return
         }
 
@@ -188,8 +165,10 @@
           role: profile.role === 'admin' ? 'admin' : 'user',
           status: profile.status
         }, account)
-      } catch {
-        if (cacheUserId === session.user.id) authState.clear()
+      } catch (error) {
+        if (cacheUserId === session.user.id) {
+          authState.setBootstrapError(fallbackUser, classifyBootstrapError(error))
+        }
       }
     }
 
@@ -219,13 +198,14 @@
       if (stored) {
         try {
           const user = JSON.parse(stored)
+          markWelcomeSeen()
           setCacheIdentity(user.id || null)
           void Promise.all([
             getUserProfile(user.id),
             getMyAccountState()
           ]).then(([profile, account]) => {
             if (!profile || !account) {
-              authState.clear()
+              authState.setBootstrapError({ id: user.id, email: user.email }, 'profile_not_found')
               return
             }
             authState.setSessionContext({
@@ -237,7 +217,7 @@
               role: profile.role === 'admin' ? 'admin' : 'user',
               status: profile.status
             }, account)
-          }).catch(() => authState.clear())
+          }).catch(() => authState.setBootstrapError({ id: user.id, email: user.email }, 'database_error'))
         } catch {
           setCacheIdentity(null)
           authState.clear()
@@ -257,6 +237,7 @@
 
         if (event === 'PASSWORD_RECOVERY' && session?.user) {
           markPasswordRecovery(session)
+          markWelcomeSeen()
           if (!processingAuth) {
             processingAuth = true
             authState.setLoading(true)
@@ -269,14 +250,10 @@
         }
 
         if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+          markWelcomeSeen()
           restorePasswordRecovery(session.user.id)
 
-          // Interactive email/password login owns its own authoritative session
-          // bootstrap so the submit handler can route without waiting for this
-          // listener. Skip the duplicate RPC while that login form is loading.
-          if (event === 'SIGNED_IN' && $page.url.pathname === '/login' && $authState.loading) {
-            return
-          }
+          if (event === 'SIGNED_IN' && $page.url.pathname === '/login' && $authState.loading) return
 
           if (!processingAuth) {
             processingAuth = true

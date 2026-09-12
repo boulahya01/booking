@@ -3,7 +3,7 @@
   "name": "UNEM Sports",
   "short_name": "UNEM Sports",
   "description": "Student sports facilities, bookings and open matches.",
-  "start_url": "/",
+  "start_url": "/launch",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f5f5f7",

@@ -1,16 +1,14 @@
 <script lang="ts">
   import { browser } from '$app/environment'
-  import { goto } from '$app/navigation'
   import PublicPage from '$lib/components/PublicPage.svelte'
-  import { accountHome } from '$lib/access'
+  import { entryState, markWelcomeSeen } from '$lib/entryState'
   import { authState } from '$lib/stores/auth'
 
-  let routed = false
-
-  $: if (browser && !$authState.loading && $authState.user && !routed) {
-    routed = true
-    void goto(accountHome($authState.account), { replaceState: true })
-  }
+  $: showLanding = browser &&
+    $entryState.ready &&
+    !$authState.loading &&
+    !$authState.user &&
+    !$entryState.welcomeSeen
 </script>
 
 <svelte:head>
@@ -29,52 +27,72 @@
   <link rel="canonical" href="https://uneem.site/" />
 </svelte:head>
 
-<PublicPage>
-  <section class="hero" aria-labelledby="home-title">
-    <p class="eyebrow">Student sports, simplified</p>
-    <h1 id="home-title">Book. Play. Meet.</h1>
-    <p class="hero-copy">
-      UNEM Sports helps students discover university sports facilities, see available time slots,
-      book facilities, and create or join open matches in one place.
-    </p>
+{#if showLanding}
+  <PublicPage>
+    <section class="hero" aria-labelledby="home-title">
+      <p class="eyebrow">Student sports, simplified</p>
+      <h1 id="home-title">Book. Play. Meet.</h1>
+      <p class="hero-copy">
+        UNEM Sports helps students discover university sports facilities, see available time slots,
+        book facilities, and create or join open matches in one place.
+      </p>
 
-    <div class="hero-actions">
-      <a class="primary-action" href="/login">Sign in</a>
-      <a class="secondary-action" href="/register">Create account</a>
-    </div>
-  </section>
+      <div class="hero-actions">
+        <a class="primary-action" href="/login" on:click={markWelcomeSeen}>Sign in</a>
+        <a class="secondary-action" href="/register" on:click={markWelcomeSeen}>Create account</a>
+      </div>
+    </section>
 
-  <section class="capabilities" aria-label="What UNEM Sports does">
-    <article>
-      <span>01</span>
-      <h2>Find a facility</h2>
-      <p>See sports facilities and available time slots without digging through schedules.</p>
-    </article>
-    <article>
-      <span>02</span>
-      <h2>Book quickly</h2>
-      <p>Choose a valid slot and manage your booking from the same simple flow.</p>
-    </article>
-    <article>
-      <span>03</span>
-      <h2>Play together</h2>
-      <p>Create or join open matches and share a match with other students.</p>
-    </article>
-  </section>
+    <section class="capabilities" aria-label="What UNEM Sports does">
+      <article>
+        <span>01</span>
+        <h2>Find a facility</h2>
+        <p>See sports facilities and available time slots without digging through schedules.</p>
+      </article>
+      <article>
+        <span>02</span>
+        <h2>Book quickly</h2>
+        <p>Choose a valid slot and manage your booking from the same simple flow.</p>
+      </article>
+      <article>
+        <span>03</span>
+        <h2>Play together</h2>
+        <p>Create or join open matches and share a match with other students.</p>
+      </article>
+    </section>
 
-  <section class="trust-note" aria-labelledby="verification-title">
-    <div>
-      <p class="eyebrow">Student verification</p>
-      <h2 id="verification-title">One student. One verified Student ID.</h2>
-    </div>
-    <p>
-      Anyone can create an account and browse. Booking and participation unlock only after a
-      unique Student ID is verified.
-    </p>
-  </section>
-</PublicPage>
+    <section class="trust-note" aria-labelledby="verification-title">
+      <div>
+        <p class="eyebrow">Student verification</p>
+        <h2 id="verification-title">One student. One verified Student ID.</h2>
+      </div>
+      <p>
+        Anyone can create an account and browse. Booking and participation unlock only after a
+        unique Student ID is verified.
+      </p>
+    </section>
+  </PublicPage>
+{:else}
+  <div class="entry-pending" role="status" aria-label="Opening UNEM Sports">
+    <div class="entry-mark" aria-hidden="true"></div>
+  </div>
+{/if}
 
 <style>
+  .entry-pending {
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    background: var(--bg);
+  }
+
+  .entry-mark {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    background: var(--primary);
+  }
+
   .hero {
     max-width: 820px;
     padding-top: clamp(16px, 5vw, 52px);
