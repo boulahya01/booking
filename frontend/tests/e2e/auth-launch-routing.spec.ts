@@ -1,16 +1,40 @@
 import { expect, test } from '@playwright/test'
 
 const welcomeKey = 'unem:welcome-seen'
+const landingPaintKey = 'unem:test:landing-painted'
 
 async function setWelcome(page: import('@playwright/test').Page, seen: boolean) {
   // Seed same-origin storage from a public route. Avoid addInitScript here:
   // a persistent init script would run on every navigation and overwrite the
   // state that the landing page itself is supposed to change.
   await page.goto('/help', { waitUntil: 'domcontentloaded' })
-  await page.evaluate(({ key, value }) => {
+  await page.evaluate(({ key, value, paintKey }) => {
     if (value) localStorage.setItem(key, '1')
     else localStorage.removeItem(key)
-  }, { key: welcomeKey, value: seen })
+    sessionStorage.removeItem(paintKey)
+  }, { key: welcomeKey, value: seen, paintKey: landingPaintKey })
+}
+
+async function watchForLandingPaint(page: import('@playwright/test').Page) {
+  await page.addInitScript(({ paintKey }) => {
+    const observe = () => {
+      const scan = () => {
+        if (location.pathname === '/' && document.body?.textContent?.includes('Book. Play. Meet.')) {
+          sessionStorage.setItem(paintKey, '1')
+        }
+      }
+
+      scan()
+      const observer = new MutationObserver(scan)
+      observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true })
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', observe, { once: true })
+    } else {
+      observe()
+    }
+  }, { paintKey: landingPaintKey })
 }
 
 test.beforeEach(async ({ page }) => {
@@ -31,10 +55,12 @@ test('first browser visit keeps the public landing page', async ({ page }) => {
 
 test('returning signed-out browser visit skips landing and opens login', async ({ page }) => {
   await setWelcome(page, true)
+  await watchForLandingPaint(page)
   await page.goto('/', { waitUntil: 'domcontentloaded' })
 
   await expect(page).toHaveURL(/\/login(?:\?|$)/)
   await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
+  await expect.poll(() => page.evaluate((key) => sessionStorage.getItem(key), landingPaintKey)).toBeNull()
 })
 
 test('using a landing auth action marks the device as returning', async ({ page }) => {
