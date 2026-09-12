@@ -112,7 +112,7 @@
 
     if (targetPath && targetPath !== pathname) {
       routeGuardProcessing = true
-      goto(targetPath).finally(() => {
+      goto(targetPath, { replaceState: true }).finally(() => {
         routeGuardProcessing = false
       })
     }
