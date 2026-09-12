@@ -8,7 +8,14 @@
   import '$lib/styles/system.css'
   import '$lib/styles/mobile.css'
   import { canBrowse } from '$lib/access'
-  import { resolveAccountRoute, type BootstrapError } from '$lib/accountResolver'
+  import {
+    classifyBootstrapError,
+    isAuthPath,
+    isEntryPath,
+    isPublicPath,
+    resolveAccountRoute
+  } from '$lib/accountResolver'
+  import { entryState, initializeEntryState, markWelcomeSeen } from '$lib/entryState'
   import { rememberInvite, clearArrivedInvite } from '$lib/inviteNavigation'
   import VerificationNotice from '$lib/components/VerificationNotice.svelte'
   import TopBar from '$lib/components/TopBar.svelte'
@@ -57,17 +64,6 @@
     }
   }
 
-  function classifyBootstrapError(error: unknown): Exclude<BootstrapError, null> {
-    const message = String((error as { message?: string })?.message || error || '').toLowerCase()
-    if (
-      message.includes('network') ||
-      message.includes('failed to fetch') ||
-      message.includes('fetcherror') ||
-      message.includes('connection')
-    ) return 'network_error'
-    return 'database_error'
-  }
-
   if (browser && !USE_MOCK) {
     const { data: earlyRecoveryListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY' && session?.user) {
@@ -82,13 +78,16 @@
 
   initializeI18n('en')
 
-  const authPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/logout', '/auth-error']
-  const publicSupportPaths = ['/help', '/', '/launch', '/privacy', '/terms', '/data-deletion']
-  $: isAuthPage = authPaths.includes($page.url.pathname)
-  $: isPublicSupportPage = publicSupportPaths.includes($page.url.pathname)
+  $: isAuthPage = isAuthPath($page.url.pathname)
+  $: isPublicSupportPage = isPublicPath($page.url.pathname)
   $: chromeFreePage = isAuthPage || isPublicSupportPage
 
-  $: if (browser && !$authState.loading && !routeGuardProcessing) {
+  $: if (
+    browser &&
+    !$authState.loading &&
+    !routeGuardProcessing &&
+    (!isEntryPath($page.url.pathname) || $entryState.ready)
+  ) {
     const pathname = $page.url.pathname
     const hasSession = $authState.user !== null
     const account = $authState.account
@@ -101,7 +100,8 @@
       pathname,
       recoveryActive,
       bootstrapError: $authState.bootstrapError,
-      requestedPath
+      requestedPath,
+      welcomeSeen: $entryState.welcomeSeen
     })
 
     if (!hasSession && targetPath === '/login' && rememberInvite(pathname)) {
@@ -119,6 +119,7 @@
   }
 
   onMount(() => {
+    initializeEntryState()
     void tick().then(() => interfaceReady.set(true))
     const stopViewport = observeViewport()
     const storedTheme = localStorage.getItem('theme') as 'light' | 'dark' | 'auto' | null
@@ -127,10 +128,7 @@
     if (storedTheme) uiState.setTheme(storedTheme)
     else uiState.setTheme('auto')
 
-    if (storedLang) {
-      uiState.setLanguage(storedLang)
-      locale.set(storedLang)
-    }
+    if (storedLang) uiState.setLanguage(storedLang)
 
     restorePasswordRecovery()
     let processingAuth = false
@@ -143,6 +141,7 @@
         return
       }
 
+      markWelcomeSeen()
       setCacheIdentity(session.user.id)
       const fallbackUser = sessionUser(session.user)
 
@@ -199,6 +198,7 @@
       if (stored) {
         try {
           const user = JSON.parse(stored)
+          markWelcomeSeen()
           setCacheIdentity(user.id || null)
           void Promise.all([
             getUserProfile(user.id),
@@ -237,6 +237,7 @@
 
         if (event === 'PASSWORD_RECOVERY' && session?.user) {
           markPasswordRecovery(session)
+          markWelcomeSeen()
           if (!processingAuth) {
             processingAuth = true
             authState.setLoading(true)
@@ -249,6 +250,7 @@
         }
 
         if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+          markWelcomeSeen()
           restorePasswordRecovery(session.user.id)
 
           if (event === 'SIGNED_IN' && $page.url.pathname === '/login' && $authState.loading) return
