@@ -50,14 +50,39 @@ test('Google delegates authentication to Supabase PKCE without layout shift', as
   expect(authUrl!.searchParams.get('code_challenge')).toBeTruthy()
 })
 
-test('unavailable Google provider leaves email sign-in usable', async ({ page }) => {
+test('unreachable Auth keeps Google visible and email sign-in usable', async ({ page }) => {
   await page.route('**/auth/v1/settings', (route) => route.fulfill({ status: 503, body: 'Unavailable' }))
   await page.goto('/login')
 
-  await expect(page.getByRole('button', { name: /Continue with Google/i })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /Continue with Google/i })).toBeEnabled()
+  await expect(page.getByRole('status').filter({ hasText: /Google couldn’t connect/ })).toBeVisible()
   await expect(page.getByRole('button', { name: /Facebook/i })).toHaveCount(0)
   await expect(page.getByLabel('Email address', { exact: true })).toBeEnabled()
 
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await expect(page.getByText('Enter your password.', { exact: true })).toBeVisible()
+})
+
+test('Google recovers from a transient settings failure when selected again', async ({ page }) => {
+  let reads = 0
+  await page.route('**/auth/v1/settings', route => {
+    reads++
+    return reads === 1
+      ? route.fulfill({ status: 503, body: 'Unavailable' })
+      : route.fulfill({ contentType: 'application/json', body: JSON.stringify({ external: { google: true } }) })
+  })
+  await page.route('**/auth/v1/authorize?**', route => route.fulfill({ contentType: 'text/html', body: '<h1>Provider authorization boundary</h1>' }))
+  await page.goto('/login')
+  const button = page.getByRole('button', { name: 'Continue with Google', exact: true })
+  await expect(button).toBeEnabled()
+  await button.click()
+  await expect(page.getByRole('heading', { name: 'Provider authorization boundary' })).toBeVisible()
+  expect(reads).toBe(2)
+})
+
+test('confirmed disabled provider is omitted without blocking email', async ({ page }) => {
+  await page.route('**/auth/v1/settings', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ external: { google: false } }) }))
+  await page.goto('/login')
+  await expect(page.getByRole('button', { name: /Continue with Google/i })).toHaveCount(0)
+  await expect(page.getByLabel('Email address', { exact: true })).toBeEnabled()
 })

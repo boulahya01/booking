@@ -18,6 +18,7 @@
   import { rememberInvite, clearArrivedInvite } from '$lib/inviteNavigation'
   import Toast from '$lib/components/Toast.svelte'
   import PwaRuntime from '$lib/components/PwaRuntime.svelte'
+  import PwaUpdateNotice from '$lib/components/PwaUpdateNotice.svelte'
   import { theme, toasts, uiState, interfaceReady } from '$lib/stores/ui'
   import { beginLoading, globalLoading } from '$lib/stores/loading'
   import { initializeI18n } from '$lib/i18n'
@@ -93,7 +94,7 @@
     const storedLang = localStorage.getItem('language') as 'en' | 'ar' | null
 
     if (storedTheme) uiState.setTheme(storedTheme)
-    else uiState.setTheme('auto')
+    else uiState.setTheme('light')
 
     if (storedLang) uiState.setLanguage(storedLang)
 
@@ -119,6 +120,7 @@
     if (!browser) return
     const isDark = t === 'dark' || (t === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)
     document.documentElement.classList.toggle('dark', isDark)
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', isDark ? '#101113' : '#f5f5f7')
   }
 
   $: if (browser) applyTheme($theme)
@@ -143,6 +145,7 @@
 
 <div class="app-shell" inert={!$interfaceReady}>
   <a href="#main-content" class="skip-link">{$uiState.language === 'ar' ? 'انتقل إلى المحتوى' : 'Skip to content'}</a>
+  <PwaUpdateNotice />
   <main id="main-content" tabindex="-1" class:app-content={!chromeFreePage} class:app-content-plain={chromeFreePage}>
     <slot />
   </main>

@@ -1,5 +1,25 @@
 import { test, expect, type Page } from '@playwright/test'
 
+test('dismissed update stays available in Menu with one update action', async ({ page }) => {
+  await page.addInitScript(() => {
+    const waiting = { postMessage() { (window as any).updateRequests = ((window as any).updateRequests || 0) + 1 } }
+    const registration = Object.assign(new EventTarget(), { waiting, installing: null, update: async () => undefined })
+    Object.defineProperty(navigator, 'serviceWorker', { value: Object.assign(new EventTarget(), { controller: {}, ready: Promise.resolve(registration), register: async () => registration }) })
+  })
+  const f = await fixture(page)
+  await f.login()
+  await page.getByRole('status', { name: 'UNEEM update ready' }).getByRole('button', { name: 'Later', exact: true }).click()
+  await page.getByRole('link', { name: 'Menu', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Menu', exact: true })).toBeVisible()
+  await expect(page.getByRole('status', { name: 'UNEEM update ready' })).toHaveCount(0)
+  const update = page.getByRole('button', { name: 'Update UNEEM', exact: true })
+  await expect(update).toHaveCount(1)
+  await update.click()
+  expect(await page.evaluate(() => (window as any).updateRequests)).toBe(1)
+  await expect(update).toBeDisabled()
+  expect(f.errors).toEqual([])
+})
+
 async function fixture(page: Page, admin = false) {
   const uid = '11111111-1111-4111-8111-111111111111'
   const pitchId = '44444444-4444-4444-8444-444444444444'

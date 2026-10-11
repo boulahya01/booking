@@ -3,7 +3,6 @@
   import { goto } from '$app/navigation'
   import { onMount } from 'svelte'
   import Button from '$lib/components/Button.svelte'
-  import ActionLink from '$lib/components/ActionLink.svelte'
   import TextField from '$lib/components/TextField.svelte'
   import Icon from '$lib/components/Icon.svelte'
   import SocialSignIn from '$lib/components/SocialSignIn.svelte'
@@ -145,9 +144,9 @@
 
 <AuthShell>
   <section class="w-full">
-    <div class="mb-8">
-      <h1 class="auth-title">{copy.title}</h1>
-      <p class="mt-2 text-[15px] text-text-secondary">{copy.subtitle}</p>
+    <div class="login-intro">
+      <h1>{copy.title}</h1>
+      <p>{copy.subtitle}</p>
     </div>
 
     {#if submitError}
@@ -169,12 +168,10 @@
         {/snippet}
       </TextField>
 
-      <div class="pt-3"><Button type="submit" variant="primary" size="lg" {loading} disabled={loading || socialLoading} fullWidth>{copy.signIn}</Button></div>
+      <div class="pt-1"><Button type="submit" variant="primary" {loading} disabled={loading || socialLoading} fullWidth>{copy.signIn}</Button></div>
     </form>
 
-    <div class="mt-3">
-      <ActionLink href={registerHref} variant="secondary" size="lg" fullWidth>{copy.create}</ActionLink>
-    </div>
+    <p class="login-register"><span>{copy.newTo}</span><a href={registerHref}>{copy.create}</a></p>
   </section>
 
   <div slot="footer" class="text-center">
@@ -185,6 +182,15 @@
 </AuthShell>
 
 <style>
-  .login-form { display: grid; gap: 16px; }
-  .login-recovery { display: inline-flex; min-height: 44px; align-items: center; font-size: 13px; font-weight: 550; color: var(--primary); }
+  .login-intro { margin-bottom: 24px; }
+  .login-intro h1 { font-size: clamp(26px, 5vw, 30px); line-height: 1.3; font-weight: 650; letter-spacing: -.035em; }
+  :global(html[dir='rtl']) .login-intro h1 { letter-spacing: 0; }
+  .login-intro p { margin-top: 6px; color: var(--text-secondary); font-size: 14px; }
+  .login-form { display: grid; gap: 14px; }
+  .login-form :global(.uneem-field) { min-height: 52px; padding-block: 13px; border-radius: 12px; border-color: var(--border); background: var(--surface); }
+  .login-form :global(.uneem-field:focus) { border-color: var(--primary); }
+  .login-form :global([data-state='invalid'] .uneem-field) { border-color: var(--danger); }
+  .login-recovery { display: inline-flex; min-height: 32px; align-items: center; font-size: 13px; font-weight: 550; color: var(--primary); }
+  .login-register { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 0 7px; margin-top: 16px; font-size: 14px; color: var(--text-secondary); }
+  .login-register a { display: inline-flex; min-height: 44px; align-items: center; font-weight: 600; color: var(--primary); }
 </style>

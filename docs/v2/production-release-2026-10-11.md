@@ -27,3 +27,9 @@ No real signup/recovery emails, live user fixture mutations or real-device insta
 - Published PWA, maskable and Apple PNGs and the lossless original torch match the candidate byte-for-byte. Favicon/monogram SVGs match after line-ending normalization; parsed manifest content matches. All eight asset requests returned HTTP 200.
 - A separate fresh-browser check of landing, login, privacy, terms and launch recorded zero page errors, overflow and production mutation attempts. Anonymous launch correctly resolves to login.
 - Real-device PWA installation, OS icon refresh and authenticated hosted mutation flows remain separate checks. Baseline speed improvements and the scoped build-tool dependency follow-ups above are not claimed complete.
+
+## Follow-up: hosted authentication configuration
+
+The initial public smoke checks did not assert that the real provider settings request succeeded. A subsequent live login inspection found that the hosting browser configuration still referenced an unreachable former backend. The login silently removed Google sign-in when that request failed, so a successful page render did not prove Auth connectivity. The deployment configuration was corrected to the active backend and its public browser key, and the same application source was rebuilt. A fresh live read then confirmed HTTP 200, Google enabled, the visible Google button and no connection errors. No account was created or signed in during that check.
+
+The follow-up patch distinguishes unavailable settings from a confirmed disabled provider, keeps a retryable Google action during a connection failure, and adds an explicit read-only production Auth test plus a hosting build gate. This corrects the earlier validation gap; it does not claim a completed Google account round trip.

@@ -10,7 +10,6 @@
   import Icon from '$lib/components/Icon.svelte'
   import Button from '$lib/components/Button.svelte'
   import { _, locale } from 'svelte-i18n'
-  import { USE_MOCK, mockPitches, mockSlots } from '$lib/mock'
   import { logger } from '$lib/logger'
   import {
     getPitchAvailability,
@@ -91,12 +90,6 @@
       return
     }
 
-    if (USE_MOCK) {
-      pitch = mockPitches.find((item) => item.id === pitchId) || null
-      loading = false
-      return
-    }
-
     const { data, error: fetchError } = await supabase
       .from('pitches')
       .select('id,name,location,open_time,close_time,capacity,sport_type,timezone,booking_frequency_enabled,booking_frequency_days,booking_window_hours')
@@ -123,14 +116,6 @@
     slotsRequestVersion = version
     loadingSlots = true
     errorSlots = null
-
-    if (USE_MOCK) {
-      slots = mockSlots
-      myBookings = []
-      loadingSlots = false
-      slotsRequestVersion = null
-      return
-    }
 
     try {
       const [availability, bookingRows] = await Promise.all([

@@ -23,7 +23,7 @@ function createUIStore() {
   // Use deterministic defaults to avoid SSR hydration mismatches.
   // LocalStorage is read in +layout.svelte onMount.
   const { subscribe, set, update } = writable<UIState>({
-    theme: 'auto',
+    theme: 'light',
     language: 'en',
     toasts: [],
     unreadNotifications: 0

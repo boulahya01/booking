@@ -1,6 +1,5 @@
 <script lang="ts">
   import { _, locale } from 'svelte-i18n'
-  import { USE_MOCK, mockDelay } from '$lib/mock'
   import { uiState } from '$lib/stores/ui'
   import { hasFullAccess } from '$lib/stores/auth'
   import { createBooking, BookingApiError, type AvailabilitySlot } from '$lib/bookingApi'
@@ -39,8 +38,7 @@
     loading = true
     error = null
     try {
-      if (USE_MOCK) await mockDelay()
-      else await createBooking(slot.pitch_id, slot.datetime_start)
+      await createBooking(slot.pitch_id, slot.datetime_start)
       uiState.addToast(ar ? 'تم الحجز' : 'Booking confirmed', 'success')
       onClose()
       void Promise.resolve(onBooked()).catch(() => undefined)
