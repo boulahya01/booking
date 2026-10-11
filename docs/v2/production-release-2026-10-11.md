@@ -16,4 +16,14 @@ This release contains the approved monogram launcher icons, original torch in Ab
 
 The original [speed audit](speed-audit-2026-10-11.md) remains a baseline measurement from before these dependency updates. Mobile match-details performance, the lossless About torch's bandwidth, reservation foreign-key indexes and provider leaked-password protection remain improvement/review items. They are not claimed fixed by this release.
 
-No real signup/recovery emails, live user fixture mutations or real-device installation tests were performed during publication. Recovery testing remains stopped at the user's request. Live publication and read-only smoke results will be recorded after deployment completes.
+No real signup/recovery emails, live user fixture mutations or real-device installation tests were performed during publication. Recovery testing remains stopped at the user's request.
+
+## Published and verified
+
+- PR 115 merged into `dev`. Published source commit: `5cbc820b7ada124e341e678baf77d737358ebc14`; its source tree exactly matches the tested release branch.
+- GitHub CI passed the fresh lockfile installation, release hygiene, type checks, production build and browser regressions. The canonical UNEEM Vercel check passed. The legacy unrelated booking-project check remains non-authoritative.
+- Vercel's production deployment reached READY and assigned [the canonical website](https://www.uneem.site/) to that commit.
+- All 52 live public smoke checks passed in English/Arabic on desktop Chromium and Pixel 5. Registration conflict coverage used intercepted fictional responses, and malformed-token tests fail before contacting Auth. No real signup/recovery mutation was performed.
+- Published PWA, maskable and Apple PNGs and the lossless original torch match the candidate byte-for-byte. Favicon/monogram SVGs match after line-ending normalization; parsed manifest content matches. All eight asset requests returned HTTP 200.
+- A separate fresh-browser check of landing, login, privacy, terms and launch recorded zero page errors, overflow and production mutation attempts. Anonymous launch correctly resolves to login.
+- Real-device PWA installation, OS icon refresh and authenticated hosted mutation flows remain separate checks. Baseline speed improvements and the scoped build-tool dependency follow-ups above are not claimed complete.

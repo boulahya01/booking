@@ -15,7 +15,8 @@ UNEEM already has live users. The production system must remain protected while 
 - [ ] Improve mobile match-details/management cold-load performance and give Home more margin.
 - [x] Migration `20261011002159`, match contract, both cancellation/join race orders, and rollback/reapply passed in isolated PostgreSQL. The user authorized production release; the owner cancellation guard was applied and verified read-only.
 - [ ] Review the two missing reservation foreign-key indexes and leaked-password protection configuration; review advisor permission warnings against intended access controls.
-- [ ] Verify the exact hosted candidate and real-device PWA install/update. Six live icon/manifest responses differ from the current candidate.
+- [x] Release commit `5cbc820b7ada124e341e678baf77d737358ebc14` is live on the canonical domain. All 52 public desktop/mobile English/Arabic smoke checks pass; published icon/torch binaries and normalized manifest/SVG content match the candidate.
+- [ ] Verify PWA install/update and OS icon replacement on a real mobile device; authenticated hosted mutation flows remain separately scoped checks.
 
 The user reports recovery works on the live website and requested stopping recovery testing. Do not repeat email/account mutations as part of this audit. Other unchecked historical auth and authenticated release gates below remain unverified unless separately evidenced.
 
