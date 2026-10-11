@@ -9,34 +9,27 @@
   import '$lib/styles/mobile.css'
   import { canBrowse } from '$lib/access'
   import {
-    classifyBootstrapError,
     isAuthPath,
     isEntryPath,
     isPublicPath,
     resolveAccountRoute
   } from '$lib/accountResolver'
-  import { entryState, initializeEntryState, markWelcomeSeen } from '$lib/entryState'
+  import { entryState, initializeEntryState } from '$lib/entryState'
   import { rememberInvite, clearArrivedInvite } from '$lib/inviteNavigation'
-  import VerificationNotice from '$lib/components/VerificationNotice.svelte'
-  import TopBar from '$lib/components/TopBar.svelte'
   import Toast from '$lib/components/Toast.svelte'
   import PwaRuntime from '$lib/components/PwaRuntime.svelte'
   import { theme, toasts, uiState, interfaceReady } from '$lib/stores/ui'
+  import { beginLoading, globalLoading } from '$lib/stores/loading'
   import { initializeI18n } from '$lib/i18n'
-  import { supabase } from '$lib/supabaseClient'
-  import { authState, type User } from '$lib/stores/auth'
-  import { getMyAccountState, getUserProfile } from '$lib/auth'
-  import { getMySessionContext } from '$lib/sessionApi'
-  import { clearRequestCache } from '$lib/requestCache'
+  import { authState } from '$lib/stores/auth'
+  import { initAuthRuntime } from '$lib/authRuntime'
+  import geistFont from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url'
   import { observeViewport } from '$lib/viewport'
   import {
-    clearPasswordRecovery,
-    markPasswordRecovery,
     passwordRecoveryActive,
     restorePasswordRecovery
-  } from '$lib/authFlow'
+  } from '$lib/authRecovery'
   import { locale } from 'svelte-i18n'
-  import { USE_MOCK } from '$lib/mock'
 
   let toastRegion: HTMLDivElement
   $: if (browser && toastRegion && typeof toastRegion.showPopover === 'function') {
@@ -47,34 +40,6 @@
   }
 
   let routeGuardProcessing = false
-  let unsubAuth: (() => void) | null = null
-  let unsubEarlyRecovery: (() => void) | null = null
-  let cacheUserId: string | null = null
-
-  function setCacheIdentity(nextUserId: string | null) {
-    if (cacheUserId === nextUserId) return
-    clearRequestCache()
-    cacheUserId = nextUserId
-  }
-
-  function sessionUser(sessionUser: any): User {
-    return {
-      id: sessionUser.id,
-      email: sessionUser.email ?? undefined
-    }
-  }
-
-  if (browser && !USE_MOCK) {
-    const { data: earlyRecoveryListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY' && session?.user) {
-        markPasswordRecovery(session)
-      } else if (event === 'SIGNED_OUT') {
-        clearPasswordRecovery()
-        setCacheIdentity(null)
-      }
-    })
-    unsubEarlyRecovery = () => earlyRecoveryListener.subscription.unsubscribe()
-  }
 
   initializeI18n('en')
 
@@ -112,7 +77,9 @@
 
     if (targetPath && targetPath !== pathname) {
       routeGuardProcessing = true
+      const stopNavigationLoading = beginLoading('navigating')
       goto(targetPath, { replaceState: true }).finally(() => {
+        stopNavigationLoading()
         routeGuardProcessing = false
       })
     }
@@ -131,144 +98,7 @@
     if (storedLang) uiState.setLanguage(storedLang)
 
     restorePasswordRecovery()
-    let processingAuth = false
-
-    async function applySession(session: any) {
-      if (!session?.user) {
-        setCacheIdentity(null)
-        clearPasswordRecovery()
-        authState.clear()
-        return
-      }
-
-      markWelcomeSeen()
-      setCacheIdentity(session.user.id)
-      const fallbackUser = sessionUser(session.user)
-
-      try {
-        restorePasswordRecovery(session.user.id)
-
-        const context = await getMySessionContext()
-        if (cacheUserId !== session.user.id) return
-        if (!context) {
-          authState.setBootstrapError(fallbackUser, 'profile_not_found')
-          return
-        }
-
-        const { profile, account } = context
-        authState.setSessionContext({
-          id: profile.id,
-          email: session.user.email ?? undefined,
-          username: profile.username,
-          student_id: profile.student_id,
-          full_name: profile.full_name,
-          role: profile.role === 'admin' ? 'admin' : 'user',
-          status: profile.status
-        }, account)
-      } catch (error) {
-        if (cacheUserId === session.user.id) {
-          authState.setBootstrapError(fallbackUser, classifyBootstrapError(error))
-        }
-      }
-    }
-
-    async function syncSession() {
-      if (processingAuth) return
-      processingAuth = true
-      authState.setLoading(true)
-
-      try {
-        const { data, error } = await supabase.auth.getSession()
-        if (error) throw error
-        if (!data?.session) clearPasswordRecovery()
-        await applySession(data?.session)
-      } catch {
-        setCacheIdentity(null)
-        clearPasswordRecovery()
-        authState.clear()
-      } finally {
-        processingAuth = false
-        authState.setLoading(false)
-      }
-    }
-
-    if (USE_MOCK) {
-      clearPasswordRecovery()
-      const stored = localStorage.getItem('mock_auth_user')
-      if (stored) {
-        try {
-          const user = JSON.parse(stored)
-          markWelcomeSeen()
-          setCacheIdentity(user.id || null)
-          void Promise.all([
-            getUserProfile(user.id),
-            getMyAccountState()
-          ]).then(([profile, account]) => {
-            if (!profile || !account) {
-              authState.setBootstrapError({ id: user.id, email: user.email }, 'profile_not_found')
-              return
-            }
-            authState.setSessionContext({
-              id: profile.id,
-              email: user.email,
-              username: profile.username,
-              student_id: profile.student_id,
-              full_name: profile.full_name,
-              role: profile.role === 'admin' ? 'admin' : 'user',
-              status: profile.status
-            }, account)
-          }).catch(() => authState.setBootstrapError({ id: user.id, email: user.email }, 'database_error'))
-        } catch {
-          setCacheIdentity(null)
-          authState.clear()
-        }
-      } else {
-        setCacheIdentity(null)
-        authState.clear()
-      }
-    } else {
-      const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-        if (event === 'SIGNED_OUT') {
-          setCacheIdentity(null)
-          clearPasswordRecovery()
-          authState.clear()
-          return
-        }
-
-        if (event === 'PASSWORD_RECOVERY' && session?.user) {
-          markPasswordRecovery(session)
-          markWelcomeSeen()
-          if (!processingAuth) {
-            processingAuth = true
-            authState.setLoading(true)
-            void applySession(session).finally(() => {
-              processingAuth = false
-              authState.setLoading(false)
-            })
-          }
-          return
-        }
-
-        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
-          markWelcomeSeen()
-          restorePasswordRecovery(session.user.id)
-
-          if (event === 'SIGNED_IN' && $page.url.pathname === '/login' && $authState.loading) return
-
-          if (!processingAuth) {
-            processingAuth = true
-            authState.setLoading($authState.user?.id !== session.user.id)
-            void applySession(session).finally(() => {
-              processingAuth = false
-              authState.setLoading(false)
-            })
-          }
-        }
-      })
-
-      unsubAuth = () => authListener?.subscription?.unsubscribe()
-      void syncSession()
-    }
+    const stopAuthRuntime = initAuthRuntime()
 
     applyTheme($theme)
 
@@ -281,8 +111,7 @@
     return () => {
       stopViewport()
       mediaQuery.removeEventListener('change', handleChange)
-      unsubAuth?.()
-      unsubEarlyRecovery?.()
+      stopAuthRuntime()
     }
   })
 
@@ -302,17 +131,18 @@
 </script>
 
 <svelte:head>
+  <link rel="preload" href={geistFont} as="font" type="font/woff2" crossorigin="anonymous" />
   <title>UNEM Sports</title>
 </svelte:head>
 
 <PwaRuntime />
 
+{#if $globalLoading.visible}
+  <div class="global-loading-bar" role="status" aria-live="polite" aria-label="Loading"></div>
+{/if}
+
 <div class="app-shell" inert={!$interfaceReady}>
   <a href="#main-content" class="skip-link">{$uiState.language === 'ar' ? 'انتقل إلى المحتوى' : 'Skip to content'}</a>
-  <div class="app-header">
-    {#if !chromeFreePage}<TopBar />{/if}
-    {#if !isAuthPage && !isPublicSupportPage}<VerificationNotice />{/if}
-  </div>
   <main id="main-content" tabindex="-1" class:app-content={!chromeFreePage} class:app-content-plain={chromeFreePage}>
     <slot />
   </main>
@@ -332,7 +162,27 @@
 </div>
 
 <style>
-  .app-header { position: sticky; top: 0; z-index: 40; }
+  .global-loading-bar {
+    position: fixed;
+    inset-block-start: 0;
+    inset-inline: 0;
+    z-index: 100;
+    height: 2px;
+    background: var(--primary);
+    transform-origin: center;
+    animation: global-loading 1.1s ease-in-out infinite;
+  }
+
+  @keyframes global-loading {
+    0% { transform: scaleX(0.08); opacity: 0.45; }
+    50% { transform: scaleX(0.7); opacity: 1; }
+    100% { transform: scaleX(0.08); opacity: 0.45; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .global-loading-bar { animation: none; }
+  }
+
   :global(.app-content-plain) {
     flex: 1;
     width: 100%;

@@ -62,11 +62,11 @@
     : reason === 'not_a_student_card' ? (ar ? 'أرسل صورة بطاقتك الجامعية.' : 'Upload your university student card.')
     : reason === 'duplicate_student_identity' ? copy.duplicate : copy.rejected
 
-  async function load() {
+  async function load(force = false) {
     loading = !state
     error = ''
     try {
-      const account = await getMyAccountState()
+      const account = await getMyAccountState(force)
       if (disposed) return
       if (!account) { await goto('/login'); return }
       state = account
@@ -115,7 +115,7 @@
       else uiState.addToast(withCard ? copy.sent : copy.saved, 'success')
     } catch (caught) {
       const code = identityErrorCode(caught)
-      if (code === 'identity_already_verified') { await load(); error = copy.locked }
+      if (code === 'identity_already_verified') { await load(true); error = copy.locked }
       else if (code === 'invalid_student_id') error = copy.invalidId
       else if (code === 'identity_claim_unavailable') error = copy.duplicate
       else if (code === 'session_required') { await goto('/login'); return }
@@ -145,7 +145,7 @@
     <div class="space-y-4" aria-busy="true"><div class="h-24 animate-pulse rounded-2xl bg-surface-level-1"></div><div class="h-64 animate-pulse rounded-2xl bg-surface-level-1"></div></div>
   {:else if !state}
     <h1 class="uneem-title">{copy.loadError}</h1>
-    <Button className="mt-6" on:click={load}>{copy.retry}</Button>
+    <Button className="mt-6" on:click={() => load(true)}>{copy.retry}</Button>
   {:else}
     <header class="mb-7">
       <div class={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl ${verified ? 'bg-success-light text-success' : 'bg-primary-light text-primary'}`}><Icon name={verified ? 'check' : pending ? 'clock' : 'id-card'} size={24} /></div>

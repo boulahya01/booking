@@ -30,20 +30,26 @@
         reviewLabel: 'Under review', pendingTitle: 'Your student card is being reviewed', pendingBody: 'No action is needed right now. This same account will receive access after approval.', viewSubmission: 'View submission', contactHelp: 'Contact support'
       }
 
-  onMount(async () => {
+  async function refresh() {
+    loading = true
+    error = ''
     try {
       state = await getMyAccountState()
       if (!state) {
-        await goto('/login')
+        await goto('/login', { replaceState: true })
         return
       }
-      if (state.can_use_sports && state.access_status === 'approved') await goto('/home')
+      if (state.can_use_sports && state.access_status === 'approved') {
+        await goto('/home', { replaceState: true })
+      }
     } catch (e: any) {
       error = e.message || copy.loadError
     } finally {
       loading = false
     }
-  })
+  }
+
+  onMount(() => { void refresh() })
 
   async function logout() {
     await signOut()
@@ -65,7 +71,7 @@
       <h1 class="text-3xl font-semibold tracking-[-0.035em] text-text">{copy.loadError}</h1>
       <p class="mt-2 text-sm leading-6 text-text-secondary">{error}</p>
       <div class="mt-6 space-y-3">
-        <Button on:click={() => location.reload()} variant="primary" size="lg" className="w-full">{copy.retry}</Button>
+        <Button on:click={refresh} variant="primary" size="lg" className="w-full" loading={loading} disabled={loading}>{copy.retry}</Button>
         <ActionLink href="/help" variant="secondary" size="lg" icon="info" className="w-full">{copy.help}</ActionLink>
       </div>
     </section>

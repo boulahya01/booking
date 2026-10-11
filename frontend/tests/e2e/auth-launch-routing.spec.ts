@@ -67,7 +67,7 @@ test('using a landing auth action marks the device as returning', async ({ page 
   await setWelcome(page, false)
   await page.goto('/', { waitUntil: 'domcontentloaded' })
 
-  await page.getByLabel('Book. Play. Meet.').getByRole('link', { name: 'Sign in' }).click()
+  await page.getByLabel('Book. Play. Meet.').getByRole('link', { name: 'Get started' }).click()
   await expect(page).toHaveURL(/\/login(?:\?|$)/)
   await expect.poll(() => page.evaluate((key) => localStorage.getItem(key), welcomeKey)).toBe('1')
 
@@ -75,12 +75,14 @@ test('using a landing auth action marks the device as returning', async ({ page 
   await expect(page).toHaveURL(/\/login(?:\?|$)/)
 })
 
-test('fresh installed-app launch resolves to the public landing', async ({ page }) => {
+test('fresh installed-app launch skips the public landing and opens login', async ({ page }) => {
   await setWelcome(page, false)
+  await watchForLandingPaint(page)
   await page.goto('/launch', { waitUntil: 'domcontentloaded' })
 
-  await expect(page).toHaveURL(/\/$/)
-  await expect(page.getByRole('heading', { name: 'Book. Play. Meet.' })).toBeVisible()
+  await expect(page).toHaveURL(/\/login(?:\?|$)/)
+  await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
+  await expect.poll(() => page.evaluate((key) => sessionStorage.getItem(key), landingPaintKey)).toBeNull()
 })
 
 test('returning signed-out installed-app launch resolves to login', async ({ page }) => {

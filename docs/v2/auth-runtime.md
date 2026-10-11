@@ -20,7 +20,7 @@ This document is the operational Auth contract for the fresh V2 Supabase project
 From a linked checkout of the exact release branch, apply the reviewed configuration with:
 
 ```bash
-supabase config push --project-ref hudjpcrjoryyhpphonsp
+supabase config push --project-ref PROJECT_REF
 ```
 
 A successful command is evidence that the CLI accepted and pushed the local configuration; it is not by itself evidence that confirmation/recovery delivery works. Verify the hosted Auth settings and execute the email flows after every material Auth configuration change.

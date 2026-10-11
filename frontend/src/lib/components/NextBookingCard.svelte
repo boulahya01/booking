@@ -5,6 +5,7 @@
   import { USE_MOCK } from '$lib/mock'
   import Icon from './Icon.svelte'
   import Button from './Button.svelte'
+  import LoadingShape from './LoadingShape.svelte'
   import { getNextBooking, BookingApiError, type MyBooking } from '$lib/bookingApi'
   import { bookingFailureMessage } from '$lib/ux/bookingFailure'
 
@@ -66,8 +67,8 @@
 
 {#if loading}
   <section class="next-booking loading-card" aria-busy="true" aria-label={$_('common.loading')}>
-    <div class="h-16 w-16 animate-pulse rounded-[18px] bg-surface-level-1"></div>
-    <div class="min-w-0 flex-1 space-y-3"><div class="h-3 w-24 animate-pulse rounded bg-surface-level-1"></div><div class="h-5 w-3/4 animate-pulse rounded bg-surface-level-1"></div><div class="h-3 w-28 animate-pulse rounded bg-surface-level-1"></div></div>
+    <LoadingShape className="h-14 w-14 rounded-2xl" />
+    <div class="min-w-0 flex-1 space-y-3"><LoadingShape className="h-3 w-24" /><LoadingShape className="h-4 w-3/4" /><LoadingShape className="h-3 w-28" /></div>
   </section>
 {:else if error}
   <div class="booking-load-error" role="alert">
@@ -79,16 +80,25 @@
   <a href={`/bookings/${booking.id}`} class="next-booking">
     <div class="booking-date"><span>{time.month}</span><strong>{time.day}</strong></div>
     <div class="booking-copy">
-      <p class="booking-eyebrow">{isArabic ? 'الحجز القادم' : 'Next booking'}</p>
+      <p class="booking-eyebrow">{booking.lifecycle_status === 'in_progress' ? (isArabic ? 'حجزك الحالي' : 'Current booking') : (isArabic ? 'الحجز القادم' : 'Next booking')}</p>
       <h2>{booking.pitches?.name || $_('bookings.unknown_pitch')}</h2>
       <p class="booking-schedule">{time.weekday} · <span dir="ltr">{time.time}</span></p>
     </div>
     <Icon name={isArabic ? 'chevron-left' : 'chevron-right'} size={20} className="text-text-muted" />
   </a>
+{:else}
+  <section class="next-booking booking-empty">
+    <div class="booking-empty-icon" aria-hidden="true"><Icon name="calendar" size={28} /></div>
+    <div class="booking-copy">
+      <h2>{isArabic ? 'لا يوجد حجز قادم' : 'No booking yet'}</h2>
+      <p class="booking-schedule">{isArabic ? 'اختر مرفقاً أدناه للبدء.' : 'Choose a facility below to get started.'}</p>
+    </div>
+  </section>
 {/if}
 
 <style>
-  .next-booking { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; padding: 20px; border-radius: var(--radius-xl); background: var(--surface); transition: transform var(--motion-fast), background var(--motion-fast); }
+  .next-booking { display: flex; min-height: 112px; align-items: center; gap: 14px; margin-bottom: 24px; padding: 16px; border-radius: var(--radius-lg); background: var(--surface); transition: transform var(--motion-fast), background var(--motion-fast); }
+  .booking-empty-icon { display: grid; place-items: center; width: 56px; height: 56px; flex-shrink: 0; border-radius: 16px; color: var(--text-secondary); background: var(--surface-level-1); }
   a.next-booking:active { transform: scale(.99); }
   a.next-booking:hover { background: var(--surface-raised); }
   .booking-date { display: flex; width: 64px; min-height: 72px; flex-shrink: 0; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; border-radius: 18px; background: var(--primary-light); color: var(--primary); }
@@ -98,7 +108,7 @@
   .booking-eyebrow { margin-bottom: 4px; color: var(--primary); font-size: 12px; font-weight: 600; }
   h2 { color: var(--text); font-size: 18px; line-height: 1.3; font-weight: 650; letter-spacing: -.025em; overflow-wrap: anywhere; }
   .booking-schedule { margin-top: 6px; color: var(--text-secondary); font-size: 13px; }
-  .booking-load-error { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 28px; padding: 16px; border-radius: var(--radius-lg); background: var(--danger-light); }
+  .booking-load-error { display: flex; min-height: 112px; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 24px; padding: 16px; border-radius: var(--radius-lg); background: var(--danger-light); }
   .booking-load-error p { min-width: 0; flex: 1 1 180px; color: var(--danger); font-size: 14px; }
   @media (max-width: 359px) { .next-booking { padding: 16px; gap: 12px; } .booking-date { width: 54px; min-height: 64px; } }
   @media (prefers-reduced-motion: reduce) { .next-booking { transition: none; } }

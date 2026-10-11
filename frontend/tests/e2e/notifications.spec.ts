@@ -1,9 +1,9 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 // Network fixtures exercise real screens and adapters without touching hosted data.
 test('notifications update across routes, roll back failed dismissals and clear on logout', async ({ page }) => {
     const uid = '11111111-1111-4111-8111-111111111111';
-    const user = { id: uid, aud: 'authenticated', role: 'authenticated', email: 'fixture@usmba.ac.ma', email_confirmed_at: new Date().toISOString(), app_metadata: { provider: 'email' }, user_metadata: {} };
+    const user = { id: uid, aud: 'authenticated', role: 'authenticated', email: 'fixture@example.com', email_confirmed_at: new Date().toISOString(), app_metadata: { provider: 'email' }, user_metadata: {} };
     const exp = Math.floor(Date.now() / 1000) + 3600;
     const token = [{ alg: 'HS256', typ: 'JWT' }, { sub: uid, aud: 'authenticated', role: 'authenticated', exp }, 'fixture'].map(x => Buffer.from(typeof x === 'string' ? x : JSON.stringify(x)).toString('base64url')).join('.');
     const session = { access_token: token, refresh_token: 'fixture-refresh', expires_in: 3600, expires_at: exp, token_type: 'bearer', user };
@@ -28,8 +28,8 @@ test('notifications update across routes, roll back failed dismissals and clear 
         if (key.endsWith('/auth/v1/logout'))
             return route.fulfill({ status: 204 });
         if (key.endsWith('/rpc/get_my_session_context'))
-            return json([{ user_id: uid, full_name: 'Yasmine El Amrani', username: 'yasmine', student_id: 'S123', role: 'student', access_status: 'approved', email_kind: 'academic', identity_status: 'verified', can_use_sports: true, needs_identity_action: false, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z' }]);
-        if (key.endsWith('/rpc/get_next_booking'))
+            return json([{ user_id: uid, full_name: 'Test User', username: 'test_user', student_id: 'S123', role: 'student', access_status: 'approved', email_kind: 'academic', identity_status: 'verified', can_use_sports: true, needs_identity_action: false, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z' }]);
+        if (key.endsWith('/rpc/get_next_booking') || key.endsWith('/rpc/list_open_matches'))
             return json([]);
         if (key.endsWith('/pitches'))
             return json([{ id: 'p1', name: 'Main football pitch', location: 'University campus', capacity: 22, sport_type: 'football', open_time: '08:00', close_time: '22:00' }]);
@@ -63,7 +63,7 @@ test('notifications update across routes, roll back failed dismissals and clear 
     await page.getByRole('button', { name: 'Dismiss: Evening football', exact: true }).click();
     await page.waitForFunction(() => !document.body.textContent.includes('Evening football'));
     await page.getByRole('link', { name: 'Notifications, 1 new', exact: true }).waitFor();
-    assert.equal(typeof releaseDismiss, 'function');
+    await expect.poll(() => typeof releaseDismiss).toBe('function');
     releaseDismiss!();
     await page.getByRole('button', { name: 'Dismiss: Court maintenance', exact: true }).click();
     await page.getByRole('heading', { name: 'Court maintenance', exact: true }).waitFor();

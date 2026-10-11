@@ -6,7 +6,7 @@ async function accountFixture(page: Page, verified = true) {
   const exp = Math.floor(Date.now()/1000)+3600
   const access_token = [{alg:'HS256',typ:'JWT'},{sub:id,aud:'authenticated',role:'authenticated',exp},'fixture'].map(x=>Buffer.from(typeof x==='string'?x:JSON.stringify(x)).toString('base64url')).join('.')
   const session = {access_token,refresh_token:'fixture-refresh',expires_in:3600,expires_at:exp,token_type:'bearer',user}
-  const account = { id,user_id:id,full_name:'Yasmine El Amrani',username:'yasmine',student_id:'S123',role:'student',access_status:verified?'approved':'pending',status:verified?'approved':'pending',identity_status:verified?'verified':'pending',email_kind:'personal',can_use_sports:verified,needs_identity_action:!verified,created_at:now,updated_at:now }
+  const account = { id,user_id:id,full_name:'Test User',username:'test_user',student_id:'S123',role:'student',access_status:verified?'approved':'pending',status:verified?'approved':'pending',identity_status:verified?'verified':'pending',email_kind:'personal',can_use_sports:verified,needs_identity_action:!verified,created_at:now,updated_at:now }
   const saves: unknown[] = [], emails: unknown[] = [], errors: string[] = [], unhandled: string[] = []
   let fail = true
   page.on('pageerror', e=>errors.push(e.message))
@@ -22,7 +22,7 @@ async function accountFixture(page: Page, verified = true) {
     if(key==='logout') return route.fulfill({status:204})
     if(['get_my_account_state','get_my_session_context'].includes(key!)) return json([account])
     if(key==='profiles') return json(account)
-    if(['pitches','announcements','announcement_dismissals','get_next_booking','list_my_bookings'].includes(key!)) return json([])
+    if(['pitches','announcements','announcement_dismissals','get_next_booking','list_my_bookings','list_open_matches'].includes(key!)) return json([])
     if(key==='update_my_profile') {
       saves.push(req.postDataJSON())
       if(fail) return json({code:'P0001',message:'username_taken'},400)

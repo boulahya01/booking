@@ -21,12 +21,12 @@
 
   $: copy = $language === 'ar'
     ? {
-        title: 'نسيت كلمة المرور؟', subtitle: 'أدخل بريدك وسنرسل رابطاً جديداً.', email: 'البريد الإلكتروني', placeholder: 'mehdi@usmba.ac.ma',
+        title: 'نسيت كلمة المرور؟', subtitle: 'أدخل بريدك وسنرسل رابطاً جديداً.', email: 'البريد الإلكتروني', placeholder: 'student@example.com',
         send: 'إرسال رابط الاسترجاع', sentTitle: 'تحقق من بريدك', sentBody: 'إذا كان البريد مرتبطاً بحساب، ستصلك التعليمات بعد قليل.',
         another: 'استخدام بريد آخر', invalid: 'أدخل بريداً صحيحاً.', generic: 'تعذر إرسال الطلب. حاول بعد قليل.', rateLimited: 'طلبات كثيرة الآن. حاول مجدداً بعد', signIn: 'العودة لتسجيل الدخول', help: 'تحتاج مساعدة؟'
       }
     : {
-        title: 'Forgot password?', subtitle: 'Enter your email to reset your password.', email: 'Email address', placeholder: 'mehdi@usmba.ac.ma',
+        title: 'Forgot password?', subtitle: 'Enter your email to reset your password.', email: 'Email address', placeholder: 'student@example.com',
         send: 'Send reset link', sentTitle: 'Check your email', sentBody: 'If the email is linked to an account, recovery instructions will arrive shortly.',
         another: 'Use another email', invalid: 'Enter a valid email.', generic: 'Couldn’t send the request. Try again shortly.', rateLimited: 'Too many recovery requests. Try again in', signIn: 'Back to sign in', help: 'Need help?'
       }

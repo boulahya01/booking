@@ -1,6 +1,7 @@
 import { supabase } from '$lib/supabaseClient'
 import { get } from 'svelte/store'
 import { language } from '$lib/stores/ui'
+import { withLoading } from '$lib/stores/loading'
 
 export type ReportTargetType = 'user' | 'match' | 'booking' | 'facility' | 'other'
 export type ReportReason =
@@ -37,13 +38,15 @@ export async function createMyReport(input: {
   reason: ReportReason
   body: string
 }): Promise<string> {
-  const { data, error } = await supabase.rpc('create_my_report_thread', {
-    p_target_type: input.targetType,
-    p_target_id: input.targetId,
-    p_reason_code: input.reason,
-    p_body: input.body
-  })
+  return withLoading('action', async () => {
+    const { data, error } = await supabase.rpc('create_my_report_thread', {
+      p_target_type: input.targetType,
+      p_target_id: input.targetId,
+      p_reason_code: input.reason,
+      p_body: input.body
+    })
 
-  if (error) throw normalizeReportError(error)
-  return data as string
+    if (error) throw normalizeReportError(error)
+    return data as string
+  })
 }

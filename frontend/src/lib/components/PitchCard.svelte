@@ -29,11 +29,11 @@
         {/if}
       </svg>
     </div>
-    {#if sportName}<span class="facility-sport">{sportName}</span>{/if}
-  </div>
-  <div class="facility-copy">
+    <div class="facility-copy">
+    {#if sportName}<p class="facility-sport">{sportName}</p>{/if}
     <h3>{pitch.name}</h3>
     <p class="facility-location"><Icon name="map-pin" size={16} /><span>{pitch.location || $_('bookings.unknown_location')}</span></p>
+    </div>
   </div>
   <div class="facility-bottom">
     {#if pitch.open_time && pitch.close_time}
@@ -44,17 +44,17 @@
 </a>
 
 <style>
-  .facility-card { display: flex; min-width: 0; height: 100%; flex-direction: column; gap: 16px; padding: 20px; border-radius: var(--radius-xl); background: var(--surface); transition: background var(--motion-fast), transform var(--motion-fast); }
+  .facility-card { display: flex; min-width: 0; min-height: 156px; height: 100%; flex-direction: column; justify-content: space-between; gap: 18px; padding: 18px; border-radius: var(--radius-lg); background: var(--surface); transition: background var(--motion-fast), transform var(--motion-fast); }
   .facility-card:hover { background: var(--surface-raised); }
   .facility-card:active { transform: scale(.985); }
-  .facility-card-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .facility-symbol { display: grid; width: 52px; height: 52px; flex-shrink: 0; place-items: center; border-radius: 16px; background: var(--primary-light); color: var(--primary); }
-  .facility-sport { color: var(--text-secondary); font-size: 13px; font-weight: 550; overflow-wrap: anywhere; }
+  .facility-card-top { display: flex; align-items: flex-start; gap: 14px; }
+  .facility-symbol { display: grid; width: 48px; height: 48px; flex-shrink: 0; place-items: center; border-radius: 14px; background: var(--primary-light); color: var(--primary); }
+  .facility-sport { margin-bottom: 3px; color: var(--text-muted); font-size: 11px; font-weight: 550; overflow-wrap: anywhere; }
   .facility-copy { flex: 1; min-width: 0; }
-  h3 { font-size: 19px; font-weight: 650; letter-spacing: -.025em; line-height: 1.3; overflow-wrap: anywhere; }
-  .facility-location { display: flex; align-items: flex-start; gap: 6px; margin-top: 8px; color: var(--text-secondary); font-size: 13px; line-height: 1.5; }
+  h3 { font-size: 17px; font-weight: 650; letter-spacing: -.025em; line-height: 1.3; overflow-wrap: anywhere; }
+  .facility-location { display: flex; align-items: flex-start; gap: 6px; margin-top: 6px; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
   .facility-location :global(svg) { margin-top: 2px; }
-  .facility-bottom { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding-top: 4px; }
+  .facility-bottom { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding-top: 12px; border-top: 1px solid var(--border-light); }
   .facility-hours, .facility-view { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; line-height: 20px; }
   .facility-hours { color: var(--text-secondary); }
   .facility-view { margin-inline-start: auto; color: var(--primary); font-weight: 650; }

@@ -58,7 +58,10 @@
   <PwaInstallCard alwaysVisible />
   {#if $pwaUpdateState.available}<Button variant="secondary" fullWidth loading={$pwaUpdateState.applying} on:click={() => void applyPwaUpdate()}><Icon name="refresh-cw" size={18}/>{ar ? 'تحديث UNEEM' : 'Update UNEEM'}</Button>{/if}
   <ActionLink href="/logout" variant="secondary" fullWidth><Icon name="log-out" size={18}/>{ar ? 'تسجيل الخروج' : 'Sign out'}</ActionLink>
-  <p class="menu-version">UNEEM · v2.1</p>
+  <section class="menu-brand" aria-label={ar ? 'عن UNEM Sports' : 'About UNEM Sports'}>
+    <img src="/assets/brand/torch-original.webp" width="757" height="2078" loading="lazy" decoding="async" alt={ar ? 'الشعلة الأصلية بكتابتها العربية' : 'Original torch with Arabic calligraphy'} />
+    <div><strong>UNEM Sports</strong><p>{ar ? 'احجز ملعباً وانضم إلى مباريات الطلبة.' : 'Find your court. Meet your next team.'}</p><span class="menu-version">v2.1</span></div>
+  </section>
 </div>
 
 <style>
@@ -81,4 +84,9 @@
   .preference p { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 14px; font-weight: 550; }
   .preference p :global(svg) { color: var(--text-secondary); }
   .menu-version { text-align: center; color: var(--text-muted); font-size: 12px; }
+  .menu-brand { display: flex; align-items: center; gap: 24px; padding: 24px; border-radius: var(--radius-xl); background: #222627; color: #f5f2e9; }
+  .menu-brand img { width: 64px; height: 176px; flex-shrink: 0; object-fit: contain; }
+  .menu-brand strong { font-size: 20px; }
+  .menu-brand p { margin-block: 8px 16px; font-size: 14px; line-height: 1.5; }
+  .menu-brand .menu-version { color: #b7b4ad; }
 </style>

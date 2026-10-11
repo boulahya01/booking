@@ -4,7 +4,8 @@
   import NextBookingCard from '$lib/components/NextBookingCard.svelte'
   import SegmentedControl from '$lib/components/SegmentedControl.svelte'
   import Button from '$lib/components/Button.svelte'
-  import ActionLink from '$lib/components/ActionLink.svelte'
+  import HomeMatches from '$lib/components/HomeMatches.svelte'
+  import LoadingShape from '$lib/components/LoadingShape.svelte'
   import Icon from '$lib/components/Icon.svelte'
   import { _, locale } from 'svelte-i18n'
   import { USE_MOCK, mockPitches } from '$lib/mock'
@@ -15,6 +16,7 @@
   let pitches: FacilitySummary[] = []
   let pitchesLoading = true
   let pitchesError = false
+  let pitchesLoaded = false
   let refreshing = false
   let selectedSport = 'all'
   let disposed = false
@@ -32,11 +34,11 @@
   async function fetchPitches(force = false) {
     if (refreshing) return
     refreshing = true
-    pitchesLoading = pitches.length === 0
+    pitchesLoading = !pitchesLoaded
     pitchesError = false
     try {
       const next = USE_MOCK ? mockPitches as FacilitySummary[] : await listActiveFacilities(force)
-      if (!disposed) pitches = next
+      if (!disposed) { pitches = next; pitchesLoaded = true }
     } catch (error) {
       logger.error('[Home Page] Failed to load pitches:', error)
       if (!disposed) pitchesError = true
@@ -56,12 +58,11 @@
       {#if firstName}<p class="home-greeting">{isArabic ? `مرحباً ${firstName}` : `Hi ${firstName}`}</p>{/if}
       <h1 class="uneem-title">{isArabic ? 'العب اليوم' : 'Play today'}</h1>
     </div>
-    <ActionLink href="/matches" variant="secondary" icon="users" className="home-matches-link">{isArabic ? 'المباريات المفتوحة' : 'Open matches'}</ActionLink>
   </header>
 
   <NextBookingCard />
 
-  <section aria-labelledby="facilities-heading">
+  <section id="facilities" aria-labelledby="facilities-heading">
     <div class="facilities-heading">
       <h2 id="facilities-heading">{isArabic ? 'المرافق' : 'Facilities'}</h2>
       <button type="button" class="uneem-icon-button" disabled={refreshing} aria-busy={refreshing} aria-label={isArabic ? 'تحديث المرافق' : 'Refresh facilities'} on:click={() => void fetchPitches(true)}>
@@ -81,12 +82,10 @@
     {/if}
     {#if pitchesLoading}
       <div class="facilities-grid" aria-busy="true" aria-label={$_('common.loading')}>
-        {#each [1, 2, 3, 4] as _}
+        {#each [1, 2] as _}
           <div class="facility-skeleton" aria-hidden="true">
-            <div class="h-[52px] w-[52px] animate-pulse rounded-[16px] bg-surface-level-1"></div>
-            <div class="h-5 w-3/4 animate-pulse rounded bg-surface-level-1"></div>
-            <div class="h-4 w-1/2 animate-pulse rounded bg-surface-level-1"></div>
-            <div class="mt-1 h-4 w-24 animate-pulse rounded bg-surface-level-1"></div>
+            <div class="flex items-center gap-4"><LoadingShape className="h-12 w-12 rounded-xl" /><div class="flex-1 space-y-3"><LoadingShape className="h-4 w-3/4" /><LoadingShape className="h-3 w-1/2" /></div></div>
+            <div class="flex items-center justify-between gap-4"><LoadingShape className="h-3 w-24" /><LoadingShape className="h-3 w-20" /></div>
           </div>
         {/each}
       </div>
@@ -103,21 +102,21 @@
       </div>
     {/if}
   </section>
+  <HomeMatches />
 </main>
 
 <style>
   .home-page { max-width: 64rem; }
-  .home-header { display: flex; flex-direction: column; gap: 20px; margin-bottom: 28px; }
+  .home-header { margin-bottom: 24px; }
   .home-greeting { margin-bottom: 6px; color: var(--text-secondary); font-size: 14px; font-weight: 550; }
-  .home-header :global(.home-matches-link) { width: 100%; }
   .facilities-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
   .facilities-heading h2 { font-size: 22px; font-weight: 650; letter-spacing: -.025em; }
   .sport-filter { margin-bottom: 20px; }
   .facilities-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
-  .facility-skeleton { display: flex; min-height: 221px; flex-direction: column; gap: 16px; padding: 20px; border-radius: var(--radius-xl); background: var(--surface); }
+  .facility-skeleton { display: flex; min-height: 156px; flex-direction: column; justify-content: space-between; gap: 20px; padding: 18px; border-radius: var(--radius-lg); background: var(--surface); }
   .facilities-error { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; padding: 16px; border-radius: var(--radius-lg); background: var(--danger-light); }
   .facilities-error p { flex: 1 1 180px; color: var(--danger); font-size: 14px; }
   .facilities-empty { display: flex; align-items: center; flex-direction: column; gap: 16px; padding: 48px 16px; color: var(--text-secondary); text-align: center; }
   .facilities-empty p { color: var(--text); font-size: 16px; font-weight: 550; }
-  @media (min-width: 640px) { .home-header { flex-direction: row; align-items: center; justify-content: space-between; } .home-header :global(.home-matches-link) { width: auto; } .facilities-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; } }
+  @media (min-width: 640px) { .facilities-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; } }
 </style>

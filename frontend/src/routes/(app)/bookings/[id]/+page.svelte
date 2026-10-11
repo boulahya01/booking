@@ -9,6 +9,8 @@
   import Button from '$lib/components/Button.svelte'
   import Icon from '$lib/components/Icon.svelte'
   import ShareMatch from '$lib/components/ShareMatch.svelte'
+  import SegmentedControl from '$lib/components/SegmentedControl.svelte'
+  import LoadingShape from '$lib/components/LoadingShape.svelte'
   import { locale } from 'svelte-i18n'
   import { uiState } from '$lib/stores/ui'
   import {
@@ -39,7 +41,12 @@
   let error = ''
   let busy: 'visibility' | 'join' | 'leave' | 'friend' | 'cancel' | null = null
   let cancelDialogOpen = false
+  let friendFormOpen = false
+  let visibilityBlocked = false
+  let cancellationBlocked = false
   let friendInput = ''
+  let friendMode = 'registered'
+  let searchError = false
   let suggestions: UsernameSuggestion[] = []
   let selectedSuggestion: UsernameSuggestion | null = null
   let suggestionOpen = false
@@ -176,10 +183,11 @@
     searchSequence += 1
     const sequence = searchSequence
     const trimmed = value.trim()
-    const query = trimmed.startsWith('@') ? trimmed.slice(1) : ''
+    const query = friendMode === 'registered' ? trimmed.replace(/^@+/, '') : ''
 
     selectedSuggestion = null
     suggestionIndex = -1
+    searchError = false
 
     if (!canAddFriend || query.length < 2) {
       searchingUsers = false
@@ -195,15 +203,22 @@
         const next = await searchUsernames(query, 5)
         if (sequence !== searchSequence) return
         suggestions = next
-        suggestionOpen = next.length > 0
+        suggestionOpen = true
       } catch {
         if (sequence !== searchSequence) return
         suggestions = []
-        suggestionOpen = false
+        suggestionOpen = true
+        searchError = true
       } finally {
         if (sequence === searchSequence) searchingUsers = false
       }
     }, 150)
+  }
+
+  function changeFriendMode(value: string) {
+    friendMode = value
+    friendInput = ''
+    queueUsernameSearch('')
   }
 
   function handleFriendInput(event: Event) {
@@ -242,6 +257,11 @@
 
   async function toggleOpen() {
     if (!$hasFullAccess || !details || !isOwner || busy || started || details.capacity < 2) return
+    visibilityBlocked = false
+    if (isOpen && details.joined_count > 0) {
+      visibilityBlocked = true
+      return
+    }
     busy = 'visibility'
 
     try {
@@ -326,7 +346,8 @@
   }
 
   async function addFriend() {
-    const value = friendInput.trim()
+    if (friendMode === 'registered' && !selectedSuggestion) return
+    const value = friendMode === 'registered' ? `@${selectedSuggestion!.username}` : friendInput.trim()
     if (!$hasFullAccess || !details?.match_id || !canAddFriend || !value || busy) return
     busy = 'friend'
 
@@ -394,16 +415,30 @@
     }
   }
 
+  function requestCancellation() {
+    if (!details || busy) return
+    cancellationBlocked = details.joined_count > 0
+    if (!cancellationBlocked) cancelDialogOpen = true
+  }
+
   async function cancelMine() {
     if (!$hasFullAccess || !details || !isOwner || busy || started) return
-
-
+    if (details.joined_count > 0) {
+      cancellationBlocked = true
+      cancelDialogOpen = false
+      return
+    }
     busy = 'cancel'
     try {
       await cancelBooking(details.booking_id)
       uiState.addToast(copy.cancelled, 'success')
       await goto(`/pitch/${details.pitch_id}`)
     } catch (e) {
+      if (e instanceof BookingApiError && e.code === 'match_has_public_players') {
+        cancellationBlocked = true
+        cancelDialogOpen = false
+        return
+      }
       uiState.addToast(
         bookingFailureMessage(e instanceof BookingApiError ? e.code : 'unknown', $locale),
         'error'
@@ -438,13 +473,15 @@
   <title>{details?.pitch_name || copy.title} · UNEEM</title>
 </svelte:head>
 
-<main class="uneem-page-narrow">
+<main class="uneem-page-narrow match-page">
   {#if loading}
-    <div class="space-y-3" aria-busy="true">
-      <div class="h-9 w-28 animate-pulse rounded-xl bg-surface-level-1"></div>
-      <div class="h-36 animate-pulse rounded-[18px] bg-surface-level-1"></div>
-      <div class="h-24 animate-pulse rounded-[18px] bg-surface-level-1"></div>
-      <div class="h-48 animate-pulse rounded-[18px] bg-surface-level-1"></div>
+    <div class="space-y-5" aria-busy="true" aria-label={ar ? 'تحميل تفاصيل المباراة' : 'Loading match details'}>
+      <LoadingShape className="h-6 w-32" />
+      <div class="rounded-[18px] bg-surface p-5 space-y-4"><LoadingShape className="h-5 w-3/4" /><LoadingShape className="h-8 w-32" /><LoadingShape className="h-3 w-1/2" /><LoadingShape className="h-3 w-2/3" /></div>
+      <div class="match-workspace">
+        <div class="rounded-[18px] bg-surface p-5 space-y-4"><LoadingShape className="h-4 w-28" /><LoadingShape className="h-12 w-full" /><LoadingShape className="h-12 w-full" /></div>
+        <div class="rounded-[18px] bg-surface p-5 space-y-4"><LoadingShape className="h-4 w-28" /><LoadingShape className="h-3 w-3/4" /><LoadingShape className="h-10 w-full" /></div>
+      </div>
     </div>
   {:else if error || !details}
     <section class="uneem-empty py-10">
@@ -459,101 +496,68 @@
       {copy.back}
     </a>
 
-    <header class="mb-4">
-      <h1 class="uneem-title">{copy.title}</h1>
+    <header class="match-page-heading">
+      <h1 class="uneem-title">{isOwner && details.match_id ? (ar ? 'إدارة مباراتك' : 'Manage your match') : details.match_id ? (ar ? 'تفاصيل المباراة' : 'Match details') : copy.title}</h1>
     </header>
 
-    <section class="overflow-hidden rounded-[22px] bg-surface">
-      <div class="flex flex-wrap items-start justify-between gap-4 p-5">
-        <div class="min-w-0">
-          <h2 class="break-words text-xl font-semibold leading-7 text-text">{details.pitch_name}</h2>
-          <p class="mt-3 flex flex-wrap items-baseline gap-2.5" dir="ltr">
-            <span class="text-[28px] font-extrabold tracking-[-0.04em] text-text">{timeText(details.starts_at)}</span>
-            <span class="text-sm font-semibold text-text-muted">– {timeText(details.ends_at)}</span>
-          </p>
-          <p class="mt-1 text-sm text-text-muted">{dateText(details.starts_at)}</p>
-          <p class="mt-2 flex items-center gap-1.5 text-sm text-text-muted">
-            <Icon name="map-pin" size={14}/>
-            {details.location}
-          </p>
-          <p class="mt-3 break-words text-sm text-text-secondary">
-            {copy.bookedBy} <span class="font-bold text-text">@{details.booker_username}</span>
-          </p>
-        </div>
-
-        <span class={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${isOpen ? 'bg-success-light text-success' : 'bg-surface-level-1 text-text-secondary'}`}>
-          {isOpen ? copy.open : copy.closed}
-        </span>
+    <section class="match-summary" aria-label={ar ? 'ملخص المباراة' : 'Match summary'}>
+      <div class="summary-heading">
+        <h2>{details.pitch_name}</h2>
+        <span class:status-open={isOpen} class="match-status">{isOpen ? copy.open : copy.closed}</span>
       </div>
+      <div class="match-schedule">
+        <div class="schedule-date"><span>{ar ? 'التاريخ' : 'Date'}</span><strong>{dateText(details.starts_at)}</strong></div>
+        <div class="schedule-time"><span>{ar ? 'الوقت' : 'Time'}</span><strong dir="ltr">{timeText(details.starts_at)} <span>– {timeText(details.ends_at)}</span></strong></div>
+      </div>
+      <div class="match-meta">
+        <p><Icon name="map-pin" size={14}/>{details.location}</p>
+        <p>{copy.bookedBy} <strong dir="ltr">@{details.booker_username}</strong></p>
+      </div>
+      {#if details.match_id && (isOpen || isOwner)}
+        <div class="match-occupancy" aria-label={ar ? 'أماكن المباراة' : 'Match capacity'}>
+          <div><p><strong>{usedSpots}<span> / {details.capacity}</span></strong><span>{copy.players}</span></p><p class="available-spots"><strong>{isOpen ? details.spots_left : 0}</strong><span>{copy.openSpots}</span></p></div>
+          <progress value={Math.max(0, usedSpots)} max={Math.max(1, details.capacity)} aria-label={`${usedSpots}/${details.capacity} ${copy.players}`}></progress>
+        </div>
+      {/if}
     </section>
 
-    {#if isOpen && !started}
-      <div class="mt-4"><ShareMatch {bookingId} title={details.pitch_name}/></div>
+    {#if !$hasFullAccess}
+      <ActionLink href="/verification" fullWidth size="lg" className="mt-4">{ar ? 'تحقق من هويتك للانضمام' : 'Verify ID to join'}</ActionLink>
+    {:else if !isOwner && !started}
+      <div class="mt-4">
+        {#if details.reserved_by_me}
+          <div class="rounded-[14px] bg-success-light px-4 py-3 text-center text-sm font-semibold text-success">{copy.yourSpot}</div>
+        {:else if details.participant_by_me}
+          <div class="mb-3 text-sm font-semibold text-success">{ar ? 'أنت مشارك في هذه المباراة' : 'You’re playing in this match'}</div>
+          <Button variant="secondary" className="w-full" disabled={busy !== null} loading={busy === 'leave'} on:click={leave}>{copy.leave}</Button>
+        {:else if isOpen}
+          <Button className="w-full" disabled={!canJoin || busy !== null} loading={busy === 'join'} on:click={join}>{details.spots_left <= 0 ? (ar ? 'المباراة مكتملة' : 'Match full') : copy.join}</Button>
+        {/if}
+      </div>
     {/if}
 
-    {#if $hasFullAccess && isOwner && !started && details.capacity >= 2}
-      <section class="mt-4 rounded-[22px] bg-surface p-5">
-        <Toggle checked={isOpen} label={copy.openToPlayers} disabled={busy !== null} onToggle={() => void toggleOpen()} />
-        {#if isOpen}<p class="mt-1 text-xs text-text-muted">{details.spots_left} {copy.openSpots}</p>{/if}
-      </section>
-    {/if}
-
-    {#if details.match_id && (isOpen || isOwner)}
-      <section class="mt-3 grid grid-cols-2 gap-2">
-        <div class="rounded-[16px] bg-surface-level-1 p-4">
-          <p class="text-xs font-semibold text-text-muted">{copy.players}</p>
-          <p class="mt-1 text-3xl font-extrabold tracking-[-0.04em] text-text">{usedSpots}<span class="text-base text-text-muted">/{details.capacity}</span></p>
-        </div>
-        <div class="rounded-[16px] bg-surface-level-1 p-4">
-          <p class="text-xs font-semibold text-text-muted">{copy.openSpots}</p>
-          <p class="mt-1 text-3xl font-extrabold tracking-[-0.04em] text-text">{isOpen ? details.spots_left : 0}</p>
-        </div>
-      </section>
-
-      <section class="mt-5">
-        <h2 class="mb-2 text-lg font-bold text-text">{copy.players}</h2>
-        <div class="overflow-hidden rounded-[22px] bg-surface px-4">
-          {#each roster as member (member.entry_id)}
-            <div class="uneem-list-row min-h-[56px] py-2">
-              <div class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface-level-1 text-xs font-bold text-text-secondary">
-                {member.display_name?.trim()?.[0]?.toUpperCase() || 'U'}
-              </div>
-              <div class="min-w-0 flex-1">
-                <p class="break-words text-sm font-semibold text-text">{member.username ? `@${member.username}` : member.display_name}</p>
-                {#if member.source === 'guest'}
-                  <p class="text-xs text-text-muted">{copy.guest}</p>
-                {:else if member.member_role === 'reserved'}
-                  <p class="text-xs text-text-muted">{copy.registered}</p>
-                {/if}
-              </div>
-              {#if member.member_role === 'organizer'}
-                <span class="text-xs font-bold text-primary">{copy.host}</span>
-              {:else if member.member_role === 'reserved'}
-                <span class="text-xs font-bold text-text-muted">{copy.reserved}</span>
-              {/if}
-              {#if $hasFullAccess && isOwner && member.reservation_id && !started}
-                <button
-                  type="button"
-                  disabled={busy !== null}
-                  on:click={() => removeFriend(member)}
-                  class="uneem-icon-button text-text-muted hover:bg-surface-level-1 hover:text-danger disabled:opacity-40"
-                  aria-label={`${ar ? 'إزالة' : 'Remove'} ${member.display_name}`}
-                >
-                  <Icon name="x" size={16}/>
-                </button>
-              {/if}
+    <div class="match-workspace">
+      {#if details.match_id && (isOpen || isOwner)}
+        <section class="roster-panel" aria-labelledby="players-heading">
+          <header class="panel-heading">
+            <div>
+              <h2 id="players-heading">{copy.players}</h2>
             </div>
-          {/each}
-        </div>
-      </section>
-
-      {#if canAddFriend}
-        <form class="mt-5 flex flex-col gap-3" on:submit|preventDefault={addFriend}>
+            {#if canAddFriend}
+              <Button variant={friendFormOpen ? 'ghost' : 'primary'} size="sm" disabled={busy !== null} aria-expanded={friendFormOpen} aria-controls="add-player-form" on:click={() => friendFormOpen = !friendFormOpen}>
+                <Icon name={friendFormOpen ? 'x' : 'plus'} size={16}/>
+                {friendFormOpen ? (ar ? 'إغلاق' : 'Close') : (ar ? 'إضافة لاعب' : 'Add player')}
+              </Button>
+            {/if}
+          </header>
+      {#if canAddFriend && friendFormOpen}
+        <form id="add-player-form" class="add-player-form flex flex-col gap-3" on:submit|preventDefault={addFriend}>
+          <SegmentedControl options={[{ value: 'registered', label: ar ? 'لاعب مسجّل' : 'Find a player' }, { value: 'guest', label: ar ? 'ضيف' : 'Add a guest' }]} value={friendMode} ariaLabel={ar ? 'نوع اللاعب' : 'Player type'} onChange={changeFriendMode} />
           <div class="relative min-w-0 flex-1">
-            <label for="booking-friend" class="mb-2 block text-sm font-semibold text-text">{ar ? 'أضف لاعباً' : 'Add a player'}</label>
+            <label for="booking-friend" class="mb-2 block text-sm font-semibold text-text">{friendMode === 'registered' ? (ar ? 'ابحث باسم المستخدم' : 'Search username') : (ar ? 'اسم الضيف' : 'Guest name')}</label>
             <input
               id="booking-friend"
-              role="combobox"
+              role={friendMode === 'registered' ? 'combobox' : undefined}
               aria-controls="friend-suggestions"
               aria-activedescendant={suggestionIndex >= 0 ? `friend-option-${suggestionIndex}` : undefined}
               value={friendInput}
@@ -566,13 +570,13 @@
               autocomplete="off"
               autocapitalize="none"
               spellcheck="false"
-              placeholder={copy.addPlaceholder}
+              placeholder={friendMode === 'registered' ? (ar ? 'اسم المستخدم، مع @ أو بدونها' : 'Username, with or without @') : (ar ? 'اكتب اسم الضيف' : 'Enter guest name')}
               aria-autocomplete="list"
               aria-expanded={suggestionOpen}
               class="uneem-field"
             />
             {#if suggestionOpen && suggestions.length > 0}
-              <div id="friend-suggestions" class="friend-suggestions absolute inset-x-0 bottom-[calc(100%+6px)] z-20 overflow-y-auto rounded-[18px] bg-surface-raised p-1.5 shadow-lg" role="listbox">
+              <div id="friend-suggestions" class="friend-suggestions absolute inset-x-0 top-[calc(100%+6px)] z-20 overflow-y-auto rounded-[18px] bg-surface-raised p-1.5 shadow-lg" role="listbox">
                 {#each suggestions as suggestion, index (suggestion.user_id)}
                   <button
                     type="button"
@@ -589,38 +593,72 @@
                 {/each}
               </div>
             {:else if searchingUsers}
-              <span class="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-border border-t-primary"></span>
+              <p class="mt-2 text-xs text-text-secondary" role="status">{ar ? 'البحث عن لاعبين…' : 'Finding players…'}</p>
+            {:else if suggestionOpen && friendMode === 'registered'}
+              <p class="mt-2 text-xs text-text-secondary" role="status">{searchError ? (ar ? 'تعذر البحث الآن. حاول مجدداً.' : 'Search is unavailable. Try again.') : (ar ? 'لا يوجد لاعب مطابق. جرّب اسم مستخدم آخر.' : 'No matching players. Try another username.')}</p>
             {/if}
           </div>
-          <Button type="submit" fullWidth disabled={!friendInput.trim() || busy !== null} loading={busy === 'friend'}>{copy.add}</Button>
+          <p class="text-xs leading-5 text-text-muted">{friendMode === 'registered' ? (ar ? 'اختر لاعباً من النتائج. الحجز يستخدم مكاناً متاحاً ولا يستبدل لاعباً مشاركاً.' : 'Choose a result to reserve one available spot.') : (ar ? 'الضيف لا يحتاج إلى حساب. حجزه يستخدم مكاناً متاحاً.' : 'Guests don’t need an account. Their reservation uses a free spot.')}</p>
+          <Button type="submit" fullWidth disabled={!friendInput.trim() || (friendMode === 'registered' && !selectedSuggestion) || busy !== null} loading={busy === 'friend'}>{ar ? 'احجز مكاناً' : 'Reserve a spot'}</Button>
         </form>
       {/if}
-    {/if}
+          <div class="roster-list">
+            {#each roster as member (member.entry_id)}
+              <div class="player-row">
+                <div class="player-avatar" aria-hidden="true">{member.display_name?.trim()?.[0]?.toUpperCase() || 'U'}</div>
+                <div class="player-identity">
+                  <p>{member.display_name || (member.username ? `@${member.username}` : copy.guest)}</p>
+                  {#if member.username}<span dir="ltr">@{member.username}</span>
+                  {:else if member.source === 'guest'}<span>{copy.guest}</span>{/if}
+                </div>
+                <span class:host-label={member.member_role === 'organizer'} class="player-role">
+                  {member.member_role === 'organizer' ? copy.host : member.member_role === 'reserved' ? copy.reserved : (ar ? 'مشارك' : 'Joined')}
+                </span>
+                {#if $hasFullAccess && isOwner && member.reservation_id && !started}
+                  <button type="button" disabled={busy !== null} on:click={() => removeFriend(member)} class="uneem-icon-button text-text-muted hover:bg-surface-level-1 hover:text-danger disabled:opacity-40" aria-label={`${ar ? 'إزالة الحجز المسبق لـ' : 'Remove reservation for'} ${member.display_name}`}>
+                    <Icon name="x" size={16}/>
+                  </button>
+                {/if}
+              </div>
+            {:else}
+              <p class="roster-empty">{ar ? 'ستظهر قائمة اللاعبين هنا.' : 'Players will appear here.'}</p>
+            {/each}
+          </div>
+        </section>
+      {/if}
 
-    {#if !$hasFullAccess}
-      <ActionLink href="/verification" fullWidth size="lg" className="mt-6">{ar ? 'تحقق من هويتك للانضمام' : 'Verify ID to join'}</ActionLink>
-    {:else if !isOwner && !started}
-      <div class="mt-5">
-        {#if details.reserved_by_me}
-          <div class="rounded-[14px] bg-success-light px-4 py-3 text-center text-sm font-bold text-success">{copy.yourSpot}</div>
-        {:else if details.participant_by_me}
-          <Button variant="secondary" className="w-full" loading={busy === 'leave'} on:click={leave}>{copy.leave}</Button>
-        {:else if isOpen}
-          <Button className="w-full" disabled={!canJoin} loading={busy === 'join'} on:click={join}>{copy.join}</Button>
+      {#if isOpen || ($hasFullAccess && isOwner && !started)}
+      <aside class="match-tools">
+        {#if $hasFullAccess && isOwner && !started && details.capacity >= 2}
+          <section class="visibility-settings">
+            <Toggle checked={isOpen} label={copy.openToPlayers} disabled={busy !== null} onToggle={() => void toggleOpen()} />
+            {#if visibilityBlocked}
+              <p class="visibility-error" role="alert">{ar ? 'لا يمكنك إغلاق المباراة بعد انضمام لاعبين. أماكنهم تبقى محفوظة.' : 'You can’t close this match after players have joined. Their spots stay protected.'}</p>
+            {/if}
+          </section>
         {/if}
-      </div>
-    {/if}
-
-    {#if $hasFullAccess && isOwner && !started}
-      <button
-        type="button"
-        disabled={busy !== null}
-        on:click={() => cancelDialogOpen = true}
-        class="mt-7 min-h-11 w-full rounded-[14px] text-sm font-bold text-danger hover:bg-danger-light disabled:opacity-40"
-      >
-        {copy.cancel}
-      </button>
-    {/if}
+        {#if isOpen && !started}
+          <section class="invite-section">
+            <ShareMatch {bookingId} title={details.pitch_name}/>
+          </section>
+        {/if}
+        {#if isOpen}
+          <details class="open-match-rules">
+            <summary><Icon name="users" size={16}/>{ar ? 'قواعد الانضمام' : 'Joining rules'}</summary>
+            <p>{ar ? 'الانضمام حسب أسبقية الحضور حتى اكتمال الأماكن. لا يحتاج اللاعب لموافقة المنظّم، ولا يمكنه طرد اللاعبين المنضمّين.' : 'Spots are first come, first served. Joining needs no organizer approval. Organizers can’t remove players who joined.'}</p>
+          </details>
+        {/if}
+        {#if $hasFullAccess && isOwner && !started}
+          <div class="cancel-section">
+            <button type="button" disabled={busy !== null} on:click={requestCancellation} class="cancel-booking">{copy.cancel}</button>
+            {#if cancellationBlocked}
+              <p class="cancellation-error" role="alert">{ar ? 'لا يمكنك إلغاء المباراة بعد انضمام لاعبين. أماكنهم تبقى محفوظة.' : 'You can’t cancel this match after players have joined. Their spots stay protected.'}</p>
+            {/if}
+          </div>
+        {/if}
+      </aside>
+      {/if}
+    </div>
   {/if}
 </main>
 
@@ -631,4 +669,84 @@
     <Button className="!bg-danger !text-white" loading={busy === 'cancel'} on:click={cancelMine}>{copy.cancel}</Button>
   </svelte:fragment>
 </Modal>
-<style>.friend-suggestions { max-height: min(240px, calc(var(--visual-height, 100dvh) * .4)); }</style>
+<style>
+  .match-page { max-width: 960px; }
+  .match-page-heading { margin-bottom: 24px; }
+  .match-summary { padding: 24px; border-radius: 20px; background: var(--surface); }
+  .summary-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .summary-heading h2 { font-size: 20px; font-weight: 650; line-height: 1.35; overflow-wrap: anywhere; }
+  .match-status { flex-shrink: 0; padding: 5px 10px; border-radius: 8px; background: var(--surface-level-1); font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+  .status-open { color: var(--success); background: var(--success-light); }
+  .match-schedule { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px; }
+  .match-schedule > div { display: flex; flex-direction: column; gap: 6px; }
+  .match-schedule > div > span { font-size: 12px; color: var(--text-muted); }
+  .match-schedule strong { font-size: 19px; line-height: 1.35; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .schedule-time strong { align-self: flex-start; }
+  .schedule-time strong span { font-size: 16px; font-weight: 500; color: var(--text-secondary); }
+  .match-meta { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 16px; }
+  .match-meta p { display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 1.5; color: var(--text-secondary); overflow-wrap: anywhere; }
+  .match-meta :global(svg) { flex-shrink: 0; }
+  .match-meta strong { font-weight: 500; color: var(--text); }
+  .match-workspace { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 20px; align-items: start; margin-top: 24px; }
+  .roster-panel, .match-tools { min-width: 0; background: var(--surface); border-radius: 20px; }
+  .roster-panel:only-child, .match-tools:only-child { grid-column: 1 / -1; }
+  .panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 20px; }
+  .panel-heading h2 { font-size: 18px; font-weight: 650; }
+  .panel-heading :global(.ui-button) { flex-shrink: 0; }
+  .roster-list { padding-inline: 20px; }
+  .player-row { display: flex; align-items: center; gap: 12px; padding-block: 14px; border-top: 1px solid var(--surface-level-1); }
+  .player-avatar { display: grid; place-items: center; height: 36px; width: 36px; flex-shrink: 0; border-radius: 12px; background: var(--surface-level-1); font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+  .player-identity { flex: 1; min-width: 0; }
+  .player-identity p { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+  .player-identity > span { display: block; margin-top: 2px; font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere; text-align: start; }
+  .player-role { flex-shrink: 0; font-size: 11px; color: var(--text-secondary); }
+  .host-label { color: var(--primary); font-weight: 600; }
+  .roster-empty { padding-block: 20px; font-size: 14px; color: var(--text-muted); }
+  .add-player-form { padding: 20px; border-top: 1px solid var(--surface-level-1); background: var(--surface-level-1); }
+  .add-player-form :global(.uneem-field) { background: var(--surface); }
+  .match-tools { padding: 20px; }
+  .match-tools:empty { display: none; }
+  .visibility-settings .visibility-error { font-size: 12px; line-height: 1.6; color: var(--danger); margin-top: 8px; }
+  .visibility-settings :global(.ui-toggle) { width: 100%; }
+  .visibility-settings :global(.ui-toggle-label) { font-size: 13px; }
+  .invite-section { margin-top: 20px; }
+  .invite-section:first-child { margin-top: 0; }
+  .cancel-section { margin-top: 20px; padding-top: 8px; border-top: 1px solid var(--surface-level-1); }
+  .cancel-booking { min-height: 44px; width: 100%; text-align: start; font-size: 12px; color: var(--danger); font-weight: 500; }
+  .cancel-booking:hover { text-decoration: underline; }
+  .cancel-booking:disabled { opacity: .4; }
+  .cancellation-error { font-size: 12px; line-height: 1.6; color: var(--danger); padding-bottom: 8px; }
+  .cancel-booking:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+  .friend-suggestions { max-height: min(240px, calc(var(--visual-height, 100dvh) * .4)); }
+  .open-match-rules { margin-top: 20px; color: var(--text-secondary); }
+  .open-match-rules summary { display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; font-size: 12px; font-weight: 500; }
+  .open-match-rules summary::after { content: '+'; margin-inline-start: auto; font-size: 16px; }
+  .open-match-rules[open] summary::after { content: '−'; }
+  .open-match-rules summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+  .open-match-rules p { font-size: 12px; line-height: 1.7; padding-top: 4px; }
+  .match-occupancy { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--surface-level-1); }
+  .match-occupancy > div { display: flex; justify-content: space-between; gap: 16px; }
+  .match-occupancy p { display: flex; align-items: baseline; gap: 8px; }
+  .match-occupancy p > span { font-size: 12px; color: var(--text-secondary); }
+  .match-occupancy strong { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .match-occupancy strong > span { font-size: 15px; font-weight: 500; color: var(--text-muted); }
+  .available-spots strong { color: var(--primary); }
+  progress { display: block; width: 100%; height: 5px; margin-top: 12px; appearance: none; border: 0; border-radius: 4px; overflow: hidden; background: var(--surface-level-1); }
+  progress::-webkit-progress-bar { background: var(--surface-level-1); }
+  progress::-webkit-progress-value { background: var(--primary); border-radius: 4px; }
+  progress::-moz-progress-bar { background: var(--primary); }
+  @media (max-width: 700px) {
+    .match-workspace { grid-template-columns: minmax(0, 1fr); gap: 16px; margin-top: 20px; }
+    .match-page-heading { margin-bottom: 20px; }
+    .match-summary { padding: 20px; }
+    .match-schedule { gap: 16px; margin-top: 20px; }
+    .match-schedule strong { font-size: 16px; }
+    .schedule-time strong span { font-size: 14px; }
+    .panel-heading { padding: 18px 16px; }
+    .roster-list { padding-inline: 16px; }
+    .player-row { gap: 10px; }
+    .add-player-form { padding: 16px; }
+    .match-occupancy p { flex-direction: column; gap: 2px; }
+    .match-occupancy .available-spots { align-items: flex-end; }
+  }
+</style>

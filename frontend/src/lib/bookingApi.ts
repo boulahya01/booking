@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient'
 import { cachedRequest, invalidateRequestCache } from './requestCache'
+import { withLoading } from './stores/loading'
 
 export type BookingFailureCode =
   | 'authentication_required'
@@ -15,6 +16,7 @@ export type BookingFailureCode =
   | 'booking_not_owned'
   | 'booking_not_cancellable'
   | 'cancellation_window_closed'
+  | 'match_has_public_players'
   | 'network'
   | 'unknown'
 
@@ -118,7 +120,8 @@ function classifyError(error: any): BookingFailureCode {
     'booking_not_found',
     'booking_not_owned',
     'booking_not_cancellable',
-    'cancellation_window_closed'
+    'cancellation_window_closed',
+    'match_has_public_players'
   ]
 
   for (const code of known) {
@@ -257,27 +260,33 @@ export async function listBookingRoster(bookingId: string, force = false): Promi
 }
 
 export async function createBooking(pitchId: string, startsAt: string) {
-  const { data, error } = await supabase.rpc('create_booking', {
-    p_pitch_id: pitchId,
-    p_starts_at: startsAt
-  })
+  return withLoading('action', async () => {
+    const { data, error } = await supabase.rpc('create_booking', {
+      p_pitch_id: pitchId,
+      p_starts_at: startsAt
+    })
 
-  if (error) throwApiError(error)
-  invalidateBookingData(undefined, pitchId)
-  invalidateRequestCache('open-matches')
-  return Array.isArray(data) ? data[0] : data
+    if (error) throwApiError(error)
+    invalidateBookingData(undefined, pitchId)
+    invalidateRequestCache('open-matches')
+    return Array.isArray(data) ? data[0] : data
+  })
 }
 
 export async function cancelBooking(bookingId: string) {
-  const { data, error } = await supabase.rpc('cancel_booking', {
-    p_booking_id: bookingId
-  })
+  return withLoading('action', async () => {
+    const details = await getBookingDetails(bookingId, true)
+    if (details && details.joined_count > 0) throw new BookingApiError('match_has_public_players')
+    const { data, error } = await supabase.rpc('cancel_booking', {
+      p_booking_id: bookingId
+    })
 
-  if (error) throwApiError(error)
-  invalidateBookingData(bookingId)
-  invalidateRequestCache('open-matches')
-  invalidateRequestCache('my-matches')
-  return Array.isArray(data) ? data[0] : data
+    if (error) throwApiError(error)
+    invalidateBookingData(bookingId)
+    invalidateRequestCache('open-matches')
+    invalidateRequestCache('my-matches')
+    return Array.isArray(data) ? data[0] : data
+  })
 }
 
 // userId remains optional for source compatibility with existing components,

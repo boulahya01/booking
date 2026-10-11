@@ -1,11 +1,18 @@
+<script lang="ts">
+  export let showAccountLink = true
+</script>
+
 <div class="public-site">
   <header class="public-header">
     <a href="/" class="public-brand" aria-label="UNEM Sports home">
-      UNEM Sports<span aria-hidden="true">.</span>
+      <img src="/assets/brand/app-icon.svg" alt="" aria-hidden="true" width="34" height="34" />
+      <span>UNEM Sports<span class="public-brand-dot" aria-hidden="true">.</span></span>
     </a>
-    <nav aria-label="Account">
-      <a href="/login" class="public-signin">Sign in</a>
-    </nav>
+    {#if showAccountLink}
+      <nav aria-label="Account">
+        <a href="/login" class="public-signin">Sign in</a>
+      </nav>
+    {/if}
   </header>
 
   <main class="public-main">
@@ -46,11 +53,22 @@
   }
 
   .public-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
     font-size: 18px;
     line-height: 1;
     font-weight: 760;
     letter-spacing: -0.035em;
   }
+
+  .public-brand img {
+    width: 34px;
+    height: 34px;
+    border-radius: 11px;
+  }
+
+  .public-brand-dot { color: var(--primary); }
 
   .public-brand span {
     color: var(--primary);

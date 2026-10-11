@@ -99,7 +99,7 @@
 
     const { data, error: fetchError } = await supabase
       .from('pitches')
-      .select('id,name,location,open_time,close_time,capacity,sport_type,timezone,booking_frequency_enabled,booking_frequency_days')
+      .select('id,name,location,open_time,close_time,capacity,sport_type,timezone,booking_frequency_enabled,booking_frequency_days,booking_window_hours')
       .eq('id', pitchId)
       .maybeSingle()
 
@@ -209,15 +209,18 @@
     const labelDate = new Date(eligibleAt).toLocaleDateString($locale || 'en', {
       month: 'short',
       day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
       timeZone: pitch?.timezone || 'Africa/Casablanca'
     })
 
     return {
       code,
       eligibleAt,
-      label: ar
-        ? `يمكنك الحجز مرة أخرى ابتداءً من ${labelDate}`
-        : `You can book again from ${labelDate}`
+      label: code === 'booking_frequency_limited'
+        ? (ar ? `اختر موعداً يبدأ بعد ${labelDate}` : `Choose a slot starting after ${labelDate}`)
+        : (ar ? `يمكنك الحجز مرة أخرى ابتداءً من ${labelDate}` : `You can book again from ${labelDate}`)
     }
   }
 
@@ -367,6 +370,21 @@
           </div>
         {/if}
 
+        {#if policySummary}
+          <div id="booking-policy" class="booking-policy" role="status">
+            <Icon name="calendar-days" size={17}/>
+            <div class="booking-policy-content">
+              <p class="policy-reason">{policySummary.booking_block_code === 'booking_frequency_limited'
+                ? (ar ? `يسمح هذا المرفق بحجز واحد كل ${pitch.booking_frequency_days} أيام.` : `This facility allows one booking every ${pitch.booking_frequency_days === 1 ? 'day' : `${pitch.booking_frequency_days} days`}.`)
+                : (ar ? 'لديك حجز قادم أو جارٍ بالفعل.' : 'You already have an upcoming or current booking.')}</p>
+              <p class="policy-time">{policySummary.booking_block_label}</p>
+              {#if policySummary.booking_block_code === 'booking_frequency_limited'}
+                <p class="policy-window">{ar ? `تظهر الأوقات قبل بدايتها بـ ${Math.min(24, Number(pitch.booking_window_hours) || 24)} ساعة.` : `Slots appear ${Math.min(24, Number(pitch.booking_window_hours) || 24)} hours before they start.`}</p>
+              {/if}
+              <a href="/matches" class="policy-match-link">{ar ? 'يمكنك الانضمام إلى مباراة مفتوحة' : 'You can still join an open match'}<Icon name={ar ? 'arrow-left' : 'arrow-right'} size={15}/></a>
+            </div>
+          </div>
+        {/if}
         <div class="space-y-7">
           {#each slotGroups as group}
             <div>
@@ -386,16 +404,6 @@
           {/each}
         </div>
 
-        {#if policySummary}
-          <div class="mt-4 flex items-center gap-3 rounded-[14px] bg-surface-level-1 px-3.5 py-3">
-            <div class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-surface text-text-muted">
-              <Icon name="calendar-days" size={17}/>
-            </div>
-            <p class="min-w-0 text-sm font-bold text-text">
-              {policySummary.booking_block_label}
-            </p>
-          </div>
-        {/if}
       {/if}
     </section>
   {/if}
@@ -420,5 +428,14 @@
   .times-heading h2 { font-size: 21px; font-weight: 650; letter-spacing: -.025em; }
   .times-heading p { margin-top: 5px; color: var(--text-muted); font-size: 13px; }
   .slot-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .booking-policy { display: flex; align-items: flex-start; gap: 10px; padding: 14px 16px; margin-bottom: 20px; border-radius: 14px; background: var(--surface-level-1); color: var(--text-secondary); font-size: 13px; line-height: 1.6; }
+  .booking-policy :global(svg) { flex-shrink: 0; margin-top: 2px; }
+  .booking-policy-content { min-width: 0; }
+  .policy-reason { color: var(--text); font-weight: 600; }
+  .policy-time { margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .policy-window { margin-top: 4px; font-size: 12px; color: var(--text-muted); }
+  .policy-match-link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 4px; font-weight: 600; color: var(--primary); }
+  .policy-match-link:hover { text-decoration: underline; }
+  .policy-match-link:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: 4px; }
   @media (min-width: 640px) { .slot-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; } }
 </style>

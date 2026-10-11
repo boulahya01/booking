@@ -15,6 +15,7 @@ const messages = {
     booking_not_owned: 'You cannot change another student’s booking.',
     booking_not_cancellable: 'This booking can no longer be cancelled.',
     cancellation_window_closed: 'This booking is too close to its start time to cancel.',
+    match_has_public_players: 'You can’t cancel this match after players have joined. Their spots stay protected.',
     network: 'Connection problem. Check your internet and try again.',
     unknown: 'Something went wrong. Try again.'
   },
@@ -32,6 +33,7 @@ const messages = {
     booking_not_owned: 'لا يمكنك تعديل حجز طالب آخر.',
     booking_not_cancellable: 'لم يعد من الممكن إلغاء هذا الحجز.',
     cancellation_window_closed: 'اقترب موعد الحجز كثيراً ولم يعد الإلغاء متاحاً.',
+    match_has_public_players: 'لا يمكنك إلغاء المباراة بعد انضمام لاعبين. أماكنهم تبقى محفوظة.',
     network: 'مشكلة في الاتصال. تحقق من الإنترنت وحاول من جديد.',
     unknown: 'حدث خطأ. حاول من جديد.'
   }

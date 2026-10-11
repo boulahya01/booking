@@ -102,7 +102,9 @@ test('public OAuth branding surfaces identify UNEM Sports and explain the produc
   expect(response).not.toBeNull();
   expect(response!.status()).toBeLessThan(400);
   await expect(page.getByRole('heading', { name: 'Book. Play. Meet.' })).toBeVisible();
-  await expect(page.getByText(/UNEM Sports helps students discover university sports facilities/i)).toBeVisible();
+  await expect(page.getByText(/Find a court, reserve a time, and join open matches/i)).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Get started', exact: true })).toHaveCount(1);
+  await expect(page.getByRole('link', { name: 'Sign in', exact: true })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Privacy' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Terms' })).toBeVisible();
 });

@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient'
 import { cachedRequest, invalidateRequestCache } from './requestCache'
+import { withLoading } from './stores/loading'
 
 export type MatchFailureCode =
   | 'authentication_required'
@@ -180,68 +181,82 @@ export async function searchUsernames(query: string, limit = 5): Promise<Usernam
 }
 
 export async function joinOpenMatch(matchId: string) {
-  const { data, error } = await supabase.rpc('join_open_match', { p_match_id: matchId })
-  if (error) throwMatchError(error)
-  invalidateMatchData()
-  return Array.isArray(data) ? data[0] : data
+  return withLoading('action', async () => {
+    const { data, error } = await supabase.rpc('join_open_match', { p_match_id: matchId })
+    if (error) throwMatchError(error)
+    invalidateMatchData()
+    return Array.isArray(data) ? data[0] : data
+  })
 }
 
 export async function leaveOpenMatch(matchId: string) {
-  const { error } = await supabase.rpc('leave_open_match', { p_match_id: matchId })
-  if (error) throwMatchError(error)
-  invalidateMatchData()
+  return withLoading('action', async () => {
+    const { error } = await supabase.rpc('leave_open_match', { p_match_id: matchId })
+    if (error) throwMatchError(error)
+    invalidateMatchData()
+  })
 }
 
 export async function createOpenMatch(bookingId: string, reservedSpots = 0): Promise<MatchRecord> {
-  const { data, error } = await supabase.rpc('create_open_match', {
-    p_booking_id: bookingId,
-    p_reserved_spots: reservedSpots
+  return withLoading('action', async () => {
+    const { data, error } = await supabase.rpc('create_open_match', {
+      p_booking_id: bookingId,
+      p_reserved_spots: reservedSpots
+    })
+    if (error) throwMatchError(error)
+    invalidateMatchData(bookingId)
+    return (Array.isArray(data) ? data[0] : data) as MatchRecord
   })
-  if (error) throwMatchError(error)
-  invalidateMatchData(bookingId)
-  return (Array.isArray(data) ? data[0] : data) as MatchRecord
 }
 
 export async function updateReservedSpots(matchId: string, reservedSpots: number): Promise<MatchRecord> {
-  const { data, error } = await supabase.rpc('update_match_reserved_spots', {
-    p_match_id: matchId,
-    p_reserved_spots: reservedSpots
+  return withLoading('action', async () => {
+    const { data, error } = await supabase.rpc('update_match_reserved_spots', {
+      p_match_id: matchId,
+      p_reserved_spots: reservedSpots
+    })
+    if (error) throwMatchError(error)
+    invalidateMatchData()
+    return (Array.isArray(data) ? data[0] : data) as MatchRecord
   })
-  if (error) throwMatchError(error)
-  invalidateMatchData()
-  return (Array.isArray(data) ? data[0] : data) as MatchRecord
 }
 
 export async function addMatchReservation(matchId: string, value: string): Promise<MatchReservation> {
-  const clean = value.trim()
-  const isUsername = clean.startsWith('@')
-  const { data, error } = await supabase.rpc('add_match_reservation', {
-    p_match_id: matchId,
-    p_username: isUsername ? clean.slice(1) : null,
-    p_guest_name: isUsername ? null : clean
+  return withLoading('action', async () => {
+    const clean = value.trim()
+    const isUsername = clean.startsWith('@')
+    const { data, error } = await supabase.rpc('add_match_reservation', {
+      p_match_id: matchId,
+      p_username: isUsername ? clean.slice(1) : null,
+      p_guest_name: isUsername ? null : clean
+    })
+    if (error) throwMatchError(error)
+    invalidateMatchData()
+    return (Array.isArray(data) ? data[0] : data) as MatchReservation
   })
-  if (error) throwMatchError(error)
-  invalidateMatchData()
-  return (Array.isArray(data) ? data[0] : data) as MatchReservation
 }
 
 export async function removeMatchReservation(matchId: string, reservationId: string) {
-  const { error } = await supabase.rpc('remove_match_reservation', {
-    p_match_id: matchId,
-    p_reservation_id: reservationId
+  return withLoading('action', async () => {
+    const { error } = await supabase.rpc('remove_match_reservation', {
+      p_match_id: matchId,
+      p_reservation_id: reservationId
+    })
+    if (error) throwMatchError(error)
+    invalidateMatchData()
   })
-  if (error) throwMatchError(error)
-  invalidateMatchData()
 }
 
 export async function setMatchVisibility(matchId: string, visibility: 'private' | 'open'): Promise<MatchRecord> {
-  const { data, error } = await supabase.rpc('set_match_visibility', {
-    p_match_id: matchId,
-    p_visibility: visibility
+  return withLoading('action', async () => {
+    const { data, error } = await supabase.rpc('set_match_visibility', {
+      p_match_id: matchId,
+      p_visibility: visibility
+    })
+    if (error) throwMatchError(error)
+    invalidateMatchData()
+    return (Array.isArray(data) ? data[0] : data) as MatchRecord
   })
-  if (error) throwMatchError(error)
-  invalidateMatchData()
-  return (Array.isArray(data) ? data[0] : data) as MatchRecord
 }
 
 export function matchErrorCopy(code: MatchFailureCode, language: string | null | undefined): string {

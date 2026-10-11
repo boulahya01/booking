@@ -5,6 +5,7 @@ import type { AccountState } from './types'
 import { isValidStudentId } from './utils/cn'
 import { authState } from './stores/auth'
 import { sanitizeStudentId } from './validation'
+import { withLoading } from './stores/loading'
 
 export type VerificationReason =
   | 'student_id_incorrect'
@@ -113,6 +114,10 @@ export async function getLatestVerificationAttempt(): Promise<VerificationAttemp
 }
 
 export async function uploadAndSubmitStudentCard(studentId: string, file: File): Promise<AccountState> {
+  return withLoading('action', () => uploadAndSubmitStudentCardInternal(studentId, file))
+}
+
+async function uploadAndSubmitStudentCardInternal(studentId: string, file: File): Promise<AccountState> {
   const validationError = validateStudentCard(file)
   if (validationError) throw new IdentityError('upload_failed')
 
@@ -148,7 +153,7 @@ export async function uploadAndSubmitStudentCard(studentId: string, file: File):
   }
 
   try {
-    const state = await getMyAccountState()
+    const state = await getMyAccountState(true)
     if (!state) throw new IdentityError('status_load_failed')
     if (get(authState).user?.id === state.user_id) authState.setAccount(state)
     return state
@@ -159,11 +164,15 @@ export async function uploadAndSubmitStudentCard(studentId: string, file: File):
 }
 
 export async function updateMyStudentId(studentId: string): Promise<AccountState> {
+  return withLoading('action', () => updateMyStudentIdInternal(studentId))
+}
+
+async function updateMyStudentIdInternal(studentId: string): Promise<AccountState> {
   const normalized = sanitizeStudentId(studentId)
   if (!isValidStudentId(normalized)) throw new IdentityError('invalid_student_id')
   const { error } = await supabase.rpc('update_my_student_id', { p_student_id: normalized })
   if (error) throw new IdentityError(classifySubmissionFailure(error.message))
-  const state = await getMyAccountState()
+  const state = await getMyAccountState(true)
   if (!state) throw new IdentityError('status_load_failed')
   if (get(authState).user?.id === state.user_id) authState.setAccount(state)
   return state
@@ -190,6 +199,14 @@ export async function reviewVerification(
   attemptId: string,
   decision: 'approved' | 'rejected',
   reasonCode: VerificationReason | null = null
+): Promise<void> {
+  return withLoading('action', () => reviewVerificationInternal(attemptId, decision, reasonCode))
+}
+
+async function reviewVerificationInternal(
+  attemptId: string,
+  decision: 'approved' | 'rejected',
+  reasonCode: VerificationReason | null
 ): Promise<void> {
   const { data, error } = await supabase.rpc('review_identity_verification', {
     p_attempt_id: attemptId,

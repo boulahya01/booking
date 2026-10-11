@@ -4,7 +4,15 @@ This directory is the canonical database/authorization source for UNEEM V2. The 
 
 ## Ordered source of truth
 
-Apply the original layers below, then every numbered file from 025 through 062 in ascending order. The timestamped equivalents are in `../migrations/`.
+Apply the original layers below, then every numbered file from 025 through 063 in ascending order. The timestamped equivalents are in `../migrations/`.
+
+Layer 063 was validated in isolated PostgreSQL and applied to production on
+2026-10-11. It blocks organizer cancellation
+when self-joined participants remain, using the booking lock already shared with
+join operations. Reservations and the separate app-admin cancellation RPC retain
+their existing rules. The updated match contract, both cancellation/join race
+orders, and rollback/reapply checks passed before deployment. Future changes
+must repeat those checks in isolation.
 
 1. `schema.sql`
 2. `002_security_contract.sql`
@@ -50,7 +58,7 @@ Do not infer future PASS state after a production-schema change. Any later schem
 
 ### v2.1 verification update
 
-`060_universal_student_verification.sql` is deployed to `hudjpcrjoryyhpphonsp` as
+`060_universal_student_verification.sql` is deployed to `PROJECT_REF` as
 `20260909163702_universal_student_verification_v21`. The full
 `tests/universal_verification_contract.sql` passed inside the migration transaction.
 Its fixtures were rolled back to a savepoint before committing the schema; follow-up

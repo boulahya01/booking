@@ -1,7 +1,7 @@
 <svelte:head><title>Opening UNEM Sports…</title></svelte:head>
 
 <div class="launch-shell" role="status" aria-label="Opening UNEM Sports">
-  <div class="launch-mark" aria-hidden="true"></div>
+  <img class="launch-mark" src="/assets/brand/app-icon.svg" width="64" height="64" alt="" />
 </div>
 
 <style>
@@ -13,9 +13,8 @@
   }
 
   .launch-mark {
-    width: 34px;
-    height: 34px;
-    border-radius: 12px;
-    background: var(--primary);
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
   }
 </style>

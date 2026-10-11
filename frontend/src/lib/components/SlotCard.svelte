@@ -36,28 +36,26 @@
       <span aria-hidden="true">–</span>
       <time class="slot-end" datetime={slot.datetime_end}>{formatTime(slot.datetime_end)}</time>
     </div>
-    <span class="slot-status" class:slot-status--available={available} class:slot-status--open={!available && open && placesLeft > 0}>
+    {#if !available}
+    <span class="slot-status" class:slot-status--open={open && placesLeft > 0}>
       <span class="slot-dot" aria-hidden="true"></span>
-      {available ? (ar ? 'متاح' : 'Available') : open && placesLeft > 0 ? (ar ? 'مفتوح' : 'Open') : (ar ? 'محجوز' : 'Booked')}
+      {open && placesLeft > 0 ? (ar ? 'مفتوح' : 'Open') : (ar ? 'محجوز' : 'Booked')}
     </span>
+    {/if}
   </div>
-  {#if !available || blocked}
+  {#if !available}
   <div class="slot-details">
-    {#if available}
-      {#if blocked}<p class="slot-policy">{slot.booking_block_label || (ar ? 'يمكنك الحجز لاحقاً' : 'Available later')}</p>{/if}
-    {:else}
       <p>{ar ? 'محجوز بواسطة' : 'Booked by'} <strong>{slot.booker_username ? `@${slot.booker_username}` : slot.booker_name || (ar ? 'طالب' : 'student')}</strong></p>
       {#if open}
         <p>{placesLeft > 0 ? (ar ? `${placesLeft} أماكن متاحة` : `${placesLeft} places left`) : (ar ? 'مكتمل' : 'Full')}</p>
       {/if}
-    {/if}
   </div>
   {/if}
   <div class="slot-action">
     {#if available && !$hasFullAccess}
       <ActionLink href="/verification" variant="secondary" size="sm" fullWidth>{ar ? 'تحقق' : 'Verify'}</ActionLink>
     {:else if available}
-      <Button fullWidth size="sm" disabled={blocked} on:click={() => onBook(slot)}>{$_('pitch.book')}</Button>
+      <Button fullWidth size="sm" variant={blocked ? 'secondary' : 'primary'} disabled={blocked} aria-describedby={blocked ? 'booking-policy' : undefined} on:click={() => onBook(slot)}>{blocked ? (ar ? 'احجز لاحقاً' : 'Book later') : $_('pitch.book')}</Button>
     {:else}
       <Button fullWidth size="sm" variant="secondary" disabled={!slot.booking_id} on:click={() => onView(slot)}>{ar ? 'عرض الحجز' : 'View booking'}</Button>
     {/if}
@@ -68,7 +66,6 @@
   .slot-card { display: flex; min-width: 0; height: 100%; flex-direction: column; gap: 14px; padding: 16px; border-radius: var(--radius-lg); background: var(--surface); }
   .slot-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
   .slot-status { display: inline-flex; align-items: center; gap: 7px; padding: 6px 10px; border-radius: 99px; background: var(--surface-level-1); color: var(--text-secondary); font-size: 12px; font-weight: 650; line-height: 18px; }
-  .slot-status--available { color: var(--success); background: var(--success-light); }
   .slot-status--open { color: var(--primary); background: var(--primary-light); }
   .slot-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
   .slot-time { display: flex; align-items: baseline; flex-wrap: wrap; gap: 7px; align-self: flex-start; font-variant-numeric: tabular-nums; }
@@ -77,6 +74,5 @@
   .slot-time .slot-end { font-size: 18px; font-weight: 500; color: var(--text-secondary); }
   .slot-details { display: grid; gap: 4px; color: var(--text-secondary); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
   .slot-details strong { font-weight: 600; color: var(--text); }
-  .slot-policy { font-size: 13px; }
   .slot-action { margin-top: auto; }
 </style>

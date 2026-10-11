@@ -4,6 +4,7 @@
   import Button from '$lib/components/Button.svelte'
   import ActionLink from '$lib/components/ActionLink.svelte'
   import { signOut } from '$lib/auth'
+  import { retryAuthBootstrap } from '$lib/authBootstrap'
   import { authState } from '$lib/stores/auth'
   import { language } from '$lib/stores/ui'
 
@@ -14,7 +15,12 @@
   async function retry() {
     if (retrying) return
     retrying = true
-    window.location.replace('/launch')
+    try {
+      const retried = await retryAuthBootstrap()
+      await goto('/launch', { replaceState: true, invalidateAll: retried })
+    } finally {
+      retrying = false
+    }
   }
 
   async function leaveAccount() {

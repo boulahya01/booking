@@ -10,6 +10,7 @@
   import AuthShell from '$lib/components/AuthShell.svelte'
   import { language } from '$lib/stores/ui'
   import { authState, isAuthenticated } from '$lib/stores/auth'
+  import { beginLoading } from '$lib/stores/loading'
   import { loginWithEmail } from '$lib/auth'
   import type { BootstrapError } from '$lib/accountResolver'
   import { isValidEmail } from '$lib/utils/cn'
@@ -39,7 +40,7 @@
 
   $: copy = $language === 'ar'
     ? {
-        title: 'مرحباً بعودتك', subtitle: 'سجّل الدخول للمتابعة', email: 'البريد الإلكتروني', emailPlaceholder: 'name@usmba.ac.ma',
+        title: 'مرحباً بعودتك', subtitle: 'سجّل الدخول للمتابعة', email: 'البريد الإلكتروني', emailPlaceholder: 'student@example.com',
         password: 'كلمة المرور', passwordPlaceholder: 'كلمة المرور', signIn: 'تسجيل الدخول', forgot: 'نسيت كلمة المرور؟',
         newTo: 'جديد في UNEM Sports؟', create: 'إنشاء حساب', help: 'تحتاج مساعدة؟', invalidEmail: 'أدخل بريداً صحيحاً.',
         passwordRequired: 'أدخل كلمة المرور.', invalidCredentials: 'البريد أو كلمة المرور غير صحيحة.', rateLimited: 'محاولات كثيرة. حاول بعد قليل.',
@@ -47,7 +48,7 @@
         trouble: 'تعذر تسجيل الدخول. حاول مرة أخرى أو اطلب المساعدة.'
       }
     : {
-        title: 'Welcome back', subtitle: 'Sign in to continue', email: 'Email address', emailPlaceholder: 'name@usmba.ac.ma',
+        title: 'Welcome back', subtitle: 'Sign in to continue', email: 'Email address', emailPlaceholder: 'student@example.com',
         password: 'Password', passwordPlaceholder: 'Password', signIn: 'Sign in', forgot: 'Forgot password?', newTo: 'New to UNEM Sports?',
         create: 'Create account', help: 'Need help?', invalidEmail: 'Enter a valid email.', passwordRequired: 'Enter your password.',
         invalidCredentials: 'Email or password is incorrect.', rateLimited: 'Too many attempts. Try again shortly.',
@@ -84,6 +85,7 @@
     if (!emailValid || !password) return
 
     loading = true
+    const stopGlobalLoading = beginLoading('action')
     authState.setLoading(true)
     try {
       const result = await loginWithEmail(email, password)
@@ -134,6 +136,7 @@
     } finally {
       loading = false
       authState.setLoading(false)
+      stopGlobalLoading()
     }
   }
 </script>

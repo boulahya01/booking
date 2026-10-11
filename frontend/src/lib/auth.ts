@@ -3,7 +3,9 @@ import { USE_MOCK, mockProfile, mockDelay } from './mock'
 import type { AccountState, Profile } from './types'
 import { logger } from './logger'
 import { getMySessionContext } from './sessionApi'
+import { cachedRequest, invalidateRequestCache } from './requestCache'
 import { classifyBootstrapError, type BootstrapError } from './accountResolver'
+import { withLoading } from './stores/loading'
 import {
   clearPasswordRecovery,
   emailConfirmationRedirectUrl,
@@ -178,7 +180,7 @@ export async function getUserProfile(userId: string): Promise<Profile | null> {
   return data as Profile | null
 }
 
-export async function getMyAccountState(): Promise<AccountState | null> {
+export async function getMyAccountState(force = false): Promise<AccountState | null> {
   if (USE_MOCK) {
     await mockDelay()
     const profile = mockProfile as Profile
@@ -195,39 +197,43 @@ export async function getMyAccountState(): Promise<AccountState | null> {
     }
   }
 
-  const { data, error } = await supabase.rpc('get_my_account_state')
-  if (error) {
-    logger.error('[getMyAccountState] Error:', error.message)
-    throw new Error(error.message || 'Error resolving account state')
-  }
+  return cachedRequest('account-state', 2_000, async () => {
+    const { data, error } = await supabase.rpc('get_my_account_state')
+    if (error) {
+      logger.error('[getMyAccountState] Error:', error.message)
+      throw new Error(error.message || 'Error resolving account state')
+    }
 
-  const state = Array.isArray(data) ? data[0] : data
-  return (state as AccountState | undefined) || null
+    const state = Array.isArray(data) ? data[0] : data
+    return (state as AccountState | undefined) || null
+  }, force)
 }
 
 export async function submitIdentityVerification(studentId: string, cardStoragePath: string): Promise<AuthResponse> {
-  if (USE_MOCK) {
-    await mockDelay()
-    return { data: { status: 'pending' } }
-  }
+  return withLoading('action', async () => {
+    if (USE_MOCK) {
+      await mockDelay()
+      return { data: { status: 'pending' } }
+    }
 
-  const { data, error } = await supabase.rpc('submit_identity_verification', {
-    p_student_id: studentId.replace(/\s+/g, '').toUpperCase(),
-    p_card_storage_path: cardStoragePath
+    const { data, error } = await supabase.rpc('submit_identity_verification', {
+      p_student_id: studentId.replace(/\s+/g, '').toUpperCase(),
+      p_card_storage_path: cardStoragePath
+    })
+
+    if (error) {
+      const lower = error.message.toLowerCase()
+      if (lower.includes('identity_claim_unavailable')) {
+        return { error: { message: t('register.error_registration_failed') } }
+      }
+      if (lower.includes('invalid_student_id')) {
+        return { error: { message: t('register.error_invalid_student') } }
+      }
+      return { error: { message: t('register.error_support_contact') } }
+    }
+
+    return { data }
   })
-
-  if (error) {
-    const lower = error.message.toLowerCase()
-    if (lower.includes('identity_claim_unavailable')) {
-      return { error: { message: t('register.error_registration_failed') } }
-    }
-    if (lower.includes('invalid_student_id')) {
-      return { error: { message: t('register.error_invalid_student') } }
-    }
-    return { error: { message: t('register.error_support_contact') } }
-  }
-
-  return { data }
 }
 
 export async function loginWithEmail(email: string, password: string): Promise<AuthResponse> {
@@ -275,119 +281,128 @@ export async function loginWithEmail(email: string, password: string): Promise<A
 }
 
 export async function signOut(): Promise<{ error?: any }> {
-  clearPasswordRecovery()
+  return withLoading('action', async () => {
+    clearPasswordRecovery()
+    invalidateRequestCache()
 
-  if (USE_MOCK) {
+    if (USE_MOCK) {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('mock_auth_user')
+        localStorage.removeItem('selectedPitchId')
+      }
+      return {}
+    }
+
     if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem('mock_auth_user')
       localStorage.removeItem('selectedPitchId')
     }
-    return {}
-  }
-
-  if (typeof localStorage !== 'undefined') {
-    localStorage.removeItem('selectedPitchId')
-  }
-  const { error } = await supabase.auth.signOut({ scope: 'local' })
-  return { error }
+    const { error } = await supabase.auth.signOut({ scope: 'local' })
+    return { error }
+  })
 }
 
 export async function resetPasswordForEmail(email: string): Promise<AuthResponse> {
-  if (USE_MOCK) {
-    await mockDelay()
-    return { data: {} }
-  }
+  return withLoading('action', async () => {
+    if (USE_MOCK) {
+      await mockDelay()
+      return { data: {} }
+    }
 
-  try {
-    clearPasswordRecovery()
-    const { data, error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-      redirectTo: passwordRecoveryRedirectUrl()
-    })
+    try {
+      clearPasswordRecovery()
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+        redirectTo: passwordRecoveryRedirectUrl()
+      })
 
-    if (error) return { error: { message: error.message } }
-    return { data }
-  } catch (err: any) {
-    return { error: { message: err.message || 'Failed to send reset email' } }
-  }
+      if (error) return { error: { message: error.message } }
+      return { data }
+    } catch (err: any) {
+      return { error: { message: err.message || 'Failed to send reset email' } }
+    }
+  })
 }
 
 // Supabase verifies `current_password` as part of the same credential mutation.
 // This keeps an open browser session alone insufficient for changing a password
 // without creating a second sign-in request or a duplicate SIGNED_IN event.
 export async function updatePassword(newPassword: string, currentPassword?: string): Promise<AuthResponse> {
-  if (USE_MOCK) {
-    await mockDelay()
-    return { data: {} }
-  }
-
-  try {
-    if (currentPassword) {
-      const { data, error } = await supabase.auth.updateUser({
-        password: newPassword,
-        current_password: currentPassword
-      })
-      if (error) {
-        const lower = error.message.toLowerCase()
-        if (
-          lower.includes('current password') ||
-          lower.includes('current_password') ||
-          lower.includes('invalid password') ||
-          lower.includes('password is incorrect')
-        ) {
-          return { error: { message: 'current_password_invalid' } }
-        }
-        return { error: { message: error.message } }
-      }
-
-      const { error: revokeError } = await supabase.auth.signOut({ scope: 'others' })
-      if (revokeError) logger.warn('[updatePassword] Password changed but other-session revocation failed:', revokeError.message)
-      return { data }
+  return withLoading('action', async () => {
+    if (USE_MOCK) {
+      await mockDelay()
+      return { data: {} }
     }
 
-    const { data, error } = await supabase.auth.updateUser({ password: newPassword })
-    if (error) return { error: { message: error.message } }
-    return { data }
-  } catch (err: any) {
-    return { error: { message: err.message || 'Failed to update password' } }
-  }
+    try {
+      if (currentPassword) {
+        const { data, error } = await supabase.auth.updateUser({
+          password: newPassword,
+          current_password: currentPassword
+        })
+        if (error) {
+          const lower = error.message.toLowerCase()
+          if (
+            lower.includes('current password') ||
+            lower.includes('current_password') ||
+            lower.includes('invalid password') ||
+            lower.includes('password is incorrect')
+          ) {
+            return { error: { message: 'current_password_invalid' } }
+          }
+          return { error: { message: error.message } }
+        }
+
+        const { error: revokeError } = await supabase.auth.signOut({ scope: 'others' })
+        if (revokeError) logger.warn('[updatePassword] Password changed but other-session revocation failed:', revokeError.message)
+        return { data }
+      }
+
+      const { data, error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) return { error: { message: error.message } }
+      return { data }
+    } catch (err: any) {
+      return { error: { message: err.message || 'Failed to update password' } }
+    }
+  })
 }
 
 export async function updatePasswordFromRecovery(newPassword: string): Promise<AuthResponse> {
-  if (USE_MOCK) {
-    await mockDelay()
-    clearPasswordRecovery()
-    return { data: {} }
-  }
-
-  try {
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user || !restorePasswordRecovery(user.id)) {
+  return withLoading('action', async () => {
+    if (USE_MOCK) {
+      await mockDelay()
       clearPasswordRecovery()
-      return { error: { message: 'recovery_session_required' } }
+      return { data: {} }
     }
 
-    // sessionStorage is only continuity metadata. The actual mutation authority
-    // must still come from a Supabase-verified JWT that carries the recovery AMR.
-    if (!(await hasVerifiedRecoveryAuthentication(user.id))) {
-      clearPasswordRecovery()
-      return { error: { message: 'recovery_session_required' } }
-    }
-
-    const { data, error } = await supabase.auth.updateUser({ password: newPassword })
-    if (error) return { error: { message: error.message } }
-
-    clearPasswordRecovery()
-    const { error: globalSignOutError } = await supabase.auth.signOut()
-    if (globalSignOutError) {
-      logger.warn('[updatePasswordFromRecovery] Password changed but global session revocation failed:', globalSignOutError.message)
-      const { error: localSignOutError } = await supabase.auth.signOut({ scope: 'local' })
-      if (localSignOutError) {
-        logger.warn('[updatePasswordFromRecovery] Local recovery session cleanup also failed:', localSignOutError.message)
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user || !restorePasswordRecovery(user.id)) {
+        clearPasswordRecovery()
+        return { error: { message: 'recovery_session_required' } }
       }
-    }
 
-    return { data }
-  } catch (err: any) {
-    return { error: { message: err.message || 'Failed to update password' } }
-  }
+      // sessionStorage is only continuity metadata. The actual mutation authority
+      // must still come from a Supabase-verified JWT that carries the recovery AMR.
+      if (!(await hasVerifiedRecoveryAuthentication(user.id))) {
+        clearPasswordRecovery()
+        return { error: { message: 'recovery_session_required' } }
+      }
+
+      const { data, error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) return { error: { message: error.message } }
+
+      clearPasswordRecovery()
+      const { error: globalSignOutError } = await supabase.auth.signOut()
+      if (globalSignOutError) {
+        logger.warn('[updatePasswordFromRecovery] Password changed but global session revocation failed:', globalSignOutError.message)
+        const { error: localSignOutError } = await supabase.auth.signOut({ scope: 'local' })
+        if (localSignOutError) {
+          logger.warn('[updatePasswordFromRecovery] Local recovery session cleanup also failed:', localSignOutError.message)
+        }
+      }
+
+      return { data }
+    } catch (err: any) {
+      return { error: { message: err.message || 'Failed to update password' } }
+    }
+  })
 }

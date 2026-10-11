@@ -6,7 +6,7 @@ Students can discover facilities, reserve a whole facility slot, join open match
 
 ## Release status
 
-UNEEM V2 is in release-candidate validation. The database/RLS contract stack through layer 024 has been applied to the fresh hosted Supabase project and the committed contract/race suites have been validated. Public launch still requires production Auth configuration/email delivery and the final browser end-to-end smoke gate.
+UNEEM is live and has real users. The 2026-10-11 update passed the production build and 114 browser regressions. The owner-cancellation guard was validated with isolated PostgreSQL contracts and concurrency tests before being applied to production. See [release validation](docs/v2/production-release-2026-10-11.md) for the publication checkpoint and remaining limitations.
 
 Do not treat a successful frontend build as proof that hosted Auth or email delivery is production-ready.
 
@@ -24,8 +24,8 @@ The canonical database source is `supabase/v2/`. The deployable Supabase migrati
 ## Product invariants
 
 - A confirmed `@usmba.ac.ma` email proves university affiliation; it does not prove Student ID ownership.
-- Academic-email students may use sports after real email confirmation without a Student ID.
-- Personal-email students require Student ID/card review before sports access.
+- Students can browse while verification is pending; sports access requires confirmed email and verified student identity.
+- Student ID/card review remains separate from email confirmation and university affiliation.
 - Student ID and email are private identity data; public identity is full name + username.
 - One student may have only one active/upcoming facility booking globally.
 - One booking reserves the whole facility. Match participation never creates another booking.
@@ -76,6 +76,8 @@ SUPPORT_IP_HASH_SECRET=...
 ```
 
 Never place service-role credentials or other secrets in `VITE_*` variables. See `frontend/.env.example`.
+
+Configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in `frontend/.env.local` for development and in the deployment provider for preview/production. Both are required; there is no committed project fallback. Use `npm ci` with the committed npm lockfile for reproducible installations.
 
 ## Database
 

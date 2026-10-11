@@ -4,6 +4,7 @@
   import ActionLink from '$lib/components/ActionLink.svelte'
   import Button from '$lib/components/Button.svelte'
   import Icon from '$lib/components/Icon.svelte'
+  import LoadingShape from '$lib/components/LoadingShape.svelte'
   import { locale } from 'svelte-i18n'
   import { authState } from '$lib/stores/auth'
   import {
@@ -87,6 +88,7 @@
 
   $: upcomingBookings = bookings.filter(upcoming)
   $: history = bookings.filter((booking) => !upcoming(booking))
+  $: joinedMatches = matches.filter(match => match.member_role !== 'organizer' && Date.parse(match.ends_at) > Date.now())
 
   function timeText(value: string, timezone?: string | null) {
     return new Date(value).toLocaleTimeString($locale || 'en', {
@@ -123,8 +125,8 @@
 
   {#if loading}
     <div class="space-y-2" aria-busy="true">
-      {#each [1,2,3] as _}
-        <div class="h-28 animate-pulse rounded-[18px] bg-surface-level-1"></div>
+      {#each [1,2] as _}
+        <div class="rounded-[18px] bg-surface p-5 space-y-3"><LoadingShape className="h-5 w-1/2" /><LoadingShape className="h-3 w-3/4" /><LoadingShape className="h-3 w-24" /></div>
       {/each}
     </div>
   {:else if error}
@@ -135,6 +137,23 @@
       </button>
     </div>
   {:else}
+    <div class="sports-summary">
+      <span><strong>{upcomingBookings.length}</strong>{ar ? 'حجوزاتك القادمة' : 'Your upcoming bookings'}</span>
+      <span><strong>{joinedMatches.length}</strong>{ar ? 'مباريات مشارك فيها' : 'Matches you joined'}</span>
+    </div>
+    {#if joinedMatches.length > 0}
+      <section class="mb-7" aria-labelledby="joined-matches-heading">
+        <h2 id="joined-matches-heading" class="mb-3 text-lg font-semibold text-text">{ar ? 'مبارياتك مع اللاعبين' : 'Matches you’re playing'}</h2>
+        <ul class="overflow-hidden rounded-[18px] bg-surface px-4">
+          {#each joinedMatches as match (match.match_id)}
+            <li><a href={`/bookings/${match.booking_id}`} class="uneem-list-row" aria-label={`${ar ? 'عرض المباراة' : 'View match'}: ${match.pitch_name}`}>
+              <div class="min-w-0 flex-1"><h3 class="break-words text-sm font-semibold text-text">{match.pitch_name}</h3><p class="mt-1 text-xs text-text-secondary">{dateText(match.starts_at, match.timezone)} · <span dir="ltr">{timeText(match.starts_at, match.timezone)}</span></p><p class="mt-1 text-xs font-semibold text-success">{match.member_role === 'reserved' ? (ar ? 'مكانك محجوز' : 'Your spot is reserved') : (ar ? 'أنت مشارك' : 'You’re playing')}</p></div>
+              <Icon name={ar ? 'chevron-left' : 'chevron-right'} size={18} className="text-text-muted shrink-0" />
+            </a></li>
+          {/each}
+        </ul>
+      </section>
+    {/if}
     <section>
       <h2 class="mb-3 text-lg font-bold text-text">{copy.upcoming}</h2>
 
@@ -216,3 +235,9 @@
     {/if}
   {/if}
 </main>
+
+<style>
+  .sports-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1px solid var(--border-light); }
+  .sports-summary span { display: grid; gap: 5px; color: var(--text-secondary); font-size: 12px; }
+  .sports-summary strong { color: var(--text); font-size: 28px; line-height: 1.2; font-weight: 650; }
+</style>

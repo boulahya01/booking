@@ -3,11 +3,11 @@ import { test, expect } from '@playwright/test'
 test('all students browse, see a persistent reminder and correct ID before approval', async ({ page }) => {
   const uid = '11111111-1111-4111-8111-111111111111'
   const pitchId = '44444444-4444-4444-8444-444444444444'
-  const user = { id: uid, aud: 'authenticated', role: 'authenticated', email: 'fixture@usmba.ac.ma', email_confirmed_at: new Date().toISOString(), app_metadata: { provider: 'email' }, user_metadata: {} }
+  const user = { id: uid, aud: 'authenticated', role: 'authenticated', email: 'fixture@example.com', email_confirmed_at: new Date().toISOString(), app_metadata: { provider: 'email' }, user_metadata: {} }
   const exp = Math.floor(Date.now() / 1000) + 3600
   const token = [{ alg: 'HS256', typ: 'JWT' }, { sub: uid, aud: 'authenticated', role: 'authenticated', exp }, 'fixture'].map(x => Buffer.from(typeof x === 'string' ? x : JSON.stringify(x)).toString('base64url')).join('.')
   const session = { access_token: token, refresh_token: 'fixture-refresh', expires_in: 3600, expires_at: exp, token_type: 'bearer', user }
-  const account = { user_id: uid, full_name: 'Yasmine El Amrani', username: 'yasmine', student_id: null as string | null, role: 'student', access_status: 'pending', email_kind: 'academic', identity_status: 'required', can_use_sports: false, needs_identity_action: true, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z' }
+  const account = { user_id: uid, full_name: 'Test User', username: 'test_user', student_id: null as string | null, role: 'student', access_status: 'pending', email_kind: 'academic', identity_status: 'required', can_use_sports: false, needs_identity_action: true, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z' }
   const facility = { id: pitchId, name: 'Main football pitch', location: 'University campus', capacity: 22, sport_type: 'football', open_time: '08:00', close_time: '22:00', timezone: 'Africa/Casablanca', booking_frequency_enabled: false, booking_frequency_days: 1 }
   const starts = new Date(Date.now() + 2 * 3600_000).toISOString()
   const ends = new Date(Date.now() + 3 * 3600_000).toISOString()
@@ -67,7 +67,7 @@ test('all students browse, see a persistent reminder and correct ID before appro
   await expect(page.getByRole('heading', { name: 'Open matches', exact: true })).toBeVisible()
   await expect(reminder).toBeVisible()
   await page.goto(`/pitch/${pitchId}`)
-  await expect(page.getByText('Available', { exact: true })).toBeVisible()
+  await expect(page.locator('article').getByRole('link', { name: 'Verify', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Book', exact: true })).toHaveCount(0)
   await page.getByRole('link', { name: 'Verify', exact: true }).last().click()
   await expect(page.getByRole('heading', { name: 'Verify your student ID' })).toBeVisible()

@@ -77,10 +77,19 @@ const expectedMigrationVersions = [
   '20260908041000',
   '20260908190000',
   '20260909185000',
-  '20260910030845'
+  '20260910030845',
+  '20261011002159'
 ]
 
 const failures = []
+
+// Project identifiers and real browser keys belong in deployment configuration.
+for (const path of ['.env.example', 'frontend/.env.example', 'frontend/src/lib/supabaseClient.ts']) {
+  const source = readFileSync(atRepo(path), 'utf8')
+  if (/https:\/\/[a-z]{20}\.supabase\.co|sb_publishable_[A-Za-z0-9_-]{20,}/.test(source)) {
+    failures.push(`environment-specific Supabase configuration remains in ${path}`)
+  }
+}
 
 for (const path of forbiddenPaths) {
   if (existsSync(atRepo(path))) failures.push(`legacy release surface still exists: ${path}`)

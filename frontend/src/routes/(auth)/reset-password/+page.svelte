@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { goto } from '$app/navigation'
+  import { goto, replaceState } from '$app/navigation'
   import { onMount } from 'svelte'
   import { supabase } from '$lib/supabaseClient'
   import { updatePasswordFromRecovery } from '$lib/auth'
@@ -60,7 +60,7 @@
   }
 
   function stripRecoveryUrl() {
-    if (typeof history !== 'undefined') history.replaceState({}, '', '/reset-password')
+    replaceState('/reset-password', {})
   }
 
   async function resolveRecoverySession() {

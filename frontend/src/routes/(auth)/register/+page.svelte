@@ -54,10 +54,10 @@
   $: copy = $language === 'ar'
     ? {
         emailTitle: 'إنشاء حساب', detailsTitle: 'معلوماتك', passwordTitle: 'اختر كلمة مرور',
-        email: 'البريد الإلكتروني', emailPlaceholder: 'mehdi@usmba.ac.ma', invalidEmail: 'أدخل بريداً صحيحاً.',
+        email: 'البريد الإلكتروني', emailPlaceholder: 'student@example.com', invalidEmail: 'أدخل بريداً صحيحاً.',
         universityEmail: 'بريد جامعي', universityAccess: 'التحقق من هوية الطالب مطلوب قبل الحجز', personalEmail: 'بريد شخصي', personalAccess: 'التحقق من هوية الطالب مطلوب قبل الحجز',
-        continue: 'متابعة', back: 'رجوع', fullName: 'الاسم الكامل', fullNamePlaceholder: 'Mehdi El Amrani', invalidName: 'اكتب اسماً من 2 إلى 120 حرفاً.',
-        username: 'اسم المستخدم', usernamePlaceholder: 'mehdi01', invalidUsername: '3–24 حرفاً أو رقماً أو _',
+        continue: 'متابعة', back: 'رجوع', fullName: 'الاسم الكامل', fullNamePlaceholder: 'Test User', invalidName: 'اكتب اسماً من 2 إلى 120 حرفاً.',
+        username: 'اسم المستخدم', usernamePlaceholder: 'test_user', invalidUsername: '3–24 حرفاً أو رقماً أو _',
         studentId: 'رقم الطالب (اختياري)', studentIdPlaceholder: 'S123', invalidStudentId: 'استخدم S متبوعاً بأرقام، مثل S123',
         password: 'كلمة المرور', passwordPlaceholder: '8 أحرف أو أكثر', confirmPassword: 'تأكيد كلمة المرور', confirmPlaceholder: 'أعد كتابة كلمة المرور',
         passwordRequired: 'أنشئ كلمة مرور.', mismatch: 'غير متطابقة',
@@ -65,10 +65,10 @@
       }
     : {
         emailTitle: 'Create account', detailsTitle: 'Your details', passwordTitle: 'Set password',
-        email: 'Email address', emailPlaceholder: 'mehdi@usmba.ac.ma', invalidEmail: 'Enter a valid email.',
+        email: 'Email address', emailPlaceholder: 'student@example.com', invalidEmail: 'Enter a valid email.',
         universityEmail: 'University email', universityAccess: 'ID approval required before booking', personalEmail: 'Personal email', personalAccess: 'ID approval required before booking',
-        continue: 'Continue', back: 'Back', fullName: 'Full name', fullNamePlaceholder: 'Mehdi El Amrani', invalidName: 'Use 2–120 characters for your name.',
-        username: 'Username', usernamePlaceholder: 'mehdi01', invalidUsername: '3–24 letters, numbers or _',
+        continue: 'Continue', back: 'Back', fullName: 'Full name', fullNamePlaceholder: 'Test User', invalidName: 'Use 2–120 characters for your name.',
+        username: 'Username', usernamePlaceholder: 'test_user', invalidUsername: '3–24 letters, numbers or _',
         studentId: 'Student ID (optional)', studentIdPlaceholder: 'S123', invalidStudentId: 'Use S followed by numbers, for example S123',
         password: 'Password', passwordPlaceholder: '8+ characters', confirmPassword: 'Confirm password', confirmPlaceholder: 'Repeat password',
         passwordRequired: 'Create a password.', mismatch: 'Doesn’t match',

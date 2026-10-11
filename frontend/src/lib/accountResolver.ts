@@ -97,7 +97,7 @@ export function resolveAccountRoute(ctx: ResolverContext): string | null {
 
   if (!hasSession) {
     if (authErrorPath) return '/login'
-    if (pathname === '/launch') return welcomeSeen ? '/login' : '/'
+    if (pathname === '/launch') return '/login'
     if (pathname === '/' && welcomeSeen) return '/login'
     if (authPath || publicPath) return null
     return '/login'
