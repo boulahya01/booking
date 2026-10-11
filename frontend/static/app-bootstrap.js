@@ -10,7 +10,7 @@
 
     const theme = localStorage.getItem('theme')
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    const useDark = theme === 'dark' || ((theme === 'auto' || !theme) && prefersDark)
+    const useDark = theme === 'dark' || (theme === 'auto' && prefersDark)
     root.classList.toggle('dark', useDark)
   } catch {
     // Defaults in app.html remain valid when storage is unavailable.

@@ -26,10 +26,12 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
 export const supabaseClient = supabase
 
 export type SocialProvider = 'google'
-let providerRequest: Promise<Record<SocialProvider, boolean>> | null = null
+// null means we could not reach Auth, not that Google is disabled.
+export type SocialProviders = Record<SocialProvider, boolean | null>
+let providerRequest: Promise<SocialProviders> | null = null
 
 // Public Auth configuration only. One non-blocking read shared by auth screens.
-export function getSocialProviders(): Promise<Record<SocialProvider, boolean>> {
+export function getSocialProviders(): Promise<SocialProviders> {
   if (providerRequest) return providerRequest
 
   providerRequest = fetch(`${supabaseUrl}/auth/v1/settings`, {
@@ -43,7 +45,7 @@ export function getSocialProviders(): Promise<Record<SocialProvider, boolean>> {
     })
     .catch(() => {
       providerRequest = null
-      return { google: false }
+      return { google: null }
     })
 
   return providerRequest

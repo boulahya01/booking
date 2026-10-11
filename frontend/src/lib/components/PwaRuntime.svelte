@@ -2,7 +2,6 @@
   import { onMount } from 'svelte'
   import { initPwaInstall } from '$lib/pwaInstall'
   import { initPwaUpdates } from '$lib/pwaUpdate'
-  import PwaUpdateNotice from './PwaUpdateNotice.svelte'
 
   onMount(() => {
     const stopInstall = initPwaInstall()
@@ -13,5 +12,3 @@
     }
   })
 </script>
-
-<PwaUpdateNotice />

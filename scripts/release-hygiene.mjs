@@ -96,16 +96,8 @@ for (const path of forbiddenPaths) {
 }
 
 const mockPath = 'frontend/src/lib/mock.ts'
-if (!existsSync(atRepo(mockPath))) {
-  failures.push(`${mockPath} is missing`)
-} else {
-  const mockSource = readFileSync(atRepo(mockPath), 'utf8')
-  if (!mockSource.includes('export const USE_MOCK = false as const')) {
-    failures.push('UI mock mode is not hard-disabled')
-  }
-  if (mockSource.includes('process.env.USE_MOCK')) {
-    failures.push('UI mock mode can still be enabled from the runtime environment')
-  }
+if (existsSync(atRepo(mockPath))) {
+  failures.push('legacy UI mock implementation remains in application source')
 }
 
 const gitignorePath = '.gitignore'

@@ -2,7 +2,6 @@
   import { onMount } from 'svelte'
   import { authState } from '$lib/stores/auth'
   import { _, locale } from 'svelte-i18n'
-  import { USE_MOCK } from '$lib/mock'
   import Icon from './Icon.svelte'
   import Button from './Button.svelte'
   import LoadingShape from './LoadingShape.svelte'
@@ -17,7 +16,6 @@
   $: isArabic = ($locale || 'en').startsWith('ar')
 
   onMount(() => {
-    if (USE_MOCK) { booking = null; loading = false; return }
     const unsubscribe = authState.subscribe((state) => {
       const userId = state.user?.id ?? null
       if (state.loading) {

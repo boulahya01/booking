@@ -56,7 +56,10 @@
     <section aria-labelledby="menu-admin"><h2 id="menu-admin">{ar ? 'الإدارة' : 'Administration'}</h2><div class="menu-group"><a href="/admin" class="menu-row"><span class="menu-icon"><Icon name="shield" size={20}/></span><span class="menu-row-label">{ar ? 'لوحة الإدارة' : 'Admin workspace'}</span><Icon name={ar ? 'chevron-left' : 'chevron-right'} size={17}/></a></div></section>
   {/if}
   <PwaInstallCard alwaysVisible />
-  {#if $pwaUpdateState.available}<Button variant="secondary" fullWidth loading={$pwaUpdateState.applying} on:click={() => void applyPwaUpdate()}><Icon name="refresh-cw" size={18}/>{ar ? 'تحديث UNEEM' : 'Update UNEEM'}</Button>{/if}
+  {#if $pwaUpdateState.available}
+    <Button variant="secondary" fullWidth loading={$pwaUpdateState.applying} on:click={() => void applyPwaUpdate()}><Icon name="refresh-cw" size={18}/>{ar ? 'تحديث UNEEM' : 'Update UNEEM'}</Button>
+    {#if $pwaUpdateState.error}<p role="alert" class="text-sm text-danger">{ar ? 'تعذر التحديث. تحقق من اتصالك وحاول مجدداً.' : 'Couldn’t update. Check your connection and try again.'}</p>{/if}
+  {/if}
   <ActionLink href="/logout" variant="secondary" fullWidth><Icon name="log-out" size={18}/>{ar ? 'تسجيل الخروج' : 'Sign out'}</ActionLink>
   <section class="menu-brand" aria-label={ar ? 'عن UNEM Sports' : 'About UNEM Sports'}>
     <img src="/assets/brand/torch-original.webp" width="757" height="2078" loading="lazy" decoding="async" alt={ar ? 'الشعلة الأصلية بكتابتها العربية' : 'Original torch with Arabic calligraphy'} />

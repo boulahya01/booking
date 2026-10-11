@@ -8,7 +8,6 @@
   import LoadingShape from '$lib/components/LoadingShape.svelte'
   import Icon from '$lib/components/Icon.svelte'
   import { _, locale } from 'svelte-i18n'
-  import { USE_MOCK, mockPitches } from '$lib/mock'
   import { authState } from '$lib/stores/auth'
   import { logger } from '$lib/logger'
   import { listActiveFacilities, type FacilitySummary } from '$lib/facilityApi'
@@ -37,7 +36,7 @@
     pitchesLoading = !pitchesLoaded
     pitchesError = false
     try {
-      const next = USE_MOCK ? mockPitches as FacilitySummary[] : await listActiveFacilities(force)
+      const next = await listActiveFacilities(force)
       if (!disposed) { pitches = next; pitchesLoaded = true }
     } catch (error) {
       logger.error('[Home Page] Failed to load pitches:', error)

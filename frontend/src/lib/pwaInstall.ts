@@ -30,7 +30,8 @@ function isStandalone(): boolean {
 }
 
 function isIosWeb(): boolean {
-  return /iphone|ipad|ipod/i.test(navigator.userAgent) && !isStandalone()
+  const ipadDesktopMode = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1
+  return (/iphone|ipad|ipod/i.test(navigator.userAgent) || ipadDesktopMode) && !isStandalone()
 }
 
 export function initPwaInstall(): () => void {

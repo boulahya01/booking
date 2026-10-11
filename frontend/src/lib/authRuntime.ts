@@ -9,12 +9,10 @@ import {
 } from '$lib/authRecovery'
 import { supabase } from '$lib/supabaseClient'
 import { authState, type User } from '$lib/stores/auth'
-import { getMyAccountState, getUserProfile } from '$lib/auth'
 import { registerAuthBootstrapRetry } from '$lib/authBootstrap'
 import { getMySessionContext } from '$lib/sessionApi'
 import { clearRequestCache } from '$lib/requestCache'
 import { beginLoading } from '$lib/stores/loading'
-import { USE_MOCK } from '$lib/mock'
 
 export function initAuthRuntime(): () => void {
   if (typeof window === 'undefined') return () => undefined
@@ -39,17 +37,15 @@ export function initAuthRuntime(): () => void {
 
   restorePasswordRecovery()
 
-  if (!USE_MOCK) {
-    const { data: earlyRecoveryListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY' && session?.user) {
-        markPasswordRecovery(session)
-      } else if (event === 'SIGNED_OUT') {
-        clearPasswordRecovery()
-        setCacheIdentity(null)
-      }
-    })
-    unsubEarlyRecovery = () => earlyRecoveryListener.subscription.unsubscribe()
-  }
+  const { data: earlyRecoveryListener } = supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'PASSWORD_RECOVERY' && session?.user) {
+      markPasswordRecovery(session)
+    } else if (event === 'SIGNED_OUT') {
+      clearPasswordRecovery()
+      setCacheIdentity(null)
+    }
+  })
+  unsubEarlyRecovery = () => earlyRecoveryListener.subscription.unsubscribe()
 
   async function applySession(session: any) {
     if (!session?.user) {
@@ -112,92 +108,54 @@ export function initAuthRuntime(): () => void {
     }
   }
 
-  const stopBootstrapRetry = USE_MOCK
-    ? () => undefined
-    : registerAuthBootstrapRetry(syncSession)
+  const stopBootstrapRetry = registerAuthBootstrapRetry(syncSession)
 
-  if (USE_MOCK) {
-    clearPasswordRecovery()
-    const stored = localStorage.getItem('mock_auth_user')
-    if (stored) {
-      try {
-        const user = JSON.parse(stored)
-        markWelcomeSeen()
-        setCacheIdentity(user.id || null)
-        void Promise.all([
-          getUserProfile(user.id),
-          getMyAccountState()
-        ]).then(([profile, account]) => {
-          if (!profile || !account) {
-            authState.setBootstrapError({ id: user.id, email: user.email }, 'profile_not_found')
-            return
-          }
-          authState.setSessionContext({
-            id: profile.id,
-            email: user.email,
-            username: profile.username,
-            student_id: profile.student_id,
-            full_name: profile.full_name,
-            role: profile.role === 'admin' ? 'admin' : 'user',
-            status: profile.status
-          }, account)
-        }).catch(() => authState.setBootstrapError({ id: user.id, email: user.email }, 'database_error'))
-      } catch {
-        setCacheIdentity(null)
-        authState.clear()
-      }
-    } else {
+  const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT') {
       setCacheIdentity(null)
+      clearPasswordRecovery()
       authState.clear()
+      return
     }
-  } else {
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT') {
-        setCacheIdentity(null)
-        clearPasswordRecovery()
-        authState.clear()
-        return
+
+    if (event === 'PASSWORD_RECOVERY' && session?.user) {
+      markPasswordRecovery(session)
+      markWelcomeSeen()
+      if (!processingAuth) {
+        processingAuth = true
+        const stopBootstrapLoading = beginLoading('bootstrap')
+        authState.setLoading(true)
+        void applySession(session).finally(() => {
+          processingAuth = false
+          authState.setLoading(false)
+          stopBootstrapLoading()
+        })
       }
+      return
+    }
 
-      if (event === 'PASSWORD_RECOVERY' && session?.user) {
-        markPasswordRecovery(session)
-        markWelcomeSeen()
-        if (!processingAuth) {
-          processingAuth = true
-          const stopBootstrapLoading = beginLoading('bootstrap')
-          authState.setLoading(true)
-          void applySession(session).finally(() => {
-            processingAuth = false
-            authState.setLoading(false)
-            stopBootstrapLoading()
-          })
-        }
-        return
+    if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+      markWelcomeSeen()
+      restorePasswordRecovery(session.user.id)
+
+      const currentAuth = get(authState)
+      if (event === 'SIGNED_IN' && get(page).url.pathname === '/login' && currentAuth.loading) return
+
+      if (!processingAuth) {
+        processingAuth = true
+        const stopBootstrapLoading = beginLoading('bootstrap')
+        authState.setLoading(currentAuth.user?.id !== session.user.id)
+        void applySession(session).finally(() => {
+          processingAuth = false
+          authState.setLoading(false)
+          stopBootstrapLoading()
+        })
       }
+    }
+  })
 
-      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
-        markWelcomeSeen()
-        restorePasswordRecovery(session.user.id)
-
-        const currentAuth = get(authState)
-        if (event === 'SIGNED_IN' && get(page).url.pathname === '/login' && currentAuth.loading) return
-
-        if (!processingAuth) {
-          processingAuth = true
-          const stopBootstrapLoading = beginLoading('bootstrap')
-          authState.setLoading(currentAuth.user?.id !== session.user.id)
-          void applySession(session).finally(() => {
-            processingAuth = false
-            authState.setLoading(false)
-            stopBootstrapLoading()
-          })
-        }
-      }
-    })
-
-    unsubAuth = () => authListener?.subscription?.unsubscribe()
-    void syncSession()
-  }
+  unsubAuth = () => authListener?.subscription?.unsubscribe()
+  void syncSession()
 
   return () => {
     unsubAuth?.()
