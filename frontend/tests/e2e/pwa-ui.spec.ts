@@ -9,6 +9,7 @@ test('a fresh device uses light mode even when the OS prefers dark', async ({ pa
   await page.goto('/login')
   await expect(page.getByRole('button', { name: 'Continue with Google', exact: true })).toBeEnabled()
   await expect(page.locator('html')).not.toHaveClass(/dark/)
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#f5f5f7')
   await expect.poll(() => page.evaluate(() => localStorage.getItem('theme'))).toBe('light')
 })
 
@@ -16,6 +17,7 @@ test('an explicitly saved dark preference is retained', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('theme', 'dark'))
   await page.goto('/login')
   await expect(page.locator('html')).toHaveClass(/dark/)
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#101113')
 })
 
 test('update notice stays above the form and can be dismissed without reloading', async ({ page }) => {

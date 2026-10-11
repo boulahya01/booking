@@ -120,6 +120,7 @@
     if (!browser) return
     const isDark = t === 'dark' || (t === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)
     document.documentElement.classList.toggle('dark', isDark)
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', isDark ? '#101113' : '#f5f5f7')
   }
 
   $: if (browser) applyTheme($theme)
