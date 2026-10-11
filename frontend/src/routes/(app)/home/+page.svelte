@@ -3,6 +3,10 @@
   import PitchCard from '$lib/components/PitchCard.svelte'
   import NextBookingCard from '$lib/components/NextBookingCard.svelte'
   import SegmentedControl from '$lib/components/SegmentedControl.svelte'
+  import Button from '$lib/components/Button.svelte'
+  import HomeMatches from '$lib/components/HomeMatches.svelte'
+  import LoadingShape from '$lib/components/LoadingShape.svelte'
+  import Icon from '$lib/components/Icon.svelte'
   import { _, locale } from 'svelte-i18n'
   import { USE_MOCK, mockPitches } from '$lib/mock'
   import { authState } from '$lib/stores/auth'
@@ -12,96 +16,107 @@
   let pitches: FacilitySummary[] = []
   let pitchesLoading = true
   let pitchesError = false
+  let pitchesLoaded = false
+  let refreshing = false
   let selectedSport = 'all'
-
+  let disposed = false
   $: sports = Array.from(new Set(pitches.map((pitch) => String(pitch.sport_type || '').trim().toLowerCase()).filter(Boolean))).sort()
   $: filteredPitches = selectedSport === 'all' ? pitches : pitches.filter((pitch) => String(pitch.sport_type || '').trim().toLowerCase() === selectedSport)
   $: firstName = $authState.user?.full_name?.trim().split(/\s+/)[0] || ''
   $: isArabic = ($locale || 'en').startsWith('ar')
-  $: sportOptions = [
-    { value: 'all', label: isArabic ? 'الكل' : 'All' },
-    ...sports.map((sport) => ({ value: sport, label: sportLabel(sport) }))
-  ]
+  $: sportOptions = [{ value: 'all', label: isArabic ? 'الكل' : 'All' }, ...sports.map((sport) => ({ value: sport, label: sportLabel(sport, isArabic) }))]
 
-  function sportLabel(value: string) {
-    if (!isArabic) return value.charAt(0).toUpperCase() + value.slice(1)
-    if (value === 'football') return 'كرة القدم'
-    if (value === 'basketball') return 'كرة السلة'
-    if (value === 'volleyball') return 'الكرة الطائرة'
-    if (value === 'tennis') return 'التنس'
-    return value
+  function sportLabel(value: string, ar: boolean) {
+    if (!ar) return value.charAt(0).toUpperCase() + value.slice(1)
+    return ({ football: 'كرة القدم', basketball: 'كرة السلة', volleyball: 'الكرة الطائرة', tennis: 'التنس' } as Record<string, string>)[value] || value
   }
 
   async function fetchPitches(force = false) {
-    pitchesLoading = pitches.length === 0
+    if (refreshing) return
+    refreshing = true
+    pitchesLoading = !pitchesLoaded
     pitchesError = false
-
-    if (USE_MOCK) {
-      pitches = mockPitches as FacilitySummary[]
-      pitchesLoading = false
-      return
-    }
-
     try {
-      pitches = await listActiveFacilities(force)
+      const next = USE_MOCK ? mockPitches as FacilitySummary[] : await listActiveFacilities(force)
+      if (!disposed) { pitches = next; pitchesLoaded = true }
     } catch (error) {
       logger.error('[Home Page] Failed to load pitches:', error)
-      pitchesError = true
+      if (!disposed) pitchesError = true
     } finally {
-      pitchesLoading = false
+      if (!disposed) { pitchesLoading = false; refreshing = false }
     }
   }
 
-  onMount(() => void fetchPitches())
+  onMount(() => { void fetchPitches(); return () => { disposed = true } })
 </script>
 
-<svelte:head><title>UNEEM</title></svelte:head>
+<svelte:head><title>{isArabic ? 'الرئيسية' : 'Home'} · UNEEM</title></svelte:head>
 
-<main class="uneem-page-narrow">
-  <header class="mb-6">
-    {#if firstName}<p class="text-sm font-semibold text-text-secondary">{isArabic ? `مرحباً ${firstName}` : `Hi ${firstName}`}</p>{/if}
-    <h1 class="uneem-title">{isArabic ? 'العب اليوم' : 'Play today'}</h1>
+<main class="uneem-page home-page">
+  <header class="home-header">
+    <div class="min-w-0">
+      {#if firstName}<p class="home-greeting">{isArabic ? `مرحباً ${firstName}` : `Hi ${firstName}`}</p>{/if}
+      <h1 class="uneem-title">{isArabic ? 'العب اليوم' : 'Play today'}</h1>
+    </div>
   </header>
 
   <NextBookingCard />
 
-  <section aria-labelledby="facilities-heading" class="mt-7">
-    <div class="mb-3 flex items-center justify-between gap-3">
-      <h2 id="facilities-heading" class="text-lg font-bold tracking-[-0.02em] text-text">{isArabic ? 'المرافق' : 'Facilities'}</h2>
+  <section id="facilities" aria-labelledby="facilities-heading">
+    <div class="facilities-heading">
+      <h2 id="facilities-heading">{isArabic ? 'المرافق' : 'Facilities'}</h2>
+      <button type="button" class="uneem-icon-button" disabled={refreshing} aria-busy={refreshing} aria-label={isArabic ? 'تحديث المرافق' : 'Refresh facilities'} on:click={() => void fetchPitches(true)}>
+        <Icon name="refresh-cw" size={18} className={refreshing ? 'animate-spin' : ''} />
+      </button>
     </div>
-
     {#if sports.length > 1}
-      <div class="-mx-4 mb-4 px-4 sm:mx-0 sm:px-0">
-        <SegmentedControl
-          options={sportOptions}
-          value={selectedSport}
-          ariaLabel={isArabic ? 'تصفية حسب الرياضة' : 'Filter by sport'}
-          scrollable
-          onChange={(value) => (selectedSport = value)}
-        />
+      <div class="sport-filter">
+        <SegmentedControl options={sportOptions} value={selectedSport} ariaLabel={isArabic ? 'تصفية حسب الرياضة' : 'Filter by sport'} scrollable onChange={(value) => (selectedSport = value)} />
       </div>
     {/if}
-
+    {#if pitchesError}
+      <div class="facilities-error" role="alert">
+        <p>{isArabic ? 'تعذر تحميل المرافق' : 'Couldn’t load facilities'}</p>
+        <Button variant="secondary" size="sm" on:click={() => void fetchPitches(true)}>{$_('common.retry')}</Button>
+      </div>
+    {/if}
     {#if pitchesLoading}
-      <div class="space-y-2" aria-busy="true" aria-label={$_('common.loading')}>
-        {#each Array(3) as _}<div class="h-20 animate-pulse rounded-[18px] bg-surface-level-1"></div>{/each}
+      <div class="facilities-grid" aria-busy="true" aria-label={$_('common.loading')}>
+        {#each [1, 2] as _}
+          <div class="facility-skeleton" aria-hidden="true">
+            <div class="flex items-center gap-4"><LoadingShape className="h-12 w-12 rounded-xl" /><div class="flex-1 space-y-3"><LoadingShape className="h-4 w-3/4" /><LoadingShape className="h-3 w-1/2" /></div></div>
+            <div class="flex items-center justify-between gap-4"><LoadingShape className="h-3 w-24" /><LoadingShape className="h-3 w-20" /></div>
+          </div>
+        {/each}
       </div>
-    {:else if pitchesError}
-      <div class="flex items-center justify-between gap-3 py-4" role="alert">
-        <p class="text-sm font-semibold text-danger">{isArabic ? 'تعذر تحميل المرافق' : 'Couldn’t load facilities'}</p>
-        <button type="button" on:click={() => void fetchPitches(true)} class="min-h-10 text-sm font-bold text-primary">{$_('common.retry')}</button>
+    {:else if pitches.length === 0 && !pitchesError}
+      <div class="facilities-empty"><Icon name="map-pin" size={28} /><p>{isArabic ? 'لا توجد مرافق حالياً' : 'No facilities yet'}</p></div>
+    {:else if pitches.length > 0 && filteredPitches.length === 0}
+      <div class="facilities-empty">
+        <Icon name="search" size={28} /><p>{isArabic ? 'لا توجد مرافق لهذه الرياضة' : 'No facility for this sport'}</p>
+        <Button variant="secondary" on:click={() => (selectedSport = 'all')}>{isArabic ? 'عرض الكل' : 'Show all'}</Button>
       </div>
-    {:else if pitches.length === 0}
-      <div class="uneem-empty"><p class="font-semibold text-text-muted">{isArabic ? 'لا توجد مرافق حالياً' : 'No facilities yet'}</p></div>
-    {:else if filteredPitches.length === 0}
-      <div class="uneem-empty">
-        <p class="font-semibold text-text-muted">{isArabic ? 'لا توجد مرافق لهذه الرياضة' : 'No facility for this sport'}</p>
-        <button type="button" on:click={() => (selectedSport = 'all')} class="mt-2 min-h-10 text-sm font-bold text-primary">{isArabic ? 'عرض الكل' : 'Show all'}</button>
-      </div>
-    {:else}
-      <div class="space-y-2">
+    {:else if filteredPitches.length > 0}
+      <div class="facilities-grid" aria-busy={refreshing}>
         {#each filteredPitches as pitch (pitch.id)}<PitchCard {pitch} />{/each}
       </div>
     {/if}
   </section>
+  <HomeMatches />
 </main>
+
+<style>
+  .home-page { max-width: 64rem; }
+  .home-header { margin-bottom: 24px; }
+  .home-greeting { margin-bottom: 6px; color: var(--text-secondary); font-size: 14px; font-weight: 550; }
+  .facilities-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+  .facilities-heading h2 { font-size: 22px; font-weight: 650; letter-spacing: -.025em; }
+  .sport-filter { margin-bottom: 20px; }
+  .facilities-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .facility-skeleton { display: flex; min-height: 156px; flex-direction: column; justify-content: space-between; gap: 20px; padding: 18px; border-radius: var(--radius-lg); background: var(--surface); }
+  .facilities-error { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; padding: 16px; border-radius: var(--radius-lg); background: var(--danger-light); }
+  .facilities-error p { flex: 1 1 180px; color: var(--danger); font-size: 14px; }
+  .facilities-empty { display: flex; align-items: center; flex-direction: column; gap: 16px; padding: 48px 16px; color: var(--text-secondary); text-align: center; }
+  .facilities-empty p { color: var(--text); font-size: 16px; font-weight: 550; }
+  @media (min-width: 640px) { .facilities-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; } }
+</style>

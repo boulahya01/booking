@@ -11,7 +11,7 @@ This document is the operational Auth contract for the fresh V2 Supabase project
 - New-user signup enabled only while launch registration is intentionally open.
 - Application auth flow uses Supabase PKCE.
 - Academic-email confirmation proves affiliation only; it does not verify Student ID ownership.
-- Personal-email accounts remain restricted by the PostgreSQL identity/access contract until student-card verification is approved.
+- Every student can browse after email confirmation. Booking and participation require approved student-card verification for both academic and personal email accounts (layer 060).
 
 ## Configuration as code
 
@@ -20,7 +20,7 @@ This document is the operational Auth contract for the fresh V2 Supabase project
 From a linked checkout of the exact release branch, apply the reviewed configuration with:
 
 ```bash
-supabase config push --project-ref bjofwkuazyvguqankcnl
+supabase config push --project-ref PROJECT_REF
 ```
 
 A successful command is evidence that the CLI accepted and pushed the local configuration; it is not by itself evidence that confirmation/recovery delivery works. Verify the hosted Auth settings and execute the email flows after every material Auth configuration change.
@@ -84,13 +84,12 @@ Never expose service-role, secret-key, database-owner, SMTP, or Management API c
 
 ## Production email transport
 
-The built-in Supabase sender is development-only and is not the UNEEM launch transport. Before launch configure a UNEEM-controlled custom SMTP sender, verify its domain authentication, disable provider link tracking/rewriting, and test delivery to real non-team addresses.
+Supabase Auth owns tokens and the authentication lifecycle. The configured delivery infrastructure is Resend custom SMTP.
 
-Target sender identity remains:
+Sender: `UNEM Sports <auth@uneem.site>`; domain: `uneem.site`.
+Keep link/open tracking off and SMTP/API credentials outside Git. Hosted templates for confirmation, recovery, email change, magic link, reauthentication and account-security notifications must remain aligned with the production configuration; do not overwrite them with older local templates.
 
-`UNEEM <no-reply@auth.uneem.site>`
-
-If the final provider requires a different verified sender during setup, do not silently change the product contract; record and review the exact sender used for launch testing.
+The remaining release evidence must cover real password recovery, both email-change confirmations, and provider linking/removal. Local intercepted tests do not prove mailbox delivery or hosted provider configuration.
 
 ## Launch smoke tests
 
@@ -98,11 +97,11 @@ Academic path:
 1. Sign up with a new `@usmba.ac.ma` address and no Student ID.
 2. Confirm the email from the received link.
 3. Verify a Supabase session is created and `get_my_session_context()` resolves exactly one profile.
-4. Verify academic confirmation grants sports access according to the DB contract.
+4. Verify academic confirmation permits browsing, while booking/join RPCs remain blocked until ID approval.
 5. Sign out and sign in with the password.
 
 Personal path:
-1. Sign up with personal email + Student ID claim.
+1. Sign up with personal email, optionally supplying an S/s + digits Student ID claim.
 2. Confirm email.
 3. Verify the account remains restricted from sports.
 4. Submit student-card verification and approve through the admin workflow.

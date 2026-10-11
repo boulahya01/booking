@@ -40,7 +40,7 @@
   $: cleanUsername = username.trim().toLowerCase()
   $: usernameValid = isValidUsername(cleanUsername)
   $: cleanStudentId = sanitizeStudentId(studentId)
-  $: studentIdValid = academic || isValidStudentId(cleanStudentId)
+  $: studentIdValid = !cleanStudentId || isValidStudentId(cleanStudentId)
   $: passwordValid = isValidPassword(password) && password.length <= 128
   $: confirmValid = confirmPassword.length > 0 && confirmPassword === password
 
@@ -54,22 +54,22 @@
   $: copy = $language === 'ar'
     ? {
         emailTitle: 'إنشاء حساب', detailsTitle: 'معلوماتك', passwordTitle: 'اختر كلمة مرور',
-        email: 'البريد الإلكتروني', emailPlaceholder: 'mehdi@usmba.ac.ma', invalidEmail: 'أدخل بريداً صحيحاً.',
-        universityEmail: 'بريد جامعي', universityAccess: 'يمكنك الحجز بعد تأكيد البريد', personalEmail: 'بريد شخصي', personalAccess: 'بطاقة الطالب مطلوبة قبل الحجز',
-        continue: 'متابعة', back: 'رجوع', fullName: 'الاسم الكامل', fullNamePlaceholder: 'Mehdi El Amrani', invalidName: 'اكتب اسماً من 2 إلى 120 حرفاً.',
-        username: 'اسم المستخدم', usernamePlaceholder: 'mehdi01', invalidUsername: '3–24 حرفاً أو رقماً أو _',
-        studentId: 'رقم الطالب', studentIdPlaceholder: 'S123456789', invalidStudentId: 'حرف واحد + 9 أرقام فقط',
+        email: 'البريد الإلكتروني', emailPlaceholder: 'student@example.com', invalidEmail: 'أدخل بريداً صحيحاً.',
+        universityEmail: 'بريد جامعي', universityAccess: 'التحقق من هوية الطالب مطلوب قبل الحجز', personalEmail: 'بريد شخصي', personalAccess: 'التحقق من هوية الطالب مطلوب قبل الحجز',
+        continue: 'متابعة', back: 'رجوع', fullName: 'الاسم الكامل', fullNamePlaceholder: 'Test User', invalidName: 'اكتب اسماً من 2 إلى 120 حرفاً.',
+        username: 'اسم المستخدم', usernamePlaceholder: 'test_user', invalidUsername: '3–24 حرفاً أو رقماً أو _',
+        studentId: 'رقم الطالب (اختياري)', studentIdPlaceholder: 'S123', invalidStudentId: 'استخدم S متبوعاً بأرقام، مثل S123',
         password: 'كلمة المرور', passwordPlaceholder: '8 أحرف أو أكثر', confirmPassword: 'تأكيد كلمة المرور', confirmPlaceholder: 'أعد كتابة كلمة المرور',
         passwordRequired: 'أنشئ كلمة مرور.', mismatch: 'غير متطابقة',
         ruleLength: '8 أحرف على الأقل', ruleAlternative: 'رقم أو رمز واحد', create: 'إنشاء الحساب', haveAccount: 'لديك حساب؟', signIn: 'تسجيل الدخول', help: 'تحتاج مساعدة؟'
       }
     : {
         emailTitle: 'Create account', detailsTitle: 'Your details', passwordTitle: 'Set password',
-        email: 'Email address', emailPlaceholder: 'mehdi@usmba.ac.ma', invalidEmail: 'Enter a valid email.',
-        universityEmail: 'University email', universityAccess: 'Book after confirming your email', personalEmail: 'Personal email', personalAccess: 'Student card required before booking',
-        continue: 'Continue', back: 'Back', fullName: 'Full name', fullNamePlaceholder: 'Mehdi El Amrani', invalidName: 'Use 2–120 characters for your name.',
-        username: 'Username', usernamePlaceholder: 'mehdi01', invalidUsername: '3–24 letters, numbers or _',
-        studentId: 'Student ID', studentIdPlaceholder: 'S123456789', invalidStudentId: 'Use exactly 1 letter + 9 digits',
+        email: 'Email address', emailPlaceholder: 'student@example.com', invalidEmail: 'Enter a valid email.',
+        universityEmail: 'University email', universityAccess: 'ID approval required before booking', personalEmail: 'Personal email', personalAccess: 'ID approval required before booking',
+        continue: 'Continue', back: 'Back', fullName: 'Full name', fullNamePlaceholder: 'Test User', invalidName: 'Use 2–120 characters for your name.',
+        username: 'Username', usernamePlaceholder: 'test_user', invalidUsername: '3–24 letters, numbers or _',
+        studentId: 'Student ID (optional)', studentIdPlaceholder: 'S123', invalidStudentId: 'Use S followed by numbers, for example S123',
         password: 'Password', passwordPlaceholder: '8+ characters', confirmPassword: 'Confirm password', confirmPlaceholder: 'Repeat password',
         passwordRequired: 'Create a password.', mismatch: 'Doesn’t match',
         ruleLength: '8 characters minimum', ruleAlternative: '1 number or symbol', create: 'Create account', haveAccount: 'Already have an account?', signIn: 'Sign in', help: 'Need help?'
@@ -138,7 +138,7 @@
     detailsAttempted = true
     fullName = cleanName
     username = cleanUsername
-    if (!academic) studentId = cleanStudentId
+    studentId = cleanStudentId
     if (!fullNameValid || !usernameValid || !studentIdValid) return
     step = 'password'
   }
@@ -156,7 +156,7 @@
 
     loading = true
     try {
-      const result = await register(cleanEmail, password, academic ? null : cleanStudentId, cleanName, cleanUsername)
+      const result = await register(cleanEmail, password, cleanStudentId || null, cleanName, cleanUsername)
       if (result.error) {
         if (result.error.kind === 'username_taken') {
           step = 'details'
@@ -201,47 +201,45 @@
         <span class={`h-1 flex-1 rounded-full ${step === 'password' ? 'bg-primary' : 'bg-surface-level-2'}`}></span>
       </div>
 
-      <div class="relative text-center">
+      <div class="flex items-center gap-3">
         {#if step !== 'email'}
-          <button type="button" on:click={goBack} class="absolute start-0 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-text-secondary transition-colors hover:bg-surface-level-1 hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/25" aria-label={copy.back}>
+          <button type="button" on:click={goBack} class="uneem-icon-button shrink-0 bg-surface" aria-label={copy.back}>
             <Icon name={$language === 'ar' ? 'arrow-right' : 'arrow-left'} size={18} />
           </button>
         {/if}
-        <h1 class="text-[30px] font-semibold tracking-[-0.035em] text-text">{title}</h1>
+        <h1 class="auth-title">{title}</h1>
       </div>
     </div>
 
     {#if submitError}
-      <div class="mb-5 rounded-[18px] border border-danger/15 bg-danger-light px-4 py-3 text-danger" role="alert">
+      <div class="mb-5 rounded-[18px] bg-danger-light px-4 py-3 text-danger" role="alert">
         <div class="flex items-start gap-3"><Icon name="alert-circle" size={19} className="mt-0.5 shrink-0" /><p class="text-sm font-medium leading-6">{submitError}</p></div>
       </div>
     {/if}
 
     {#if step === 'email'}
       <form on:submit|preventDefault={continueFromEmail} class="space-y-5">
-        <TextField ariaLabel={copy.email} type="email" placeholder={copy.emailPlaceholder} icon="mail" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck={false} maxlength={254} bind:value={email} validation={emailState} error={emailFieldError} hint={emailHint} disabled={loading} on:input={handleEmailInput} />
+        <TextField label={copy.email} type="email" placeholder={copy.emailPlaceholder} autocomplete="email" inputmode="email" autocapitalize="none" spellcheck={false} maxlength={254} bind:value={email} validation={emailState} error={emailFieldError} hint={emailHint} disabled={loading} on:input={handleEmailInput} />
         <Button type="submit" variant="primary" size="lg" className="w-full" disabled={loading}>{copy.continue}</Button>
       </form>
     {:else if step === 'details'}
-      <div class="mb-5 flex items-center gap-3 rounded-[18px] border border-border/70 bg-surface-level-1 px-4 py-3.5">
-        <span class={`h-2.5 w-2.5 shrink-0 rounded-full ${academic ? 'bg-success' : 'bg-warning'}`}></span>
+      <div class="mb-5 flex items-center gap-3 rounded-[18px] bg-surface-level-1 px-4 py-3.5">
+        <span class={`h-2.5 w-2.5 shrink-0 rounded-full bg-warning`}></span>
         <div class="min-w-0"><p class="text-sm font-semibold text-text">{academic ? copy.universityEmail : copy.personalEmail}</p><p class="mt-0.5 text-xs text-text-muted">{academic ? copy.universityAccess : copy.personalAccess}</p></div>
       </div>
       <form on:submit|preventDefault={continueFromDetails} class="space-y-4">
-        <TextField ariaLabel={copy.fullName} placeholder={copy.fullNamePlaceholder} icon="user" autocomplete="name" maxlength={120} bind:value={fullName} validation={nameState} hint={nameState === 'invalid' ? copy.invalidName : ''} disabled={loading} />
-        <TextField ariaLabel={copy.username} placeholder={copy.usernamePlaceholder} icon="users" autocomplete="username" autocapitalize="none" spellcheck={false} maxlength={24} bind:value={username} validation={usernameState} hint={usernameHint} disabled={loading} on:input={handleUsernameInput} />
-        {#if !academic}
-          <TextField ariaLabel={copy.studentId} placeholder={copy.studentIdPlaceholder} icon="id-card" autocapitalize="characters" spellcheck={false} maxlength={20} bind:value={studentId} validation={studentIdState} hint={studentIdState === 'invalid' ? copy.invalidStudentId : ''} disabled={loading} />
-        {/if}
+        <TextField label={copy.fullName} placeholder={copy.fullNamePlaceholder} autocomplete="name" maxlength={120} bind:value={fullName} validation={nameState} hint={nameState === 'invalid' ? copy.invalidName : ''} disabled={loading} />
+        <TextField label={copy.username} placeholder={copy.usernamePlaceholder} autocomplete="username" autocapitalize="none" spellcheck={false} maxlength={24} bind:value={username} validation={usernameState} hint={usernameHint} disabled={loading} on:input={handleUsernameInput} />
+        <TextField label={copy.studentId} placeholder={copy.studentIdPlaceholder} autocapitalize="characters" spellcheck={false} maxlength={50} bind:value={studentId} validation={studentIdState} hint={studentIdState === 'invalid' ? copy.invalidStudentId : ''} disabled={loading} />
         <Button type="submit" variant="primary" size="lg" className="mt-2 w-full" disabled={loading}>{copy.continue}</Button>
       </form>
     {:else}
       <form on:submit|preventDefault={submit} class="space-y-4">
-        <TextField ariaLabel={copy.password} type="password" placeholder={copy.passwordPlaceholder} icon="lock" autocomplete="new-password" maxlength={128} bind:value={password} validation={passwordState} error={passwordFieldError} hint={passwordState === 'invalid' && passwordAttempted && !password.length ? copy.passwordRequired : ''} disabled={loading} on:input={handlePasswordInput} />
+        <TextField label={copy.password} type="password" placeholder={copy.passwordPlaceholder} autocomplete="new-password" maxlength={128} bind:value={password} validation={passwordState} error={passwordFieldError} hint={passwordState === 'invalid' && passwordAttempted && !password.length ? copy.passwordRequired : ''} disabled={loading} on:input={handlePasswordInput} />
 
         <PasswordRequirements password={password} lengthLabel={copy.ruleLength} numberOrSymbolLabel={copy.ruleAlternative} />
 
-        <TextField ariaLabel={copy.confirmPassword} type="password" placeholder={copy.confirmPlaceholder} icon="lock" autocomplete="new-password" maxlength={128} bind:value={confirmPassword} validation={confirmState} hint={confirmState === 'invalid' ? copy.mismatch : ''} disabled={loading} />
+        <TextField label={copy.confirmPassword} type="password" placeholder={copy.confirmPlaceholder} autocomplete="new-password" maxlength={128} bind:value={confirmPassword} validation={confirmState} hint={confirmState === 'invalid' ? copy.mismatch : ''} disabled={loading} />
         <Button type="submit" variant="primary" size="lg" {loading} className="mt-2 w-full" disabled={loading}>{copy.create}</Button>
       </form>
     {/if}

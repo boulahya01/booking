@@ -17,6 +17,7 @@ const UPDATE_CHECK_INTERVAL = 6 * 60 * 60 * 1000
 let registration: ServiceWorkerRegistration | null = null
 let initialized = false
 let reloading = false
+let reloadAfterApply = false
 let lastUpdateCheck = 0
 let idleHandle: number | null = null
 let idleHandleUsesCallback = false
@@ -101,9 +102,12 @@ export function initPwaUpdates(): () => void {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return () => undefined
   if (initialized) return () => undefined
   initialized = true
+  let hadController = Boolean(navigator.serviceWorker.controller)
 
   const handleControllerChange = () => {
-    if (reloading) return
+    // First installation must not reload a page while someone is typing.
+    if (!hadController) { hadController = true; return }
+    if (!reloadAfterApply || reloading) return
     reloading = true
     window.location.reload()
   }
@@ -129,6 +133,8 @@ export function initPwaUpdates(): () => void {
     document.removeEventListener('visibilitychange', handleVisibility)
     initialized = false
     registration = null
+    reloadAfterApply = false
+    reloading = false
   }
 }
 
@@ -146,12 +152,14 @@ export async function applyPwaUpdate(): Promise<void> {
     }
 
     if (registration.waiting) {
+      reloadAfterApply = true
       registration.waiting.postMessage({ type: 'SKIP_WAITING' })
       return
     }
 
     pwaUpdateState.set({ available: false, applying: false, error: false })
   } catch {
+    reloadAfterApply = false
     pwaUpdateState.set({ available: true, applying: false, error: true })
   }
 }

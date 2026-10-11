@@ -32,7 +32,7 @@
 </script>
 
 {#if visible}
-  <section class="overflow-hidden rounded-[22px] border border-border-light bg-surface" aria-label={title}>
+  <section class="overflow-hidden rounded-[22px] bg-surface" aria-label={title}>
     <div class="flex items-center gap-3.5 p-4 sm:p-5">
       <div class="grid h-12 w-12 shrink-0 place-items-center rounded-[16px] bg-primary text-white shadow-sm dark:text-[#101214]">
         <Icon name="upload" size={21} strokeWidth={2.2} />
@@ -51,13 +51,13 @@
     </div>
 
     {#if !showingManualHelp}
-      <div class="border-t border-border-light px-4 py-3 sm:hidden">
+      <div class="px-4 pb-4 sm:hidden">
         <Button variant="primary" size="md" className="w-full" loading={installing} disabled={installing} on:click={install}>{cta}</Button>
       </div>
     {/if}
 
     {#if showingIosHelp || showingManualHelp}
-      <div class="border-t border-border-light bg-surface-level-1 px-4 py-3 text-xs font-medium leading-5 text-text-secondary" role="status">
+      <div class="bg-surface-level-1 px-4 py-3 text-xs font-medium leading-5 text-text-secondary" role="status">
         {showingManualHelp ? manualHelp : iosHelp}
       </div>
     {/if}

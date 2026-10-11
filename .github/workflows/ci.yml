@@ -14,6 +14,10 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 12
+    env:
+      # Fictional browser configuration; e2e tests intercept all backend requests.
+      VITE_SUPABASE_URL: https://test-project.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_test_fixture
 
     steps:
       - name: Checkout
@@ -40,3 +44,11 @@ jobs:
       - name: Production build
         working-directory: frontend
         run: npm run build
+
+      - name: Install Chromium for auth routing smoke
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Desktop and mobile regression tests
+        working-directory: frontend
+        run: npx playwright test --workers=1

@@ -2,6 +2,7 @@
   import { onMount, tick } from 'svelte'
   import { language } from '$lib/stores/ui'
   import Icon from '$lib/components/Icon.svelte'
+  import Button from '$lib/components/Button.svelte'
   import SegmentedControl from '$lib/components/SegmentedControl.svelte'
   import {
     adminReplySupportThread,
@@ -53,8 +54,11 @@
 
   onMount(() => {
     void loadThreads()
-    const timer = window.setInterval(() => void refreshInbox(), 3500)
-    return () => window.clearInterval(timer)
+    const refreshVisible = () => { if (document.visibilityState === 'visible') void refreshInbox() }
+    document.addEventListener('visibilitychange', refreshVisible)
+    window.addEventListener('online', refreshVisible)
+    const timer = window.setInterval(refreshVisible, 6000)
+    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', refreshVisible); window.removeEventListener('online', refreshVisible) }
   })
 
   function statusLabel(status: string) {
@@ -101,19 +105,22 @@
   }
 
   async function refreshInbox() {
-    if (refreshing || saving || document.visibilityState === 'hidden') return
+    if (refreshing || saving || loading || loadingMessages || document.visibilityState === 'hidden') return
     refreshing = true
     try {
       await loadThreads(true)
       if (selected) {
+        const threadId = selected.id
         const before = messages.length
+        const nearBottom = !messagesElement || messagesElement.scrollHeight - messagesElement.scrollTop - messagesElement.clientHeight < 80
         const [freshMessages, freshContext] = await Promise.all([
-          getAdminSupportMessages(selected.id),
-          getAdminSupportThreadContext(selected.id)
+          getAdminSupportMessages(threadId),
+          getAdminSupportThreadContext(threadId)
         ])
+        if (selected?.id !== threadId || saving) return
         messages = freshMessages
         context = freshContext
-        if (messages.length > before) await scrollToLatest()
+        if (messages.length > before && nearBottom) await scrollToLatest()
       }
     } catch {
       // Background refresh stays silent so the current conversation remains usable.
@@ -129,19 +136,24 @@
     loadingMessages = true
     error = ''
     try {
-      ;[messages, context] = await Promise.all([
+      const [freshMessages, freshContext] = await Promise.all([
         getAdminSupportMessages(item.id),
         getAdminSupportThreadContext(item.id)
       ])
+      if (selected?.id !== item.id) return
+      messages = freshMessages
+      context = freshContext
       await scrollToLatest()
     } catch {
-      error = copy.generic
+      if (selected?.id === item.id) error = copy.generic
     } finally {
-      loadingMessages = false
+      if (selected?.id === item.id) loadingMessages = false
     }
   }
 
   function closeThread() {
+    if (saving) return
+    loadingMessages = false
     selected = null
     context = null
     messages = []
@@ -151,7 +163,7 @@
 
   async function sendReply() {
     const body = reply.trim()
-    if (!selected || !body) return
+    if (!selected || !body || saving || loadingMessages) return
     saving = true
     error = ''
     try {
@@ -170,7 +182,7 @@
   }
 
   async function toggleResolved() {
-    if (!selected) return
+    if (!selected || saving || loadingMessages) return
     saving = true
     error = ''
     const next = selected.status === 'resolved' ? 'open' : 'resolved'
@@ -195,7 +207,7 @@
 
 <svelte:head><title>{copy.title} · UNEEM Admin</title></svelte:head>
 
-<main class="uneem-page-narrow max-w-3xl">
+<main class="uneem-page max-w-4xl">
   {#if !selected}
     <header class="mb-5">
       <h1 class="uneem-title">{copy.title}</h1>
@@ -212,7 +224,7 @@
 
     {#if error}<div class="mb-4 rounded-xl bg-danger-light px-4 py-3 text-sm font-medium text-danger" role="alert">{error}</div>{/if}
 
-    <section class="border-y border-border-light">
+    <section class="overflow-hidden rounded-[22px] bg-surface px-5">
       {#if loading}
         <div class="space-y-1 py-2" aria-busy="true">
           {#each [1, 2, 3] as _}<div class="h-[68px] animate-pulse rounded-xl bg-surface-level-1"></div>{/each}
@@ -224,33 +236,33 @@
         </div>
       {:else}
         {#each visibleThreads as item}
-          <button on:click={() => openThread(item)} class="flex min-h-[68px] w-full items-center gap-3 border-b border-border-light px-1 text-start transition-colors last:border-0 hover:bg-surface-level-1/70">
+          <button on:click={() => openThread(item)} class="thread-row">
             <span class={`h-2.5 w-2.5 shrink-0 rounded-full ${item.status === 'open' ? 'bg-primary' : item.status === 'waiting' ? 'bg-text-muted' : 'bg-success'}`}></span>
             <span class="min-w-0 flex-1">
-              <span class="flex min-w-0 items-center gap-2">
-                <span class="truncate text-sm font-semibold text-text">{item.subject || (item.user_id ? copy.user : copy.guest)}</span>
-                {#if item.kind !== 'support'}<span class="shrink-0 text-[10px] font-bold uppercase tracking-wide text-text-muted">{kindLabel(item.kind)}</span>{/if}
+              <span class="flex min-w-0 flex-wrap items-center gap-2">
+                <span class="line-clamp-2 text-base font-semibold leading-6 text-text">{item.subject || (item.user_id ? copy.user : copy.guest)}</span>
+                {#if item.kind !== 'support'}<span class="rounded-md bg-surface-level-1 px-1.5 py-0.5 text-xs font-medium text-text-muted">{kindLabel(item.kind)}</span>{/if}
               </span>
               <span class={`mt-1 block text-xs font-medium ${item.status === 'open' ? 'text-primary' : 'text-text-muted'}`}>{statusLabel(item.status)}</span>
             </span>
-            <span class="shrink-0 text-[10px] text-text-muted">{when(item.last_message_at || item.updated_at)}</span>
+            <time class="thread-time text-xs text-text-muted" datetime={item.last_message_at || item.updated_at}>{when(item.last_message_at || item.updated_at)}</time>
           </button>
         {/each}
       {/if}
     </section>
   {:else}
-    <section class="flex min-h-[calc(100dvh-175px)] flex-col">
+    <section class="conversation">
       <header class="mb-2 flex min-h-12 items-center gap-2">
-        <button on:click={closeThread} class="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-text-secondary hover:bg-surface-level-1 hover:text-text" aria-label={copy.back}>
+        <button disabled={saving} on:click={closeThread} class="uneem-icon-button shrink-0" aria-label={copy.back}>
           <Icon name={ar ? 'arrow-right' : 'arrow-left'} size={18} />
         </button>
         <div class="min-w-0 flex-1">
           <h1 class="truncate text-[18px] font-semibold text-text">{selected.subject || (selected.user_id ? copy.user : copy.guest)}</h1>
           <p class={`mt-0.5 text-xs font-medium ${selected.status === 'open' ? 'text-primary' : 'text-text-muted'}`}>{statusLabel(selected.status)}</p>
         </div>
-        <button disabled={saving} on:click={toggleResolved} class="min-h-10 shrink-0 px-2 text-sm font-semibold text-text-secondary hover:text-text">
+        <Button variant="secondary" size="sm" disabled={saving || loadingMessages} on:click={toggleResolved} className="shrink-0">
           {selected.status === 'resolved' ? copy.reopen : copy.resolve}
-        </button>
+        </Button>
       </header>
 
       {#if context?.kind === 'report'}
@@ -263,13 +275,13 @@
 
       {#if error}<div class="mb-3 rounded-xl bg-danger-light px-4 py-3 text-sm font-medium text-danger" role="alert">{error}</div>{/if}
 
-      <div bind:this={messagesElement} class="min-h-0 flex-1 space-y-3 overflow-y-auto py-4" aria-live="polite">
+      <div bind:this={messagesElement} class="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain py-4" role="log" aria-label={ar ? 'الرسائل' : 'Messages'} aria-live="polite">
         {#if loadingMessages}
           <div class="space-y-3" aria-busy="true"><div class="h-16 w-3/4 animate-pulse rounded-2xl bg-surface-level-1"></div><div class="ms-auto h-16 w-3/4 animate-pulse rounded-2xl bg-surface-level-1"></div></div>
         {:else}
-          {#each messages as item}
+          {#each messages as item (item.id)}
             {@const fromAdmin = item.sender_role === 'admin'}
-            <div class={`max-w-[82%] ${fromAdmin ? 'ms-auto' : 'me-auto'}`}>
+            <div class={`max-w-[88%] sm:max-w-[75%] ${fromAdmin ? 'ms-auto' : 'me-auto'}`}>
               <div class={`rounded-2xl px-4 py-3 ${fromAdmin ? 'bg-primary-light text-text' : 'bg-surface-level-1 text-text'}`}>
                 <p class="whitespace-pre-wrap text-sm leading-6">{item.body}</p>
               </div>
@@ -281,12 +293,21 @@
         {/if}
       </div>
 
-      <form on:submit|preventDefault={sendReply} class="mt-2 flex items-end gap-2 border-t border-border-light pt-3">
-        <textarea bind:value={reply} rows="1" maxlength="4000" class="uneem-field max-h-32 min-h-[48px] flex-1 resize-none" placeholder={copy.placeholder} aria-label={copy.placeholder}></textarea>
-        <button disabled={saving || !reply.trim()} class="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary-action text-white disabled:opacity-40" aria-label={copy.send}>
-          <Icon name={ar ? 'arrow-left' : 'arrow-right'} size={18} />
-        </button>
+      <form on:submit|preventDefault={sendReply} class="mt-3 flex shrink-0 items-end gap-3 rounded-[22px] bg-surface p-3">
+        <textarea bind:value={reply} rows="2" disabled={saving || loadingMessages} maxlength="4000" class="uneem-field max-h-40 min-h-[56px] min-w-0 flex-1 resize-y" placeholder={copy.placeholder} aria-label={copy.placeholder}></textarea>
+        <Button type="submit" loading={saving} disabled={!reply.trim() || loadingMessages} className="h-14 w-14 shrink-0 !p-0" aria-label={copy.send}>
+          <Icon name={ar ? 'arrow-left' : 'arrow-right'} size={22} />
+        </Button>
       </form>
     </section>
   {/if}
 </main>
+
+<style>
+  .thread-row { display: grid; grid-template-columns: 10px minmax(0, 1fr); column-gap: 16px; row-gap: 8px; align-items: center; width: 100%; padding: 20px 0; text-align: start; transition: background 140ms; }
+  .thread-row + .thread-row { border-top: 1px solid var(--border-light); }
+  .thread-row:hover { background: var(--surface-level-1); }
+  .thread-time { grid-column: 2; }
+  .conversation { display: flex; flex-direction: column; height: max(260px, calc(var(--visual-height, 100dvh) - 210px)); max-height: 900px; }
+  @media (min-width: 640px) { .thread-row { grid-template-columns: 10px minmax(0, 1fr) auto; } .thread-time { grid-column: 3; } }
+</style>

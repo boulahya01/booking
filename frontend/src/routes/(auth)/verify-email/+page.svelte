@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { afterSignIn } from '$lib/inviteNavigation'
   import { onMount } from 'svelte'
   import { goto } from '$app/navigation'
   import { page } from '$app/stores'
@@ -6,7 +7,7 @@
   import { authState } from '$lib/stores/auth'
   import { language } from '$lib/stores/ui'
   import { getMySessionContext } from '$lib/sessionApi'
-  import { emailConfirmationRedirectUrl } from '$lib/authFlow'
+  import { emailConfirmationRedirectUrl, clearAuthFlowUrl } from '$lib/authFlow'
   import {
     confirmationResendSeconds,
     formatConfirmationCountdown,
@@ -18,7 +19,7 @@
   import AuthShell from '$lib/components/AuthShell.svelte'
   import Icon from '$lib/components/Icon.svelte'
 
-  type Status = 'waiting' | 'verifying' | 'success' | 'error'
+  type Status = 'waiting' | 'verifying' | 'success' | 'error' | 'email-change-pending'
 
   let status: Status = 'waiting'
   let errorMessage = ''
@@ -28,6 +29,8 @@
   let hintedEmail = ''
   let nextPath = '/home'
   let restoring = false
+  let callbackResolved = false
+  let disposed = false
 
   $: copy = $language === 'ar'
     ? {
@@ -47,6 +50,9 @@
         resendFailed: 'Couldn’t send a new link right now. Try again shortly.', missingEmail: 'Go back to sign in and enter your email again.'
       }
 
+  $: changePendingTitle = $language === 'ar' ? 'أكد بريدك الآخر' : 'Confirm your other email'
+  $: changePendingBody = $language === 'ar' ? 'تم قبول هذا الرابط. افتح رابط التأكيد في بريدك الآخر لإكمال التغيير.' : 'This link was accepted. Open the confirmation in your other inbox to finish the change.'
+
   $: loginHref = hintedEmail ? `/login?email=${encodeURIComponent(hintedEmail)}` : '/login'
   $: resendLabel = resendSeconds > 0 ? `${copy.resendIn} ${formatConfirmationCountdown(resendSeconds)}` : copy.resend
   $: resendDisabled = resendLoading || resendSeconds > 0
@@ -62,7 +68,7 @@
   }
 
   async function restoreAuthoritativeContext() {
-    if (restoring) return
+    if (restoring || disposed) return
     restoring = true
     status = 'verifying'
 
@@ -73,6 +79,7 @@
       const context = await getMySessionContext()
       if (!context) throw new Error('missing_account_state')
 
+      if (disposed) return
       const { profile, account } = context
       authState.setSessionContext({
         id: profile.id,
@@ -83,7 +90,7 @@
         status: profile.status
       }, account)
 
-      nextPath = account.can_use_sports ? '/home' : '/pending-approval'
+      nextPath = afterSignIn(account)
       status = 'success'
       errorMessage = ''
       resendMessage = ''
@@ -102,9 +109,14 @@
     if (tokenHash) {
       status = 'verifying'
       try {
-        const type = rawType === 'signup' ? 'signup' : 'email'
-        const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
+        if (rawType && !['email', 'signup', 'email_change'].includes(rawType)) throw new Error('invalid_confirmation_type')
+        const type = rawType === 'email_change' ? 'email_change' : rawType === 'signup' ? 'signup' : 'email'
+        const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
         if (error) throw error
+        if (disposed) return
+        clearAuthFlowUrl($page.url)
+        // The first of two secure-email confirmations deliberately has no session.
+        if (type === 'email_change' && !data.session) { status = 'email-change-pending'; return }
         await restoreAuthoritativeContext()
         return
       } catch (err: any) {
@@ -115,7 +127,7 @@
     }
 
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
-    const redirectError = hash.get('error_description') || hash.get('error') || ''
+    const redirectError = $page.url.searchParams.get('error_description') || $page.url.searchParams.get('error') || hash.get('error_description') || hash.get('error') || ''
     if (redirectError) {
       status = 'error'
       errorMessage = safeVerificationError(redirectError)
@@ -139,13 +151,14 @@
 
     const cooldownTimer = window.setInterval(refreshResendCooldown, 1000)
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'USER_UPDATED') && session?.user?.email_confirmed_at) {
+      if (callbackResolved && status !== 'email-change-pending' && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'USER_UPDATED') && session?.user?.email_confirmed_at) {
         void restoreAuthoritativeContext()
       }
     })
 
-    void initializeConfirmation()
+    void initializeConfirmation().finally(() => { callbackResolved = true })
     return () => {
+      disposed = true
       window.clearInterval(cooldownTimer)
       listener.subscription.unsubscribe()
     }
@@ -214,15 +227,15 @@
         {/if}
       </div>
 
-      <h1 class="text-[30px] font-semibold tracking-[-0.035em] text-text">
-        {status === 'verifying' ? copy.verifying : status === 'success' ? copy.success : status === 'error' ? copy.error : copy.title}
+      <h1 class="auth-title">
+        {status === 'email-change-pending' ? changePendingTitle : status === 'verifying' ? copy.verifying : status === 'success' ? copy.success : status === 'error' ? copy.error : copy.title}
       </h1>
       <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-text-secondary">
-        {status === 'verifying' ? copy.verifyingHelp : status === 'success' ? copy.successHelp : status === 'error' ? (errorMessage || copy.generic) : copy.subtitle}
+        {status === 'email-change-pending' ? changePendingBody : status === 'verifying' ? copy.verifyingHelp : status === 'success' ? copy.successHelp : status === 'error' ? (errorMessage || copy.generic) : copy.subtitle}
       </p>
 
       {#if hintedEmail && status === 'waiting'}
-        <div class="mt-5 rounded-[18px] border border-border bg-surface px-4 py-4">
+        <div class="mt-5 rounded-[18px] bg-surface px-4 py-4">
           <p class="break-all text-sm font-semibold text-text">{hintedEmail}</p>
         </div>
       {/if}
@@ -238,6 +251,8 @@
     {#if status === 'waiting'}
       <Button on:click={resendEmail} loading={resendLoading} disabled={resendDisabled} variant="primary" size="lg" className="w-full">{resendLabel}</Button>
       <a href={loginHref} class="mt-5 inline-flex min-h-11 items-center justify-center px-3 text-sm font-medium text-text-secondary transition-colors hover:text-text">{copy.signIn}</a>
+    {:else if status === 'email-change-pending'}
+      <a href={loginHref} class="inline-flex min-h-11 items-center justify-center px-3 text-sm font-medium text-primary">{copy.signIn}</a>
     {:else if status === 'success'}
       <Button on:click={() => goto(nextPath)} variant="primary" size="lg" className="w-full">{copy.continue}</Button>
     {:else if status === 'error'}

@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import Icon from '$lib/components/Icon.svelte'
+  import Button from '$lib/components/Button.svelte'
+  import Modal from '$lib/components/Modal.svelte'
   import SegmentedControl from '$lib/components/SegmentedControl.svelte'
   import { language, uiState } from '$lib/stores/ui'
   import {
@@ -36,14 +38,14 @@
   $: totalPages = Math.max(1, Math.ceil(total / pageSize))
   $: facilityTimezones = new Map(facilities.map((facility) => [facility.id, facility.timezone]))
   $: copy = ar ? {
-    eyebrow: 'عمليات UNEEM', title: 'الحجوزات', subtitle: 'راجع الحجوزات وألغِها بأسباب مسجلة.',
+    eyebrow: 'عمليات UNEEM', title: 'الحجوزات', subtitle: 'إدارة الحجوزات والإلغاءات.',
     search: 'بحث باسم الطالب، البريد، الرقم أو المرفق', allFacilities: 'كل المرافق', allStates: 'كل الحالات',
     upcoming: 'قادمة', progress: 'جارية', completed: 'مكتملة', cancelled: 'ملغاة', apply: 'تطبيق', clear: 'مسح',
     results: 'حجز', empty: 'لا توجد حجوزات بهذه الفلاتر.', retry: 'إعادة المحاولة', details: 'التفاصيل',
     cancel: 'إلغاء الحجز', cancelTitle: 'إلغاء هذا الحجز؟', cancelHint: 'سيتم تحرير المرفق وإغلاق المباراة المفتوحة المرتبطة إن وجدت.',
     reason: 'سبب الإلغاء', keep: 'الاحتفاظ بالحجز', confirm: 'تأكيد الإلغاء', saving: 'جارٍ الإلغاء…', student: 'الطالب', facility: 'المرفق', time: 'الوقت', booked: 'تم الحجز', previous: 'السابق', next: 'التالي'
   } : {
-    eyebrow: 'UNEEM operations', title: 'Bookings', subtitle: 'Review reservations and cancel safely with an audited reason.',
+    eyebrow: 'UNEEM operations', title: 'Bookings', subtitle: 'Manage reservations and cancellations.',
     search: 'Search student, email, ID or facility', allFacilities: 'All facilities', allStates: 'All states',
     upcoming: 'Upcoming', progress: 'In progress', completed: 'Completed', cancelled: 'Cancelled', apply: 'Apply', clear: 'Clear',
     results: 'bookings', empty: 'No bookings match these filters.', retry: 'Retry', details: 'Details',
@@ -134,7 +136,7 @@
   }
 
   async function confirmCancel() {
-    if (!cancelTarget) return
+    if (!cancelTarget || cancelling) return
     cancelling = true
     try {
       await adminCancelBooking(cancelTarget.booking_id, cancelReason)
@@ -172,10 +174,9 @@
 
 <svelte:head><title>{copy.title} · UNEEM Admin</title></svelte:head>
 
-<div class="mx-auto w-full max-w-6xl px-4 pb-28 pt-5 sm:px-6 sm:pb-10 sm:pt-7">
+<main class="uneem-page max-w-6xl">
   <header class="mb-6">
-    <p class="text-xs font-extrabold uppercase tracking-[0.12em] text-primary">{copy.eyebrow}</p>
-    <h1 class="mt-1 text-3xl font-extrabold tracking-[-0.04em] text-text">{copy.title}</h1>
+    <h1 class="uneem-title">{copy.title}</h1>
     <p class="mt-1 text-sm leading-6 text-text-secondary">{copy.subtitle}</p>
   </header>
 
@@ -198,18 +199,18 @@
           onChange={(value) => (lifecycle = value)}
         />
       </div>
-      <input bind:value={dateFrom} type="date" class="uneem-field" aria-label="From date" />
-      <input bind:value={dateTo} type="date" class="uneem-field" aria-label="To date" />
-      <div class="flex gap-2 lg:col-span-2 lg:justify-end">
-        <button type="button" on:click={clear} class="uneem-secondary-action flex-1 lg:flex-none">{copy.clear}</button>
-        <button class="uneem-primary-action flex-1 lg:flex-none">{copy.apply}</button>
+      <label class="min-w-0"><span class="mb-2 block text-sm font-medium text-text-secondary">{ar ? 'من تاريخ' : 'From'}</span><input bind:value={dateFrom} type="date" class="uneem-field" /></label>
+      <label class="min-w-0"><span class="mb-2 block text-sm font-medium text-text-secondary">{ar ? 'إلى تاريخ' : 'To'}</span><input bind:value={dateTo} type="date" class="uneem-field" /></label>
+      <div class="flex items-end gap-3 md:col-span-2 lg:justify-end">
+        <Button variant="secondary" disabled={loading} on:click={clear} className="flex-1 lg:flex-none">{copy.clear}</Button>
+        <Button type="submit" loading={loading} className="flex-1 lg:min-w-36 lg:flex-none">{copy.apply}</Button>
       </div>
     </div>
   </form>
 
   <div class="mb-3 flex items-center justify-between gap-3">
     <p class="text-sm font-semibold text-text-secondary">{total} {copy.results}</p>
-    {#if loading && bookings.length > 0}<span class="text-xs text-text-muted">…</span>{/if}
+    {#if loading && bookings.length > 0}<span class="text-xs text-text-muted" role="status">{ar ? 'جارٍ التحديث…' : 'Updating…'}</span>{/if}
   </div>
 
   {#if error && bookings.length === 0}
@@ -219,15 +220,15 @@
   {:else if bookings.length === 0}
     <section class="uneem-card py-12 text-center"><Icon name="calendar-days" size={26} className="mx-auto text-text-muted"/><p class="mt-3 font-bold text-text">{copy.empty}</p></section>
   {:else}
-    <div class="overflow-hidden rounded-[22px] bg-surface shadow-sm ring-1 ring-border-light">
+    <div class="overflow-hidden rounded-[22px] bg-surface">
       {#each bookings as booking (booking.booking_id)}
         <button on:click={() => selected = booking} class="w-full border-b border-border-light px-4 py-4 text-start last:border-0 hover:bg-surface-level-1 sm:px-5">
           <div class="flex items-start gap-3">
-            <div class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary-light text-sm font-extrabold text-primary">{booking.full_name?.charAt(0)?.toUpperCase() || '?'}</div>
+            <div class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-surface-level-1 text-sm font-semibold text-text-secondary">{booking.full_name?.charAt(0)?.toUpperCase() || '?'}</div>
             <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-center gap-2"><p class="truncate font-bold text-text">{booking.full_name}</p><span class={`uneem-chip ${booking.lifecycle_status === 'cancelled' ? 'text-danger' : booking.lifecycle_status === 'upcoming' ? 'text-primary' : 'text-text-secondary'}`}>{statusLabel(booking.lifecycle_status)}</span></div>
-              <p class="mt-1 truncate text-sm text-text-secondary">{booking.pitch_name} · {when(booking.starts_at, booking.pitch_id)}</p>
-              <p class="mt-1 truncate text-xs text-text-muted">{booking.student_id || '—'} · {booking.email || '—'}</p>
+              <div class="flex flex-wrap items-center gap-2"><p class="break-words font-semibold text-text">{booking.full_name}</p><span class={`rounded-lg bg-surface-level-1 px-2 py-1 text-xs font-medium ${booking.lifecycle_status === 'cancelled' ? 'text-danger' : booking.lifecycle_status === 'upcoming' ? 'text-primary' : 'text-text-secondary'}`}>{statusLabel(booking.lifecycle_status)}</span></div>
+              <p class="mt-2 text-sm leading-6 text-text-secondary">{booking.pitch_name} · {when(booking.starts_at, booking.pitch_id)}</p>
+              <p class="mt-1 break-words text-xs leading-5 text-text-muted">{booking.student_id || '—'} · {booking.email || '—'}</p>
             </div>
             <Icon name={ar ? 'chevron-left' : 'chevron-right'} size={18} className="mt-2 shrink-0 text-text-muted" />
           </div>
@@ -243,30 +244,30 @@
       <button disabled={page >= totalPages || loading} on:click={async () => { page++; await load() }} class="uneem-secondary-action">{copy.next}</button>
     </div>
   {/if}
-</div>
+</main>
 
 {#if selected}
-  <div class="fixed inset-0 z-50 flex items-end bg-black/50 sm:items-center sm:justify-center sm:p-5" role="presentation">
-    <button type="button" tabindex="-1" aria-label="Close booking details" class="absolute inset-0 cursor-default" on:click={() => selected = null}></button>
-    <section class="relative z-10 w-full rounded-t-[28px] bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-lg sm:rounded-[28px]" role="dialog" aria-modal="true" tabindex="-1">
-      <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-extrabold uppercase tracking-[0.1em] text-primary">{copy.details}</p><h2 class="mt-1 text-xl font-extrabold text-text">{selected.full_name}</h2></div><button on:click={() => selected = null} class="grid h-10 w-10 place-items-center rounded-full bg-surface-level-1"><Icon name="x" size={18}/></button></div>
-      <dl class="mt-5 divide-y divide-border-light rounded-2xl bg-surface-level-1 px-4">
-        <div class="flex justify-between gap-4 py-3"><dt class="text-sm text-text-muted">{copy.student}</dt><dd class="max-w-[65%] text-end text-sm font-bold text-text">{selected.student_id || '—'}<br><span class="font-medium text-text-secondary">{selected.email || '—'}</span></dd></div>
-        <div class="flex justify-between gap-4 py-3"><dt class="text-sm text-text-muted">{copy.facility}</dt><dd class="text-end text-sm font-bold text-text">{selected.pitch_name}<br><span class="font-medium text-text-secondary">{selected.pitch_location}</span></dd></div>
-        <div class="flex justify-between gap-4 py-3"><dt class="text-sm text-text-muted">{copy.time}</dt><dd class="text-end text-sm font-bold text-text">{when(selected.starts_at, selected.pitch_id)} – {when(selected.ends_at, selected.pitch_id)}</dd></div>
-      </dl>
-      {#if selected.lifecycle_status === 'upcoming' || selected.lifecycle_status === 'in_progress'}<button on:click={() => { cancelTarget = selected; cancelReason = 'maintenance' }} class="mt-5 min-h-12 w-full rounded-2xl bg-danger-light px-4 font-bold text-danger">{copy.cancel}</button>{/if}
-    </section>
-  </div>
+  <Modal open={!cancelTarget} title={copy.details} on:close={() => { if (!cancelTarget) selected = null }}>
+    <h3 class="text-xl font-semibold text-text">{selected.full_name}</h3>
+    <p class="mt-1 text-sm text-text-secondary">{statusLabel(selected.lifecycle_status)}</p>
+    <dl class="mt-5 space-y-4 rounded-2xl bg-surface-level-1 p-4">
+      <div><dt class="text-xs font-medium text-text-muted">{copy.student}</dt><dd class="mt-1 break-words text-sm font-semibold text-text"><bdi>{selected.student_id || '—'}</bdi><br><span class="font-normal text-text-secondary">{selected.email || '—'}</span></dd></div>
+      <div><dt class="text-xs font-medium text-text-muted">{copy.facility}</dt><dd class="mt-1 text-sm font-semibold text-text">{selected.pitch_name}<br><span class="font-normal text-text-secondary">{selected.pitch_location}</span></dd></div>
+      <div><dt class="text-xs font-medium text-text-muted">{copy.time}</dt><dd class="mt-1 text-sm font-semibold text-text">{when(selected.starts_at, selected.pitch_id)} – {when(selected.ends_at, selected.pitch_id)}</dd></div>
+    </dl>
+    {#if selected.lifecycle_status === 'upcoming' || selected.lifecycle_status === 'in_progress'}
+      <Button variant="secondary" fullWidth className="mt-6 !bg-danger-light !text-danger" on:click={() => { cancelTarget = selected; cancelReason = 'maintenance' }}>{copy.cancel}</Button>
+    {/if}
+  </Modal>
 {/if}
 
 {#if cancelTarget}
-  <div class="fixed inset-0 z-[60] flex items-end bg-black/55 sm:items-center sm:justify-center sm:p-5" role="presentation">
-    <button type="button" tabindex="-1" aria-label="Close cancellation dialog" class="absolute inset-0 cursor-default" disabled={cancelling} on:click={() => cancelTarget = null}></button>
-    <section class="relative z-10 w-full rounded-t-[28px] bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:max-w-md sm:rounded-[28px]" role="dialog" aria-modal="true" tabindex="-1">
-      <h2 class="text-xl font-extrabold text-text">{copy.cancelTitle}</h2><p class="mt-2 text-sm leading-6 text-text-secondary">{copy.cancelHint}</p>
-      <label class="mt-5 block text-sm font-bold text-text">{copy.reason}<select bind:value={cancelReason} class="uneem-field mt-2">{#each cancelReasons as item}<option value={item.value}>{ar ? item.ar : item.en}</option>{/each}</select></label>
-      <div class="mt-5 flex gap-3"><button disabled={cancelling} on:click={() => cancelTarget = null} class="uneem-secondary-action flex-1">{copy.keep}</button><button disabled={cancelling} on:click={confirmCancel} class="min-h-12 flex-1 rounded-2xl bg-danger px-4 font-bold text-white disabled:opacity-50">{cancelling ? copy.saving : copy.confirm}</button></div>
-    </section>
-  </div>
+  <Modal open title={copy.cancelTitle} closeDisabled={cancelling} on:close={() => cancelTarget = null}>
+    <p class="text-sm leading-6 text-text-secondary">{copy.cancelHint}</p>
+    <label class="mt-5 block text-sm font-medium text-text-secondary">{copy.reason}<select bind:value={cancelReason} disabled={cancelling} class="uneem-field mt-2">{#each cancelReasons as item}<option value={item.value}>{ar ? item.ar : item.en}</option>{/each}</select></label>
+    <svelte:fragment slot="footer">
+      <Button variant="secondary" disabled={cancelling} on:click={() => cancelTarget = null} className="sm:flex-1">{copy.keep}</Button>
+      <Button variant="danger" loading={cancelling} on:click={confirmCancel} className="sm:flex-1">{copy.confirm}</Button>
+    </svelte:fragment>
+  </Modal>
 {/if}

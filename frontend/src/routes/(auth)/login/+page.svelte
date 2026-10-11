@@ -1,28 +1,38 @@
 <script lang="ts">
+  import { afterSignIn } from '$lib/inviteNavigation'
   import { goto } from '$app/navigation'
   import { onMount } from 'svelte'
   import Button from '$lib/components/Button.svelte'
+  import ActionLink from '$lib/components/ActionLink.svelte'
   import TextField from '$lib/components/TextField.svelte'
   import Icon from '$lib/components/Icon.svelte'
+  import SocialSignIn from '$lib/components/SocialSignIn.svelte'
   import AuthShell from '$lib/components/AuthShell.svelte'
   import { language } from '$lib/stores/ui'
   import { authState, isAuthenticated } from '$lib/stores/auth'
+  import { beginLoading } from '$lib/stores/loading'
   import { loginWithEmail } from '$lib/auth'
+  import type { BootstrapError } from '$lib/accountResolver'
   import { isValidEmail } from '$lib/utils/cn'
   import { sanitizeInput } from '$lib/validation'
   import { classifyAuthFailure, type AuthFailureKind } from '$lib/ux/authFailure'
 
+  const welcomeKey = 'unem:welcome-seen'
+
   let email = ''
   let password = ''
   let loading = false
+  let socialLoading = false
   let loginAttempted = false
+  let emailTouched = false
   let submitError = ''
   let authFailureKind: AuthFailureKind | null = null
   let emailState: 'idle' | 'valid' | 'invalid' = 'idle'
+  let requestedPath: string | null = null
 
   $: cleanEmail = email.trim().toLowerCase()
   $: emailValid = isValidEmail(cleanEmail)
-  $: emailState = email.length > 0 || loginAttempted ? (emailValid ? 'valid' : 'invalid') : 'idle'
+  $: emailState = (emailTouched || loginAttempted) && !emailValid ? 'invalid' : 'idle'
   $: passwordError = loginAttempted && !password ? copy.passwordRequired : ''
   $: registerHref = emailValid ? `/register?email=${encodeURIComponent(cleanEmail)}` : '/register'
   $: forgotHref = emailValid ? `/forgot-password?email=${encodeURIComponent(cleanEmail)}` : '/forgot-password'
@@ -30,16 +40,16 @@
 
   $: copy = $language === 'ar'
     ? {
-        title: 'مرحباً بعودتك', subtitle: 'سجّل الدخول للمتابعة', email: 'البريد الإلكتروني', emailPlaceholder: 'name@usmba.ac.ma',
+        title: 'مرحباً بعودتك', subtitle: 'سجّل الدخول للمتابعة', email: 'البريد الإلكتروني', emailPlaceholder: 'student@example.com',
         password: 'كلمة المرور', passwordPlaceholder: 'كلمة المرور', signIn: 'تسجيل الدخول', forgot: 'نسيت كلمة المرور؟',
-        newTo: 'جديد في UNEEM؟', create: 'إنشاء حساب', help: 'تحتاج مساعدة؟', invalidEmail: 'أدخل بريداً صحيحاً.',
+        newTo: 'جديد في UNEM Sports؟', create: 'إنشاء حساب', help: 'تحتاج مساعدة؟', invalidEmail: 'أدخل بريداً صحيحاً.',
         passwordRequired: 'أدخل كلمة المرور.', invalidCredentials: 'البريد أو كلمة المرور غير صحيحة.', rateLimited: 'محاولات كثيرة. حاول بعد قليل.',
         emailUnconfirmed: 'أكد بريدك الإلكتروني قبل تسجيل الدخول.', resendConfirmation: 'إعادة إرسال رابط التأكيد',
         trouble: 'تعذر تسجيل الدخول. حاول مرة أخرى أو اطلب المساعدة.'
       }
     : {
-        title: 'Welcome back', subtitle: 'Sign in to continue', email: 'Email address', emailPlaceholder: 'name@usmba.ac.ma',
-        password: 'Password', passwordPlaceholder: 'Password', signIn: 'Sign in', forgot: 'Forgot password?', newTo: 'New to UNEEM?',
+        title: 'Welcome back', subtitle: 'Sign in to continue', email: 'Email address', emailPlaceholder: 'student@example.com',
+        password: 'Password', passwordPlaceholder: 'Password', signIn: 'Sign in', forgot: 'Forgot password?', newTo: 'New to UNEM Sports?',
         create: 'Create account', help: 'Need help?', invalidEmail: 'Enter a valid email.', passwordRequired: 'Enter your password.',
         invalidCredentials: 'Email or password is incorrect.', rateLimited: 'Too many attempts. Try again shortly.',
         emailUnconfirmed: 'Confirm your email before signing in.', resendConfirmation: 'Resend confirmation link',
@@ -47,11 +57,15 @@
       }
 
   onMount(() => {
-    const hintedEmail = new URLSearchParams(window.location.search).get('email')
+    const params = new URLSearchParams(window.location.search)
+    const hintedEmail = params.get('email')
+    requestedPath = params.get('next')
+    try { localStorage.setItem(welcomeKey, '1') } catch { /* Storage is optional. */ }
+
     if (hintedEmail && isValidEmail(hintedEmail)) email = hintedEmail.trim().toLowerCase()
     if ($isAuthenticated) {
-      const account = $authState.account
-      void goto(account?.role === 'admin' ? '/admin' : account?.can_use_sports ? '/home' : '/pending-approval')
+      if ($authState.bootstrapError) void goto('/auth-error', { replaceState: true })
+      else void goto(afterSignIn($authState.account, requestedPath), { replaceState: true })
     }
   })
 
@@ -63,6 +77,7 @@
   }
 
   async function handleLogin() {
+    if (loading || socialLoading) return
     loginAttempted = true
     submitError = ''
     authFailureKind = null
@@ -70,6 +85,7 @@
     if (!emailValid || !password) return
 
     loading = true
+    const stopGlobalLoading = beginLoading('action')
     authState.setLoading(true)
     try {
       const result = await loginWithEmail(email, password)
@@ -80,9 +96,22 @@
         return
       }
 
+      const authUser = result.data?.user
+      const bootstrapError = result.data?.bootstrapError as Exclude<BootstrapError, null> | undefined
+      if (authUser && bootstrapError) {
+        authState.setBootstrapError({ id: authUser.id, email: authUser.email ?? undefined }, bootstrapError)
+        await goto('/auth-error', { replaceState: true })
+        return
+      }
+
       const profile = result.data?.profile
       const account = result.data?.accountState
-      if (!profile || !account) {
+      if (!authUser || !profile || !account) {
+        if (authUser) {
+          authState.setBootstrapError({ id: authUser.id, email: authUser.email ?? undefined }, 'profile_not_found')
+          await goto('/auth-error', { replaceState: true })
+          return
+        }
         authFailureKind = 'profile_missing'
         submitError = copy.trouble
         authState.setError(submitError)
@@ -91,15 +120,15 @@
 
       authState.setSessionContext({
         id: profile.id,
-        email: result.data.user?.email,
+        email: authUser.email,
+        username: profile.username,
         student_id: profile.student_id,
         full_name: profile.full_name,
         role: profile.role === 'admin' ? 'admin' : 'user',
         status: profile.status
       }, account)
 
-      const nextPath = account.role === 'admin' ? '/admin' : account.can_use_sports ? '/home' : '/pending-approval'
-      await goto(nextPath)
+      await goto(afterSignIn(account, requestedPath), { replaceState: true })
     } catch (error: any) {
       authFailureKind = classifyAuthFailure(error?.message, error?.status)
       submitError = loginError(authFailureKind)
@@ -107,17 +136,18 @@
     } finally {
       loading = false
       authState.setLoading(false)
+      stopGlobalLoading()
     }
   }
 </script>
 
-<svelte:head><title>{copy.title} · UNEEM</title></svelte:head>
+<svelte:head><title>{copy.title} · UNEM Sports</title></svelte:head>
 
-<AuthShell maxWidth="max-w-[400px]">
+<AuthShell>
   <section class="w-full">
-    <div class="mb-7 text-center">
-      <h1 class="text-[29px] font-semibold tracking-[-0.035em] text-text">{copy.title}</h1>
-      <p class="mt-1.5 text-[14px] text-text-secondary">{copy.subtitle}</p>
+    <div class="mb-8">
+      <h1 class="auth-title">{copy.title}</h1>
+      <p class="mt-2 text-[15px] text-text-secondary">{copy.subtitle}</p>
     </div>
 
     {#if submitError}
@@ -129,18 +159,22 @@
       </div>
     {/if}
 
-    <form on:submit|preventDefault={handleLogin} class="space-y-3.5">
-      <TextField ariaLabel={copy.email} type="email" placeholder={copy.emailPlaceholder} icon="mail" autocomplete="email" bind:value={email} validation={emailState} hint={emailState === 'invalid' ? copy.invalidEmail : ''} disabled={loading} />
-      <TextField ariaLabel={copy.password} type="password" placeholder={copy.passwordPlaceholder} icon="lock" autocomplete="current-password" bind:value={password} error={passwordError} disabled={loading} />
+    <SocialSignIn disabled={loading} bind:busy={socialLoading} />
 
-      <div class="flex justify-end"><a href={forgotHref} class="text-[13px] font-medium text-primary transition-colors hover:text-primary-hover">{copy.forgot}</a></div>
+    <form on:submit|preventDefault={handleLogin} class="login-form" novalidate>
+      <TextField label={copy.email} name="email" type="email" placeholder={copy.emailPlaceholder} autocomplete="email" inputmode="email" autocapitalize="none" spellcheck={false} enterkeyhint="next" bind:value={email} on:blur={() => emailTouched = true} validation={emailState} hint={emailState === 'invalid' ? copy.invalidEmail : ''} disabled={loading || socialLoading} />
+      <TextField label={copy.password} name="password" type="password" placeholder={copy.passwordPlaceholder} autocomplete="current-password" enterkeyhint="go" bind:value={password} error={passwordError} disabled={loading || socialLoading}>
+        {#snippet labelAction()}
+          <a href={forgotHref} class="login-recovery">{copy.forgot}</a>
+        {/snippet}
+      </TextField>
 
-      <Button type="submit" variant="primary" size="lg" {loading} disabled={loading} className="mt-1 w-full">{copy.signIn}</Button>
+      <div class="pt-3"><Button type="submit" variant="primary" size="lg" {loading} disabled={loading || socialLoading} fullWidth>{copy.signIn}</Button></div>
     </form>
 
-    <p class="mt-6 text-center text-[13px] text-text-secondary">
-      {copy.newTo}<a href={registerHref} class="ms-1 font-semibold text-primary transition-colors hover:text-primary-hover">{copy.create}</a>
-    </p>
+    <div class="mt-3">
+      <ActionLink href={registerHref} variant="secondary" size="lg" fullWidth>{copy.create}</ActionLink>
+    </div>
   </section>
 
   <div slot="footer" class="text-center">
@@ -149,3 +183,8 @@
     </a>
   </div>
 </AuthShell>
+
+<style>
+  .login-form { display: grid; gap: 16px; }
+  .login-recovery { display: inline-flex; min-height: 44px; align-items: center; font-size: 13px; font-weight: 550; color: var(--primary); }
+</style>

@@ -49,7 +49,7 @@ module.exports = {
         bg: 'var(--bg)'
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'Segoe UI', 'Roboto', 'Arial'],
+        sans: ['var(--font-family)'],
         serif: ['Georgia', 'Times New Roman', 'serif']
       },
       spacing: {

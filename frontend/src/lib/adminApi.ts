@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { withLoading } from './stores/loading'
 
 export type AdminBookingLifecycle = 'upcoming' | 'in_progress' | 'completed' | 'cancelled'
 export type AdminBookingCancelReason = 'maintenance' | 'safety' | 'scheduling_error' | 'university_event' | 'policy' | 'other'
@@ -136,12 +137,14 @@ export async function listAdminBookings(filters: AdminBookingFilters = {}): Prom
 }
 
 export async function adminCancelBooking(bookingId: string, reason: AdminBookingCancelReason) {
-  const { data, error } = await supabase.rpc('admin_cancel_booking', {
-    p_booking_id: bookingId,
-    p_reason_code: reason
+  return withLoading('action', async () => {
+    const { data, error } = await supabase.rpc('admin_cancel_booking', {
+      p_booking_id: bookingId,
+      p_reason_code: reason
+    })
+    if (error) throw new Error(adminBookingCancelMessage(error))
+    return Array.isArray(data) ? data[0] : data
   })
-  if (error) throw new Error(adminBookingCancelMessage(error))
-  return Array.isArray(data) ? data[0] : data
 }
 
 export async function listAdminUsers(filters: AdminUserFilters = {}): Promise<{ rows: AdminUser[]; total: number }> {
@@ -161,15 +164,17 @@ export async function adminSetUserAccess(
   nextStatus: Extract<AdminUserStatus, 'approved' | 'suspended'>,
   reason: AdminUserModerationReason
 ): Promise<{ user_id: string; access_status: AdminUserStatus; restriction_reason: string | null }> {
-  const { data, error } = await supabase.rpc('admin_set_user_access', {
-    p_user_id: userId,
-    p_next_status: nextStatus,
-    p_reason_code: reason
+  return withLoading('action', async () => {
+    const { data, error } = await supabase.rpc('admin_set_user_access', {
+      p_user_id: userId,
+      p_next_status: nextStatus,
+      p_reason_code: reason
+    })
+    if (error) throw new Error(message(error, 'Unable to update user access'))
+    const row = Array.isArray(data) ? data[0] : data
+    if (!row) throw new Error('User access update returned no data')
+    return row
   })
-  if (error) throw new Error(message(error, 'Unable to update user access'))
-  const row = Array.isArray(data) ? data[0] : data
-  if (!row) throw new Error('User access update returned no data')
-  return row
 }
 
 export async function listAdminFacilities(): Promise<AdminFacility[]> {
@@ -183,36 +188,40 @@ export async function listAdminFacilities(): Promise<AdminFacility[]> {
 }
 
 export async function adminSaveFacility(input: AdminFacilityInput): Promise<AdminFacility> {
-  const { data, error } = await supabase.rpc('admin_save_pitch', {
-    p_pitch_id: input.id || null,
-    p_name: input.name,
-    p_location: input.location,
-    p_sport_type: input.sport_type || null,
-    p_capacity: Number(input.capacity),
-    p_open_time: input.open_time,
-    p_close_time: input.close_time,
-    p_slot_duration_minutes: Number(input.slot_duration_minutes),
-    p_booking_window_hours: Number(input.booking_window_hours),
-    p_booking_frequency_enabled: Boolean(input.booking_frequency_enabled),
-    p_booking_frequency_days: Number(input.booking_frequency_days),
-    p_cancellation_cutoff_minutes: Number(input.cancellation_cutoff_minutes),
-    p_is_active: Boolean(input.is_active),
-    p_sort_order: Number(input.sort_order),
-    p_timezone: input.timezone || 'Africa/Casablanca'
+  return withLoading('action', async () => {
+    const { data, error } = await supabase.rpc('admin_save_pitch', {
+      p_pitch_id: input.id || null,
+      p_name: input.name,
+      p_location: input.location,
+      p_sport_type: input.sport_type || null,
+      p_capacity: Number(input.capacity),
+      p_open_time: input.open_time,
+      p_close_time: input.close_time,
+      p_slot_duration_minutes: Number(input.slot_duration_minutes),
+      p_booking_window_hours: Number(input.booking_window_hours),
+      p_booking_frequency_enabled: Boolean(input.booking_frequency_enabled),
+      p_booking_frequency_days: Number(input.booking_frequency_days),
+      p_cancellation_cutoff_minutes: Number(input.cancellation_cutoff_minutes),
+      p_is_active: Boolean(input.is_active),
+      p_sort_order: Number(input.sort_order),
+      p_timezone: input.timezone || 'Africa/Casablanca'
+    })
+    if (error) throw new Error(adminFacilitySaveMessage(error))
+    const row = Array.isArray(data) ? data[0] : data
+    if (!row) throw new Error('Facility save returned no data')
+    return row as AdminFacility
   })
-  if (error) throw new Error(adminFacilitySaveMessage(error))
-  const row = Array.isArray(data) ? data[0] : data
-  if (!row) throw new Error('Facility save returned no data')
-  return row as AdminFacility
 }
 
 export async function adminArchiveFacility(id: string, reason: FacilityArchiveReason): Promise<AdminFacility> {
-  const { data, error } = await supabase.rpc('admin_archive_pitch', {
-    p_pitch_id: id,
-    p_reason_code: reason
+  return withLoading('action', async () => {
+    const { data, error } = await supabase.rpc('admin_archive_pitch', {
+      p_pitch_id: id,
+      p_reason_code: reason
+    })
+    if (error) throw new Error(adminFacilityArchiveMessage(error))
+    const row = Array.isArray(data) ? data[0] : data
+    if (!row) throw new Error('Facility archive returned no data')
+    return row as AdminFacility
   })
-  if (error) throw new Error(adminFacilityArchiveMessage(error))
-  const row = Array.isArray(data) ? data[0] : data
-  if (!row) throw new Error('Facility archive returned no data')
-  return row as AdminFacility
 }

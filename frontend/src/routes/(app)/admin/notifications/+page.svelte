@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { supabase } from '$lib/supabaseClient'
   import { language, uiState } from '$lib/stores/ui'
+  import { refreshNotifications } from '$lib/stores/notifications'
   import Toggle from '$lib/components/Toggle.svelte'
   import TextField from '$lib/components/TextField.svelte'
   import Button from '$lib/components/Button.svelte'
@@ -25,6 +26,7 @@
   let showForm = false
   let editingId: string | null = null
   let saving = false
+  let updatingId = ''
   let form = { title_en:'', title_ar:'', body_en:'', body_ar:'', published_at:'', expires_at:'', is_active:true }
 
   $: ar = $language === 'ar'
@@ -67,8 +69,10 @@
   }
 
   async function save() {
+    if (saving) return
     error = ''
     if (![form.title_en,form.title_ar,form.body_en,form.body_ar].every((value) => value.trim())) { error = copy.required; return }
+    if (form.expires_at && new Date(form.expires_at) <= new Date(form.published_at || Date.now())) { error = ar ? 'وقت الانتهاء يجب أن يكون بعد النشر.' : 'Expiry must be after publication.'; return }
     saving = true
     try {
       const payload = {
@@ -88,6 +92,7 @@
       }
       showForm = false
       uiState.addToast(ar ? 'تم حفظ الإعلان' : 'Announcement saved', 'success')
+      void refreshNotifications(true)
       await load()
     } catch {
       error = copy.saveError
@@ -95,48 +100,74 @@
   }
 
   async function setActive(item: Announcement, active: boolean) {
-    const { error: err } = await supabase.from('announcements').update({is_active:active}).eq('id',item.id)
-    if (err) { uiState.addToast(copy.saveError,'error'); return }
-    announcements = announcements.map((row) => row.id===item.id ? {...row,is_active:active} : row)
-    uiState.addToast(active ? (ar?'تم التفعيل':'Announcement activated') : (ar?'تمت الأرشفة':'Announcement archived'),'success')
+    if (updatingId) return
+    updatingId = item.id
+    try {
+      const { error: err } = await supabase.from('announcements').update({is_active:active}).eq('id',item.id)
+      if (err) throw err
+      announcements = announcements.map((row) => row.id === item.id ? {...row,is_active:active} : row)
+      uiState.addToast(active ? (ar ? 'تم التفعيل' : 'Announcement activated') : (ar ? 'تمت الأرشفة' : 'Announcement archived'), 'success')
+      void refreshNotifications(true)
+    } catch { uiState.addToast(copy.saveError, 'error') }
+    finally { updatingId = '' }
   }
+
+  function announcementState(item: Announcement) {
+    if (!item.is_active) return copy.archived
+    if (new Date(item.published_at).getTime() > Date.now()) return ar ? 'مجدول' : 'Scheduled'
+    if (item.expires_at && new Date(item.expires_at).getTime() <= Date.now()) return ar ? 'منتهي' : 'Expired'
+    return ar ? 'منشور' : 'Published'
+  }
+
 </script>
 
 <svelte:head><title>{copy.title} · UNEEM Admin</title></svelte:head>
 
 <main class="uneem-page max-w-6xl">
-  <header class="uneem-page-header">
-    <div><p class="uneem-kicker">Admin</p><h1 class="uneem-title">{copy.title}</h1><p class="uneem-subtitle">{copy.subtitle}</p></div>
-    {#if !showForm}<button on:click={openCreate} class="uneem-primary-action min-h-11 shrink-0 px-4 text-sm"><Icon name="plus" size={17}/>{copy.add}</button>{/if}
+  <header class="mb-6 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+    <div><h1 class="uneem-title">{copy.title}</h1><p class="uneem-subtitle">{copy.subtitle}</p></div>
+    {#if !showForm}<Button on:click={openCreate} className="w-full sm:w-auto"><Icon name="plus" size={18}/>{copy.add}</Button>{/if}
   </header>
 
-  {#if error}<div class="mb-4 rounded-2xl bg-danger-light px-4 py-3 text-sm font-semibold text-danger" role="alert">{error}</div>{/if}
+  {#if error && !showForm}<div class="mb-4 rounded-2xl bg-danger-light px-4 py-3 text-sm font-semibold text-danger" role="alert">{error}</div>{/if}
 
   {#if showForm}
-    <section class="uneem-panel mb-6 overflow-hidden">
-      <div class="flex min-h-14 items-center justify-between border-b border-border-light px-4 sm:px-5"><h2 class="font-bold text-text">{editingId ? copy.edit : copy.create}</h2><button on:click={() => showForm=false} class="grid h-10 w-10 place-items-center rounded-full text-text-muted hover:bg-surface-level-1"><Icon name="x" size={18}/></button></div>
-      <div class="grid gap-4 p-4 sm:grid-cols-2 sm:p-5">
-        <TextField label={copy.enTitle} bind:value={form.title_en}/><TextField label={copy.arTitle} bind:value={form.title_ar}/>
-        <div><label class="text-sm font-bold text-text" for="body-en">{copy.enBody}</label><textarea id="body-en" bind:value={form.body_en} rows="4" class="uneem-field mt-2 resize-none"></textarea></div>
-        <div><label class="text-sm font-bold text-text" for="body-ar">{copy.arBody}</label><textarea id="body-ar" bind:value={form.body_ar} rows="4" dir="rtl" class="uneem-field mt-2 resize-none"></textarea></div>
-        <div><label class="text-sm font-bold text-text" for="published-at">{copy.publish}</label><input id="published-at" type="datetime-local" bind:value={form.published_at} class="uneem-field mt-2"/></div>
-        <div><label class="text-sm font-bold text-text" for="expires-at">{copy.expiry}</label><input id="expires-at" type="datetime-local" bind:value={form.expires_at} class="uneem-field mt-2"/></div>
+    <form on:submit|preventDefault={save} class="uneem-panel mb-6 overflow-hidden">
+      <div class="flex min-h-16 items-center justify-between gap-4 px-5 pt-3 sm:px-6"><h2 class="font-bold text-text">{editingId ? copy.edit : copy.create}</h2><button type="button" disabled={saving} aria-label={copy.cancel} on:click={() => showForm=false} class="uneem-icon-button shrink-0"><Icon name="x" size={18}/></button></div>
+      <div class="grid gap-5 p-5 sm:grid-cols-2 sm:p-6">
+        <TextField label={copy.enTitle} bind:value={form.title_en} disabled={saving} required/><TextField label={copy.arTitle} bind:value={form.title_ar} disabled={saving} required/>
+        <div><label class="text-sm font-medium text-text-secondary" for="body-en">{copy.enBody}</label><textarea id="body-en" bind:value={form.body_en} rows="4" required disabled={saving} dir="ltr" class="uneem-field mt-2 resize-y"></textarea></div>
+        <div><label class="text-sm font-medium text-text-secondary" for="body-ar">{copy.arBody}</label><textarea id="body-ar" bind:value={form.body_ar} rows="4" required disabled={saving} dir="rtl" class="uneem-field mt-2 resize-y"></textarea></div>
+        <div><label class="text-sm font-medium text-text-secondary" for="published-at">{copy.publish}</label><input id="published-at" type="datetime-local" disabled={saving} bind:value={form.published_at} class="uneem-field mt-2"/></div>
+        <div><label class="text-sm font-medium text-text-secondary" for="expires-at">{copy.expiry}</label><input id="expires-at" type="datetime-local" disabled={saving} bind:value={form.expires_at} class="uneem-field mt-2"/></div>
       </div>
-      <div class="mx-4 mb-4 rounded-[18px] bg-surface-level-1 p-4 sm:mx-5 sm:mb-5"><Toggle checked={form.is_active} onToggle={() => form.is_active=!form.is_active} label={copy.active}/></div>
-      <div class="flex gap-3 border-t border-border-light p-4 sm:justify-end sm:p-5"><Button variant="secondary" size="lg" className="flex-1 sm:flex-none sm:min-w-28" disabled={saving} on:click={() => showForm=false}>{copy.cancel}</Button><Button size="lg" className="flex-1 sm:flex-none sm:min-w-28" loading={saving} on:click={save}>{copy.save}</Button></div>
-    </section>
+      <div class="mx-5 mb-5 rounded-2xl bg-surface-level-1 p-4 sm:mx-6"><Toggle checked={form.is_active} disabled={saving} onToggle={() => form.is_active=!form.is_active} label={copy.active}/></div>
+      {#if error}<p class="mx-5 mb-4 rounded-xl bg-danger-light p-4 text-sm text-danger sm:mx-6" role="alert">{error}</p>{/if}
+      <div class="flex flex-col-reverse gap-3 px-5 pb-5 sm:flex-row sm:justify-end sm:px-6 sm:pb-6"><Button variant="secondary" size="lg" className="flex-1 sm:flex-none sm:min-w-28" disabled={saving} on:click={() => showForm=false}>{copy.cancel}</Button><Button size="lg" className="flex-1 sm:flex-none sm:min-w-28" loading={saving} type="submit">{copy.save}</Button></div>
+    </form>
   {/if}
 
   {#if loading}
     <div class="space-y-3" aria-busy="true">{#each [1,2,3] as _}<div class="h-28 animate-pulse rounded-[22px] bg-surface-level-1"></div>{/each}</div>
-  {:else if announcements.length===0}
+  {:else if announcements.length===0 && !error}
     <section class="uneem-empty"><div class="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-surface text-text-muted"><Icon name="bell" size={22}/></div><p class="mt-3 font-bold text-text">{copy.empty}</p><button on:click={openCreate} class="mt-3 min-h-10 text-sm font-bold text-primary">{copy.add}</button></section>
   {:else}
-    <div class="space-y-3">
+    <div class="grid gap-4 lg:grid-cols-2">
       {#each announcements as item (item.id)}
-        <article class="uneem-card" class:opacity-60={!item.is_active}>
-          <div class="flex items-start justify-between gap-4"><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2"><h2 class="truncate font-bold text-text">{ar ? item.title_ar : item.title_en}</h2>{#if !item.is_active}<span class="rounded-full bg-surface-level-1 px-2 py-0.5 text-[10px] font-bold text-text-muted">{copy.archived}</span>{/if}</div><p class="mt-1 line-clamp-2 text-sm leading-6 text-text-secondary">{ar ? item.body_ar : item.body_en}</p><p class="mt-2 text-xs text-text-muted">{new Date(item.published_at).toLocaleString(ar?'ar-MA':'en')} · {item.expires_at ? new Date(item.expires_at).toLocaleDateString(ar?'ar-MA':'en') : copy.noExpiry}</p></div><button on:click={() => openEdit(item)} class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-text-muted hover:bg-surface-level-1 hover:text-text"><Icon name="edit" size={17}/></button></div>
-          <div class="mt-3 border-t border-border-light pt-3"><button on:click={() => setActive(item,!item.is_active)} class={`min-h-10 text-sm font-bold ${item.is_active ? 'text-danger' : 'text-success'}`}>{item.is_active ? copy.archive : copy.activate}</button></div>
+        <article class="uneem-card flex min-w-0 flex-col">
+          <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0 flex-1">
+              <p class="mb-2 text-xs font-medium text-text-muted">{announcementState(item)}</p>
+              <h2 class="break-words text-lg font-semibold leading-6 text-text">{ar ? item.title_ar : item.title_en}</h2>
+            </div>
+            <button disabled={saving} on:click={() => openEdit(item)} aria-label={`${copy.edit}: ${ar ? item.title_ar : item.title_en}`} class="uneem-icon-button shrink-0 bg-surface-level-1"><Icon name="edit" size={18}/></button>
+          </div>
+          <p class="mt-3 whitespace-pre-wrap text-sm leading-6 text-text-secondary">{ar ? item.body_ar : item.body_en}</p>
+          <dl class="my-5 grid grid-cols-2 gap-4 rounded-2xl bg-surface-level-1 p-4 text-xs">
+            <div class="min-w-0"><dt class="text-text-muted">{copy.publish}</dt><dd class="mt-1 font-medium leading-5 text-text-secondary"><time datetime={item.published_at}>{new Date(item.published_at).toLocaleString(ar ? 'ar-MA' : 'en', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</time></dd></div>
+            <div class="min-w-0"><dt class="text-text-muted">{copy.expiry}</dt><dd class="mt-1 font-medium leading-5 text-text-secondary">{item.expires_at ? new Date(item.expires_at).toLocaleString(ar ? 'ar-MA' : 'en', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : copy.noExpiry}</dd></div>
+          </dl>
+          <div class="mt-auto"><Toggle checked={item.is_active} disabled={!!updatingId} label={copy.active} onToggle={() => void setActive(item, !item.is_active)}/></div>
         </article>
       {/each}
     </div>

@@ -1,5 +1,23 @@
 # Repository Engineering Rules
 
+## Live users and production data
+
+UNEEM is live and has real users. Treat the connected Supabase project and
+deployed website as production, not as a disposable test environment.
+
+- Keep production audits read-only by default. Run mutation, capacity, cancellation,
+  and concurrency tests against an isolated database with fictional fixtures.
+- Never reset, truncate, reseed, bulk-delete, or overwrite live accounts, bookings,
+  match participation, verification records, or support conversations for testing.
+- Preserve existing users and data when preparing migrations. Validate changes in
+  isolation and prepare a rollback plan before requesting production deployment.
+- Do not create test users or send test emails through production unless the user
+  explicitly authorizes that specific test and account.
+- Keep real user data out of exported logs, screenshots, fixtures, and reports.
+  Record aggregate timings and sanitized results instead.
+- A successful local build or mocked browser test is not proof of production
+  performance, database safety, or release completion.
+
 ## Personal-data prohibition
 
 This repository and every deployed/public build must not contain a contributor's, operator's, owner's, maintainer's, or tester's real personal data.

@@ -597,6 +597,10 @@ export type Database = {
       }
     }
     Functions: {
+      update_my_student_id: {
+        Args: { p_student_id: string }
+        Returns: undefined
+      }
       add_guest_support_message: {
         Args: { p_access_token: string; p_body: string }
         Returns: string
@@ -1206,7 +1210,7 @@ export type Database = {
         }
       }
       update_my_profile: {
-        Args: { p_full_name: string }
+        Args: { p_full_name: string; p_username?: string }
         Returns: {
           access_restriction_reason: string | null
           created_at: string

@@ -4,7 +4,7 @@ export const USE_MOCK = false as const
 
 export const mockProfile = {
   id: 'mock-user-1',
-  email: 'test@usmba.ac.ma',
+  email: 'student@example.com',
   student_id: 'S123456789',
   full_name: 'Test Student',
   username: 'test_student',
@@ -30,13 +30,13 @@ export const mockBookings = [
 export const mockSlots = [
   { datetime_start: new Date(Date.now() + 86400000).toISOString(), datetime_end: new Date(Date.now() + 86400000 + 3600000).toISOString(), is_available: true, pitch_id: '1', pitch_name: 'Football Field A' },
   { datetime_start: new Date(Date.now() + 86400000 + 3600000).toISOString(), datetime_end: new Date(Date.now() + 86400000 + 7200000).toISOString(), is_available: true, pitch_id: '1', pitch_name: 'Football Field A' },
-  { datetime_start: new Date(Date.now() + 86400000 + 7200000).toISOString(), datetime_end: new Date(Date.now() + 86400000 + 10800000).toISOString(), is_available: false, pitch_id: '1', pitch_name: 'Football Field A', booker_name: 'Alice' }
+  { datetime_start: new Date(Date.now() + 86400000 + 7200000).toISOString(), datetime_end: new Date(Date.now() + 86400000 + 10800000).toISOString(), is_available: false, pitch_id: '1', pitch_name: 'Football Field A', booker_name: 'Test Booker' }
 ]
 
 export const mockUsers = [
   mockProfile,
-  { id: 'mock-user-2', email: 'pending@usmba.ac.ma', student_id: 'S987654321', full_name: 'Pending Student', role: 'student', status: 'pending', rejection_reason: null as string | null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: 'mock-user-3', email: 'student@usmba.ac.ma', student_id: 'S111222333', full_name: 'Regular Student', role: 'student', status: 'approved', rejection_reason: null as string | null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+  { id: 'mock-user-2', email: 'pending@example.com', student_id: 'S987654321', full_name: 'Pending Student', role: 'student', status: 'pending', rejection_reason: null as string | null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+  { id: 'mock-user-3', email: 'student@example.com', student_id: 'S111222333', full_name: 'Regular Student', role: 'student', status: 'approved', rejection_reason: null as string | null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
 ]
 
 export function mockDelay(ms = 300) {

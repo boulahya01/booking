@@ -1,7 +1,11 @@
 import { supabase } from './supabaseClient'
+import { get } from 'svelte/store'
 import { getMyAccountState } from './auth'
 import type { AccountState } from './types'
+import { isValidStudentId } from './utils/cn'
+import { authState } from './stores/auth'
 import { sanitizeStudentId } from './validation'
+import { withLoading } from './stores/loading'
 
 export type VerificationReason =
   | 'student_id_incorrect'
@@ -14,6 +18,7 @@ export type VerificationReason =
 export type IdentityFailureCode =
   | 'session_required'
   | 'invalid_student_id'
+  | 'identity_already_verified'
   | 'identity_claim_unavailable'
   | 'upload_failed'
   | 'network'
@@ -76,6 +81,7 @@ function classifySubmissionFailure(message = ''): IdentityFailureCode {
   const value = message.toLowerCase()
   if (value.includes('identity_claim_unavailable') || value.includes('duplicate_student_identity')) return 'identity_claim_unavailable'
   if (value.includes('invalid_student_id')) return 'invalid_student_id'
+  if (value.includes('identity_already_verified')) return 'identity_already_verified'
   if (value.includes('authentication_required') || value.includes('email_confirmation_required') || value.includes('jwt')) return 'session_required'
   if (looksLikeNetworkFailure(value)) return 'network'
   return 'submission_failed'
@@ -108,11 +114,15 @@ export async function getLatestVerificationAttempt(): Promise<VerificationAttemp
 }
 
 export async function uploadAndSubmitStudentCard(studentId: string, file: File): Promise<AccountState> {
+  return withLoading('action', () => uploadAndSubmitStudentCardInternal(studentId, file))
+}
+
+async function uploadAndSubmitStudentCardInternal(studentId: string, file: File): Promise<AccountState> {
   const validationError = validateStudentCard(file)
   if (validationError) throw new IdentityError('upload_failed')
 
   const normalizedStudentId = sanitizeStudentId(studentId)
-  if (!/^[A-Z][0-9]{9}$/.test(normalizedStudentId)) throw new IdentityError('invalid_student_id')
+  if (!isValidStudentId(normalizedStudentId)) throw new IdentityError('invalid_student_id')
 
   const { data: sessionData, error: userError } = await supabase.auth.getUser()
   const user = sessionData.user
@@ -143,13 +153,29 @@ export async function uploadAndSubmitStudentCard(studentId: string, file: File):
   }
 
   try {
-    const state = await getMyAccountState()
+    const state = await getMyAccountState(true)
     if (!state) throw new IdentityError('status_load_failed')
+    if (get(authState).user?.id === state.user_id) authState.setAccount(state)
     return state
   } catch (error) {
     if (error instanceof IdentityError) throw error
     throw new IdentityError('status_load_failed')
   }
+}
+
+export async function updateMyStudentId(studentId: string): Promise<AccountState> {
+  return withLoading('action', () => updateMyStudentIdInternal(studentId))
+}
+
+async function updateMyStudentIdInternal(studentId: string): Promise<AccountState> {
+  const normalized = sanitizeStudentId(studentId)
+  if (!isValidStudentId(normalized)) throw new IdentityError('invalid_student_id')
+  const { error } = await supabase.rpc('update_my_student_id', { p_student_id: normalized })
+  if (error) throw new IdentityError(classifySubmissionFailure(error.message))
+  const state = await getMyAccountState(true)
+  if (!state) throw new IdentityError('status_load_failed')
+  if (get(authState).user?.id === state.user_id) authState.setAccount(state)
+  return state
 }
 
 export async function listVerificationQueue(): Promise<VerificationQueueItem[]> {
@@ -173,6 +199,14 @@ export async function reviewVerification(
   attemptId: string,
   decision: 'approved' | 'rejected',
   reasonCode: VerificationReason | null = null
+): Promise<void> {
+  return withLoading('action', () => reviewVerificationInternal(attemptId, decision, reasonCode))
+}
+
+async function reviewVerificationInternal(
+  attemptId: string,
+  decision: 'approved' | 'rejected',
+  reasonCode: VerificationReason | null
 ): Promise<void> {
   const { data, error } = await supabase.rpc('review_identity_verification', {
     p_attempt_id: attemptId,

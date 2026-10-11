@@ -54,8 +54,8 @@
     min-width: 100%;
     align-items: center;
     gap: 0.2rem;
-    border: 1px solid var(--border-light);
-    border-radius: 12px;
+    border: 0;
+    border-radius: 16px;
     background: var(--surface-level-1);
     padding: 3px;
   }
@@ -65,10 +65,10 @@
   }
 
   .uneem-segmented-option {
-    min-height: 36px;
+    min-height: 44px;
     flex: 1 0 auto;
     border: 1px solid transparent;
-    border-radius: 9px;
+    border-radius: 13px;
     padding: 0.45rem 0.85rem;
     color: var(--text-secondary);
     background: transparent;
@@ -85,10 +85,10 @@
   }
 
   .uneem-segmented-option.is-active {
-    border-color: var(--border-light);
+    border-color: transparent;
     background: var(--surface);
     color: var(--text);
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 2px 5px rgb(20 20 30 / .06);
   }
 
   .uneem-segmented-option:focus-visible {
@@ -100,7 +100,7 @@
   }
 
   :global(.dark) .uneem-segmented-option.is-active {
-    border-color: var(--border);
+    border-color: transparent;
     background: var(--surface-raised);
   }
 </style>

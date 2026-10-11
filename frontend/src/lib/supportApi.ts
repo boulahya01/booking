@@ -1,4 +1,5 @@
 import { supabase } from '$lib/supabaseClient'
+import { withLoading } from './stores/loading'
 
 export type SupportKind = 'support' | 'appeal' | 'report'
 export type SupportStatus = 'open' | 'waiting' | 'resolved'
@@ -76,13 +77,15 @@ export async function createAuthenticatedSupportThread(input: {
   subject?: string
   body: string
 }): Promise<string> {
-  const { data, error } = await supabase.rpc('create_my_support_thread', {
-    p_kind: input.kind,
-    p_subject: input.subject ?? '',
-    p_body: input.body
+  return withLoading('action', async () => {
+    const { data, error } = await supabase.rpc('create_my_support_thread', {
+      p_kind: input.kind,
+      p_subject: input.subject ?? '',
+      p_body: input.body
+    })
+    if (error) throw normalizeError(error)
+    return data as string
   })
-  if (error) throw normalizeError(error)
-  return data as string
 }
 
 export async function createAuthenticatedReportThread(input: {
@@ -91,14 +94,16 @@ export async function createAuthenticatedReportThread(input: {
   reason: ReportReason
   body: string
 }): Promise<string> {
-  const { data, error } = await supabase.rpc('create_my_report_thread', {
-    p_target_type: input.targetType,
-    p_target_id: input.targetId,
-    p_reason_code: input.reason,
-    p_body: input.body
+  return withLoading('action', async () => {
+    const { data, error } = await supabase.rpc('create_my_report_thread', {
+      p_target_type: input.targetType,
+      p_target_id: input.targetId,
+      p_reason_code: input.reason,
+      p_body: input.body
+    })
+    if (error) throw normalizeError(error)
+    return data as string
   })
-  if (error) throw normalizeError(error)
-  return data as string
 }
 
 export async function listMySupportThreads(): Promise<MySupportThreadSummary[]> {
@@ -154,11 +159,13 @@ export async function getMySupportThread(threadId: string): Promise<SupportThrea
 }
 
 export async function addAuthenticatedSupportMessage(threadId: string, body: string): Promise<void> {
-  const { error } = await supabase.rpc('add_my_support_message', {
-    p_thread_id: threadId,
-    p_body: body
+  return withLoading('action', async () => {
+    const { error } = await supabase.rpc('add_my_support_message', {
+      p_thread_id: threadId,
+      p_body: body
+    })
+    if (error) throw normalizeError(error)
   })
-  if (error) throw normalizeError(error)
 }
 
 export async function createGuestSupportThread(input: {
@@ -166,34 +173,36 @@ export async function createGuestSupportThread(input: {
   subject?: string
   body: string
 }): Promise<{ threadId: string; accessToken: string }> {
-  const { data, error } = await supabase.functions.invoke('guest-support', {
-    body: {
-      contactEmail: input.contactEmail ?? '',
-      subject: input.subject ?? '',
-      body: input.body
-    }
-  })
-
-  if (error) {
-    const response = (error as any)?.context
-    if (response instanceof Response) {
-      try {
-        const payload = await response.clone().json()
-        if (typeof payload?.error === 'string' && payload.error.trim()) {
-          throw normalizeError(new Error(payload.error))
-        }
-      } catch (cause) {
-        if (cause instanceof Error && cause.message !== 'Unexpected end of JSON input') throw cause
+  return withLoading('action', async () => {
+    const { data, error } = await supabase.functions.invoke('guest-support', {
+      body: {
+        contactEmail: input.contactEmail ?? '',
+        subject: input.subject ?? '',
+        body: input.body
       }
+    })
+
+    if (error) {
+      const response = (error as any)?.context
+      if (response instanceof Response) {
+        try {
+          const payload = await response.clone().json()
+          if (typeof payload?.error === 'string' && payload.error.trim()) {
+            throw normalizeError(new Error(payload.error))
+          }
+        } catch (cause) {
+          if (cause instanceof Error && cause.message !== 'Unexpected end of JSON input') throw cause
+        }
+      }
+      throw new Error('Support is temporarily unavailable. Please try again.')
     }
-    throw new Error('Support is temporarily unavailable. Please try again.')
-  }
 
-  if (!data?.threadId || !data?.accessToken) {
-    throw new Error('Support is temporarily unavailable. Please try again.')
-  }
+    if (!data?.threadId || !data?.accessToken) {
+      throw new Error('Support is temporarily unavailable. Please try again.')
+    }
 
-  return { threadId: data.threadId, accessToken: data.accessToken }
+    return { threadId: data.threadId, accessToken: data.accessToken }
+  })
 }
 
 export async function getGuestSupportThread(accessToken: string): Promise<SupportThread | null> {
@@ -218,11 +227,13 @@ export async function getGuestSupportThread(accessToken: string): Promise<Suppor
 }
 
 export async function addGuestSupportMessage(accessToken: string, body: string): Promise<void> {
-  const { error } = await supabase.rpc('add_guest_support_message', {
-    p_access_token: accessToken,
-    p_body: body
+  return withLoading('action', async () => {
+    const { error } = await supabase.rpc('add_guest_support_message', {
+      p_access_token: accessToken,
+      p_body: body
+    })
+    if (error) throw normalizeError(error)
   })
-  if (error) throw normalizeError(error)
 }
 
 /**
@@ -231,15 +242,17 @@ export async function addGuestSupportMessage(accessToken: string, body: string):
  */
 export async function claimGuestSupportThread(accessToken: string): Promise<string | null> {
   if (!accessToken) return null
-  const { data, error } = await supabase.rpc('claim_guest_support_thread', {
-    p_access_token: accessToken
+  return withLoading('action', async () => {
+    const { data, error } = await supabase.rpc('claim_guest_support_thread', {
+      p_access_token: accessToken
+    })
+    if (error) {
+      const raw = String((error as any)?.message || '')
+      if (raw.includes('support_thread_not_found')) return null
+      throw normalizeError(error)
+    }
+    return typeof data === 'string' ? data : null
   })
-  if (error) {
-    const raw = String((error as any)?.message || '')
-    if (raw.includes('support_thread_not_found')) return null
-    throw normalizeError(error)
-  }
-  return typeof data === 'string' ? data : null
 }
 
 export async function listAdminSupportThreads(status: SupportStatus | null = null): Promise<SupportThreadSummary[]> {
@@ -269,18 +282,22 @@ export async function adminReplySupportThread(
   body: string,
   nextStatus: SupportStatus = 'waiting'
 ): Promise<void> {
-  const { error } = await supabase.rpc('admin_reply_support_thread', {
-    p_thread_id: threadId,
-    p_body: body,
-    p_next_status: nextStatus
+  return withLoading('action', async () => {
+    const { error } = await supabase.rpc('admin_reply_support_thread', {
+      p_thread_id: threadId,
+      p_body: body,
+      p_next_status: nextStatus
+    })
+    if (error) throw normalizeError(error)
   })
-  if (error) throw normalizeError(error)
 }
 
 export async function adminSetSupportStatus(threadId: string, status: SupportStatus): Promise<void> {
-  const { error } = await supabase.rpc('admin_set_support_status', {
-    p_thread_id: threadId,
-    p_status: status
+  return withLoading('action', async () => {
+    const { error } = await supabase.rpc('admin_set_support_status', {
+      p_thread_id: threadId,
+      p_status: status
+    })
+    if (error) throw normalizeError(error)
   })
-  if (error) throw normalizeError(error)
 }

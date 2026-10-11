@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { goto } from '$app/navigation'
   import { page } from '$app/stores'
   import { language } from '$lib/stores/ui'
   import Icon from '$lib/components/Icon.svelte'
@@ -6,6 +7,22 @@
   $: status = $page.status
   $: ar = $language === 'ar'
   $: isNotFound = status === 404
+
+  let retrying = false
+
+  async function retry() {
+    if (retrying) return
+    retrying = true
+    try {
+      await goto($page.url.pathname + $page.url.search + $page.url.hash, {
+        replaceState: true,
+        invalidateAll: true,
+        keepFocus: true
+      })
+    } finally {
+      retrying = false
+    }
+  }
 </script>
 
 <svelte:head><title>{isNotFound ? (ar ? 'الصفحة غير موجودة' : 'Page not found') : (ar ? 'حدث خطأ' : 'Something went wrong')} · UNEEM</title></svelte:head>
@@ -24,7 +41,7 @@
     </p>
     <div class="mt-6 grid gap-2.5">
       <a href="/home" class="uneem-primary-action">{ar ? 'الرئيسية' : 'Go home'}</a>
-      <button on:click={() => window.location.reload()} class="uneem-secondary-action">{ar ? 'إعادة المحاولة' : 'Try again'}</button>
+      <button on:click={retry} disabled={retrying} aria-busy={retrying} class="uneem-secondary-action">{ar ? 'إعادة المحاولة' : 'Try again'}</button>
     </div>
   </section>
 </main>

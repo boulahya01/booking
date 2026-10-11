@@ -14,18 +14,27 @@
 
 <svelte:head><title>Admin · UNEEM</title></svelte:head>
 
-<main class="uneem-page-narrow max-w-2xl">
-  <header class="mb-5">
+<main class="uneem-page max-w-6xl">
+  <header class="mb-8">
     <h1 class="uneem-title">{$language === 'ar' ? 'الإدارة' : 'Admin'}</h1>
   </header>
 
-  <nav class="border-y border-border-light" aria-label={$language === 'ar' ? 'أقسام الإدارة' : 'Admin sections'}>
+  <nav class="admin-sections" aria-label={$language === 'ar' ? 'أقسام الإدارة' : 'Admin sections'}>
     {#each sections as item}
-      <a href={item.href} class="flex min-h-[62px] items-center gap-3 border-b border-border-light px-1 text-start transition-colors last:border-0 hover:bg-surface-level-1/70">
-        <Icon name={item.icon} size={19} className="shrink-0 text-text-muted" />
-        <span class="min-w-0 flex-1 text-[15px] font-semibold text-text">{$language === 'ar' ? item.ar : item.en}</span>
+      <a href={item.href} class="admin-section">
+        <span class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-surface-level-1 text-primary"><Icon name={item.icon} size={22} /></span>
+        <span class="min-w-0 flex-1 text-base font-semibold text-text">{$language === 'ar' ? item.ar : item.en}</span>
         <Icon name={$language === 'ar' ? 'chevron-left' : 'chevron-right'} size={16} className="shrink-0 text-text-muted" />
       </a>
     {/each}
   </nav>
 </main>
+
+<style>
+  .admin-sections { display: grid; gap: 12px; }
+  .admin-section { display: flex; min-height: 88px; align-items: center; gap: 16px; padding: 20px; border-radius: var(--radius-xl); background: var(--surface); transition: background 140ms, transform 140ms; }
+  .admin-section:hover { background: var(--surface-raised); }
+  .admin-section:active { transform: scale(.985); }
+  @media (min-width: 640px) { .admin-sections { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; } .admin-section { min-height: 112px; padding: 24px; } }
+  @media (prefers-reduced-motion: reduce) { .admin-section { transition: none; } }
+</style>

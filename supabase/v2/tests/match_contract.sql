@@ -1,5 +1,5 @@
 -- UNEEM V2 open-match contract tests.
--- Run against the final V2 schema through layer 024. Transactional; rolls back fixtures.
+-- Run against the final V2 schema through layer 063. Transactional; rolls back fixtures.
 -- Synthetic confirmed Supabase Auth rows are paired with profile fixtures so the
 -- confirmation-aware match authorization contract is exercised explicitly.
 -- The final schema keeps matches/match_participants RPC-only for browser roles;
@@ -53,10 +53,10 @@ insert into auth.users (
 
 insert into public.profiles(id,student_id,full_name,username,role,status,email_kind,identity_status)
 values
-('81000000-0000-4000-8000-000000000001','M000000001','Organizer','organizer','student','approved','academic','verified'),
-('81000000-0000-4000-8000-000000000002','M000000002','Player One','player_one','student','approved','academic','verified'),
-('81000000-0000-4000-8000-000000000003','M000000003','Player Two','player_two','student','approved','academic','verified'),
-('81000000-0000-4000-8000-000000000004','M000000004','Restricted','restricted','student','pending','personal','pending');
+('81000000-0000-4000-8000-000000000001','S000000001','Organizer','organizer','student','approved','academic','verified'),
+('81000000-0000-4000-8000-000000000002','S000000002','Player One','player_one','student','approved','academic','verified'),
+('81000000-0000-4000-8000-000000000003','S000000003','Player Two','player_two','student','approved','academic','verified'),
+('81000000-0000-4000-8000-000000000004','S000000004','Restricted','restricted','student','pending','personal','pending');
 set local session_replication_role=origin;
 
 insert into public.pitches(id,name,location,sport_type,capacity,timezone,open_time,close_time,slot_duration_minutes,booking_window_hours,is_active)
@@ -188,7 +188,33 @@ do $$ begin
 end $$;
 reset role;
 
--- Cancelling the authoritative booking closes its match for everyone and keeps history.
+-- Organizer cancellation cannot displace self-joined players.
+select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000001',true);
+set local role authenticated;
+do $$ begin
+ begin
+   perform public.cancel_booking('83000000-0000-4000-8000-000000000001');
+   raise exception 'FAIL: organizer cancelled a match with joined players';
+ exception when others then
+   if sqlerrm <> 'match_has_public_players' then raise; end if;
+ end;
+end $$;
+reset role;
+do $$ begin
+ if (select status from public.bookings where id='83000000-0000-4000-8000-000000000001') <> 'scheduled' then
+   raise exception 'FAIL: blocked cancellation changed booking status';
+ end if;
+end $$;
+
+-- Once players leave voluntarily, owner cancellation is available again.
+select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000002',true);
+set local role authenticated;
+select public.leave_open_match(current_setting('uneem.test.match1_id')::uuid);
+reset role;
+select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000003',true);
+set local role authenticated;
+select public.leave_open_match(current_setting('uneem.test.match1_id')::uuid);
+reset role;
 select set_config('request.jwt.claim.sub','81000000-0000-4000-8000-000000000001',true);
 set local role authenticated;
 select public.cancel_booking('83000000-0000-4000-8000-000000000001');
@@ -203,8 +229,8 @@ do $$ begin
  if (select status from public.matches where id=current_setting('uneem.test.match1_id')::uuid)<>'cancelled' then
    raise exception 'FAIL: cancelled booking left active match';
  end if;
- if (select count(*) from public.match_participants where match_id=current_setting('uneem.test.match1_id')::uuid)<>2 then
-   raise exception 'FAIL: cancellation destroyed match participant history';
+ if (select count(*) from public.match_participants where match_id=current_setting('uneem.test.match1_id')::uuid)<>0 then
+   raise exception 'FAIL: voluntarily departed players remained in the roster';
  end if;
 end $$;
 

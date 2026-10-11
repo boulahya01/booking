@@ -12,6 +12,8 @@ export default defineConfig({
   reporter: 'html',
   use: {
     baseURL,
+    // Reuse an installed browser when the pinned Playwright runtime is unavailable.
+    channel: process.env.PLAYWRIGHT_CHANNEL || undefined,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },

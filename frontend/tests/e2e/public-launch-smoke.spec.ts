@@ -1,6 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
 
 const publicRoutes = [
+  '/',
+  '/privacy',
+  '/terms',
+  '/data-deletion',
   '/login',
   '/register',
   '/forgot-password',
@@ -91,6 +95,32 @@ for (const language of languages) {
   });
 }
 
+test('public OAuth branding surfaces identify UNEM Sports and explain the product', async ({ page }) => {
+  await seedUi(page, 'en');
+  const response = await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+  expect(response).not.toBeNull();
+  expect(response!.status()).toBeLessThan(400);
+  await expect(page.getByRole('heading', { name: 'Book. Play. Meet.' })).toBeVisible();
+  await expect(page.getByText(/Find a court, reserve a time, and join open matches/i)).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Get started', exact: true })).toHaveCount(1);
+  await expect(page.getByRole('link', { name: 'Sign in', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Privacy' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Terms' })).toBeVisible();
+});
+
+test('privacy policy contains Google sign-in data-use disclosure', async ({ page }) => {
+  await seedUi(page, 'en');
+  const response = await page.goto('/privacy', { waitUntil: 'domcontentloaded' });
+
+  expect(response).not.toBeNull();
+  expect(response!.status()).toBeLessThan(400);
+  await expect(page.getByRole('heading', { name: 'Privacy Policy' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Google Sign-In' })).toBeVisible();
+  await expect(page.getByText(/openid.*email.*profile/i)).toBeVisible();
+  await expect(page.getByText(/do not request access to Gmail/i)).toBeVisible();
+});
+
 test.describe('public auth authority negatives', () => {
   test('direct reset-password visit cannot create recovery authority', async ({ page }) => {
     await seedUi(page, 'en');
@@ -125,6 +155,10 @@ test('registration stays concise and returns wrapped database conflicts to edita
     await route.fulfill({
       status: 500,
       contentType: 'application/json',
+      headers: {
+        'x-supabase-api-version': '2024-01-01',
+        'access-control-expose-headers': 'x-supabase-api-version',
+      },
       body: JSON.stringify({
         code: 'unexpected_failure',
         message: 'Database error saving new user',
@@ -137,17 +171,18 @@ test('registration stays concise and returns wrapped database conflicts to edita
   await expect(page.getByText('Personal email · card approval required')).toHaveCount(0);
   await page.getByRole('button', { name: 'Continue' }).click();
 
-  await expect(page.getByText('Student card required before booking')).toBeVisible();
+  await expect(page.getByText('ID approval required before booking')).toBeVisible();
   await page.getByLabel('Full name', { exact: true }).fill('Release Check');
   await page.getByLabel('Username', { exact: true }).fill('releasecheck');
-  await page.getByLabel('Student ID', { exact: true }).fill('S987654321');
+  await page.getByLabel('Student ID (optional)', { exact: true }).fill('S987654321');
   await expect(page.getByText('Looks good')).toHaveCount(0);
   await expect(page.getByText(/Format valid/)).toHaveCount(0);
   await page.getByRole('button', { name: 'Continue' }).click();
 
   await page.getByLabel('Password', { exact: true }).fill('Secure123!');
   await page.getByLabel('Confirm password', { exact: true }).fill('Secure123!');
-  await expect(page.getByText('Ready')).toHaveCount(0);
+  // Match the old validation badge, not the word fragment in "Already have an account?".
+  await expect(page.getByText('Ready', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Passwords match')).toHaveCount(0);
   await page.getByRole('button', { name: 'Create account' }).click();
 
@@ -161,7 +196,7 @@ test('PWA install metadata is reachable', async ({ page }) => {
   expect(manifestResponse.ok()).toBe(true);
 
   const manifest = await manifestResponse.json();
-  expect(manifest.name).toBe('UNEEM');
+  expect(manifest.name).toBe('UNEM Sports');
   expect(manifest.icons).toEqual(
     expect.arrayContaining([
       expect.objectContaining({ sizes: '192x192' }),

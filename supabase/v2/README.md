@@ -4,7 +4,15 @@ This directory is the canonical database/authorization source for UNEEM V2. The 
 
 ## Ordered source of truth
 
-Apply the full stack in this exact order:
+Apply the original layers below, then every numbered file from 025 through 063 in ascending order. The timestamped equivalents are in `../migrations/`.
+
+Layer 063 was validated in isolated PostgreSQL and applied to production on
+2026-10-11. It blocks organizer cancellation
+when self-joined participants remain, using the booking lock already shared with
+join operations. Reservations and the separate app-admin cancellation RPC retain
+their existing rules. The updated match contract, both cancellation/join race
+orders, and rollback/reapply checks passed before deployment. Future changes
+must repeat those checks in isolation.
 
 1. `schema.sql`
 2. `002_security_contract.sql`
@@ -35,7 +43,7 @@ No partial stack is a supported application target.
 
 ## Hosted state
 
-The fresh hosted V2 Supabase project has consumed all 24 layers. Validation evidence established during the release-candidate work includes:
+The following is historical evidence through layer 024, not a v2.1 sign-off:
 
 - auth lifecycle contract: PASS
 - guest support IP gate contract: PASS
@@ -48,15 +56,43 @@ The fresh hosted V2 Supabase project has consumed all 24 layers. Validation evid
 
 Do not infer future PASS state after a production-schema change. Any later schema/RLS/RPC change must rerun the affected contract gates.
 
+### v2.1 verification update
+
+`060_universal_student_verification.sql` is deployed to `PROJECT_REF` as
+`20260909163702_universal_student_verification_v21`. The full
+`tests/universal_verification_contract.sql` passed inside the migration transaction.
+Its fixtures were rolled back to a savepoint before committing the schema; follow-up
+queries confirmed no fixture users, facilities or storage records remained.
+This covers signup/confirmation, browse-only access, sports mutations, S/s ID
+correction, stale review, duplicate identity, verified immutability and suspension.
+It does not replace the separate multi-session race or physical-device gates.
+
+### v2.1 profile editing
+
+Layer `061_profile_details_editing.sql` was already hosted as
+`20260909173637_profile_details_editing_v21` when work resumed on 2026-09-10.
+The two-argument function definition matches the local source. The complete
+`tests/profile_editing_contract.sql` passed against that hosted definition in a
+transaction ending in rollback. Name/username changes preserve identity, role,
+access and other accounts; anonymous calls and verified-ID edits are denied.
+
+### v2.1 OAuth bootstrap
+
+Layer `062_oauth_profile_bootstrap.sql` is hosted as
+`20260910031617_oauth_profile_bootstrap_v21`. OAuth and universal verification
+contracts passed before application; the OAuth contract also passed afterward
+and fixtures were confirmed absent. Provider identity is authentication only.
+
 ## Authentication authority
 
 Supabase Auth owns credentials and email-link sessions. PostgreSQL owns application capabilities.
 
 - Every application profile starts `pending`.
 - `auth.users.email_confirmed_at` is an authorization prerequisite.
-- A confirmed `@usmba.ac.ma` mailbox proves university affiliation and may unlock sports access.
-- Academic signup may omit Student ID.
-- Personal-email signup requires a Student ID claim and private student-card review before sports access.
+- Email confirmation permits browsing; every email kind needs approved student-card verification before sports participation.
+- Signup may omit Student ID. Claims accept S/s followed by 1–49 digits and are stored uppercase.
+- Student ID can be corrected before verification. Editing a pending claim supersedes the review attempt while preserving its evidence and history.
+- A verified Student ID is immutable through student APIs; mailbox domain and client metadata never replace approval.
 - A normal signed-in session is never password-recovery authority.
 - Only the real Supabase `PASSWORD_RECOVERY` flow may create recovery continuity.
 - Browser-visible metadata never overrides PostgreSQL authorization state.

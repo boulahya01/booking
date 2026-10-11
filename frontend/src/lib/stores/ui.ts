@@ -18,6 +18,8 @@ export type UIState = {
 }
 
 function createUIStore() {
+  let toastSequence = 0
+  const toastTimers = new Map<string, ReturnType<typeof setTimeout>>()
   // Use deterministic defaults to avoid SSR hydration mismatches.
   // LocalStorage is read in +layout.svelte onMount.
   const { subscribe, set, update } = writable<UIState>({
@@ -78,24 +80,27 @@ function createUIStore() {
         }
       }),
     addToast: (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info', duration = 4000) => {
-      const id = Date.now().toString()
+      const id = `toast-${Date.now()}-${++toastSequence}`
       const toast: Toast = { id, message, type, duration }
       update((state) => ({
         ...state,
-        toasts: [...state.toasts, toast]
+        toasts: [...state.toasts, toast].slice(-3)
       }))
       if (duration > 0) {
-        setTimeout(() => {
+        toastTimers.set(id, setTimeout(() => {
           uiState.removeToast(id)
-        }, duration)
+        }, duration))
       }
       return id
     },
-    removeToast: (id: string) =>
+    removeToast: (id: string) => {
+      clearTimeout(toastTimers.get(id))
+      toastTimers.delete(id)
       update((state) => ({
         ...state,
         toasts: state.toasts.filter((t) => t.id !== id)
-      })),
+      }))
+    },
     setUnreadNotifications: (count: number) =>
       update((state) => ({
         ...state,
@@ -105,6 +110,8 @@ function createUIStore() {
 }
 
 export const uiState = createUIStore()
+// SSR forms are visible immediately; enable input only after handlers are attached.
+export const interfaceReady = writable(false)
 
 export const theme = derived(uiState, ($state) => $state.theme)
 export const language = derived(uiState, ($state) => $state.language)

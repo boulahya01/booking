@@ -69,7 +69,7 @@
 
   export let name: string
   export let size = 20
-  export let strokeWidth = 2
+  export let strokeWidth = 1.8
   export let className = ''
 
   const icons: Record<string, any> = {

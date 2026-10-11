@@ -74,10 +74,22 @@ const expectedMigrationVersions = [
   '20260907045500',
   '20260908001000',
   '20260908002000',
-  '20260908041000'
+  '20260908041000',
+  '20260908190000',
+  '20260909185000',
+  '20260910030845',
+  '20261011002159'
 ]
 
 const failures = []
+
+// Project identifiers and real browser keys belong in deployment configuration.
+for (const path of ['.env.example', 'frontend/.env.example', 'frontend/src/lib/supabaseClient.ts']) {
+  const source = readFileSync(atRepo(path), 'utf8')
+  if (/https:\/\/[a-z]{20}\.supabase\.co|sb_publishable_[A-Za-z0-9_-]{20,}/.test(source)) {
+    failures.push(`environment-specific Supabase configuration remains in ${path}`)
+  }
+}
 
 for (const path of forbiddenPaths) {
   if (existsSync(atRepo(path))) failures.push(`legacy release surface still exists: ${path}`)
@@ -178,6 +190,9 @@ const requiredPaths = [
   'supabase/v2/057_unified_booking_match_model.sql',
   'supabase/v2/058_named_reservation_integrity.sql',
   'supabase/v2/059_username_search.sql',
+  'supabase/v2/060_universal_student_verification.sql',
+  'supabase/migrations/20260908190000_060_universal_student_verification.sql',
+  'supabase/v2/tests/universal_verification_contract.sql',
   'supabase/functions/guest-support/index.ts',
   'supabase/v2/tests/concurrency_contract.ps1',
   'frontend/tests/e2e/public-launch-smoke.spec.ts',

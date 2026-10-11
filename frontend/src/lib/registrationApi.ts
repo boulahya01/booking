@@ -2,6 +2,7 @@ import type { AuthError } from '@supabase/supabase-js'
 import { get } from 'svelte/store'
 import { emailConfirmationRedirectUrl } from './authFlow'
 import { supabase } from './supabaseClient'
+import { beginLoading } from './stores/loading'
 import { language } from './stores/ui'
 import {
   authRetryAfterSeconds,
@@ -40,9 +41,10 @@ function normalizeRegistrationFailureKind(
   // Postgres registration conflicts raised by the profile trigger are wrapped
   // by GoTrue as an unexpected 500. Treat only that known wrapper as a
   // privacy-safe conflict; unrelated server failures remain service outages.
+  const hasKnownWrapperCode = !code || code.toLowerCase() === 'unexpected_failure'
   const wrappedRegistrationConflict =
     status === 500 &&
-    code?.toLowerCase() === 'unexpected_failure' &&
+    hasKnownWrapperCode &&
     /database error saving new user|registration[_ ]conflict/i.test(rawMessage)
 
   return wrappedRegistrationConflict ? 'registration_conflict' : kind
@@ -98,6 +100,7 @@ export async function registerAccount(input: {
   const email = input.email.trim().toLowerCase()
   const username = input.username.trim().toLowerCase()
   const studentId = input.studentId?.replace(/\s+/g, '').toUpperCase() || undefined
+  const stopGlobalLoading = beginLoading('action')
 
   try {
     const { data, error } = await supabase.auth.signUp({
@@ -137,6 +140,8 @@ export async function registerAccount(input: {
         code: error?.code
       }
     }
+  } finally {
+    stopGlobalLoading()
   }
 }
 
