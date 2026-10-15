@@ -23,7 +23,7 @@
     {#each sections as item}
       <a href={item.href} class="admin-section">
         <span class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-surface-level-1 text-primary"><Icon name={item.icon} size={22} /></span>
-        <span class="min-w-0 flex-1 text-base font-semibold text-text">{$language === 'ar' ? item.ar : item.en}</span>
+        <span class="min-w-0 flex-1 text-base font-medium text-text">{$language === 'ar' ? item.ar : item.en}</span>
         <Icon name={$language === 'ar' ? 'chevron-left' : 'chevron-right'} size={16} className="shrink-0 text-text-muted" />
       </a>
     {/each}

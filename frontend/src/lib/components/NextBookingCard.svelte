@@ -100,11 +100,11 @@
   a.next-booking:active { transform: scale(.99); }
   a.next-booking:hover { background: var(--surface-raised); }
   .booking-date { display: flex; width: 64px; min-height: 72px; flex-shrink: 0; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; border-radius: 18px; background: var(--primary-light); color: var(--primary); }
-  .booking-date span { font-size: 12px; font-weight: 650; }
-  .booking-date strong { font-size: 30px; line-height: 1; font-weight: 650; letter-spacing: -.04em; }
+  .booking-date span { font-size: 12px; font-weight: 500; }
+  .booking-date strong { font-size: 30px; line-height: 1; font-weight: 500; letter-spacing: var(--tracking-tight); }
   .booking-copy { min-width: 0; flex: 1; }
-  .booking-eyebrow { margin-bottom: 4px; color: var(--primary); font-size: 12px; font-weight: 600; }
-  h2 { color: var(--text); font-size: 18px; line-height: 1.3; font-weight: 650; letter-spacing: -.025em; overflow-wrap: anywhere; }
+  .booking-eyebrow { margin-bottom: 4px; color: var(--primary); font-size: 12px; font-weight: 500; }
+  h2 { color: var(--text); font-size: 18px; line-height: 1.3; font-weight: 500; letter-spacing: var(--tracking-tight); overflow-wrap: anywhere; }
   .booking-schedule { margin-top: 6px; color: var(--text-secondary); font-size: 13px; }
   .booking-load-error { display: flex; min-height: 112px; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 24px; padding: 16px; border-radius: var(--radius-lg); background: var(--danger-light); }
   .booking-load-error p { min-width: 0; flex: 1 1 180px; color: var(--danger); font-size: 14px; }

@@ -23,6 +23,7 @@ type AuthState = {
   loading: boolean
   error: string | null
   bootstrapError: BootstrapError
+  refreshError: boolean
 }
 
 const emptyState: AuthState = {
@@ -30,7 +31,8 @@ const emptyState: AuthState = {
   account: null,
   loading: true,
   error: null,
-  bootstrapError: null
+  bootstrapError: null,
+  refreshError: false
 }
 
 const createAuthStore = () => {
@@ -39,14 +41,15 @@ const createAuthStore = () => {
   return {
     subscribe,
     setSessionContext: (userData: User, account: AccountState) =>
-      set({ user: userData, account, loading: false, error: null, bootstrapError: null }),
+      set({ user: userData, account, loading: false, error: null, bootstrapError: null, refreshError: false }),
     setBootstrapError: (userData: User, bootstrapError: Exclude<BootstrapError, null>) =>
-      set({ user: userData, account: null, loading: false, error: null, bootstrapError }),
+      set({ user: userData, account: null, loading: false, error: null, bootstrapError, refreshError: false }),
     setUser: (userData: User) =>
       update((state) => ({ ...state, user: userData, loading: false, error: null })),
     setAccount: (account: AccountState) =>
       update((state) => ({ ...state, account, loading: false, error: null, bootstrapError: null })),
-    clear: () => set({ user: null, account: null, loading: false, error: null, bootstrapError: null }),
+    clear: () => set({ user: null, account: null, loading: false, error: null, bootstrapError: null, refreshError: false }),
+    setRefreshError: (refreshError: boolean) => update(state => ({ ...state, refreshError })),
     setLoading: (loading: boolean) => update((state) => ({ ...state, loading })),
     setError: (error: string) => update((state) => ({ ...state, error, loading: false }))
   }

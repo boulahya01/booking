@@ -102,7 +102,7 @@
 body {
   background: var(--bg);
   color: var(--text);
-  letter-spacing: -0.006em;
+  letter-spacing: var(--tracking-body);
   line-height: 1.5;
   font-variant-numeric: tabular-nums;
 }
@@ -180,17 +180,17 @@ button:disabled {
   color: var(--text-secondary);
   font-size: 0.72rem;
   line-height: 1rem;
-  font-weight: 700;
+  font-weight: 500;
   letter-spacing: 0.04em;
 }
 
 .uneem-title {
   margin-top: 0.12rem;
   color: var(--text);
-  font-size: clamp(1.875rem, 4vw, 2.5rem);
+  font-size: clamp(1.75rem, 4vw, 2rem);
   line-height: 1.15;
-  font-weight: 750;
-  letter-spacing: -0.035em;
+  font-weight: 500;
+  letter-spacing: var(--tracking-tight);
 }
 
 .uneem-subtitle {
@@ -246,7 +246,7 @@ button:disabled {
   background: var(--surface-level-1);
   color: var(--text-secondary);
   font-size: 0.8rem;
-  font-weight: 650;
+  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -285,7 +285,7 @@ button:disabled {
   border-radius: var(--radius-lg);
   padding: 0.75rem 1rem;
   font-size: 1rem;
-  font-weight: 700;
+  font-weight: 500;
   transition: background 140ms ease, transform 100ms ease, border-color 140ms ease;
 }
 
@@ -314,7 +314,7 @@ button:disabled {
   gap: 0.35rem;
   color: var(--text-secondary);
   font-size: 0.86rem;
-  font-weight: 650;
+  font-weight: 500;
 }
 
 .uneem-text-action:hover { color: var(--primary); }
@@ -364,7 +364,7 @@ button:disabled {
   background: var(--bg);
 }
 
-.auth-title { font-size: 32px; line-height: 1.2; font-weight: 650; letter-spacing: -.035em; }
+.auth-title { font-size: 32px; line-height: 1.2; font-weight: 500; letter-spacing: var(--tracking-tight); }
 
 /* v2.1: shared interaction primitives, used by buttons and action links. */
 .ui-button {
@@ -380,7 +380,7 @@ button:disabled {
   padding: 12px 20px;
   font-size: 16px;
   line-height: 1.4;
-  font-weight: 650;
+  font-weight: 500;
   text-align: center;
   cursor: pointer;
   transition: background var(--motion-fast), color var(--motion-fast), transform var(--motion-fast) var(--motion-ease);
@@ -409,7 +409,7 @@ button:disabled {
 .ui-toast[data-tone='success'] .ui-toast-icon { color: var(--success); }
 .ui-toast[data-tone='error'] .ui-toast-icon { color: var(--danger); }
 .ui-toast[data-tone='warning'] .ui-toast-icon { color: var(--warning); }
-.ui-toast-message { min-width: 0; flex: 1; overflow-wrap: anywhere; font-size: 14px; font-weight: 550; line-height: 1.5; }
+.ui-toast-message { min-width: 0; flex: 1; overflow-wrap: anywhere; font-size: 14px; font-weight: 500; line-height: 1.5; }
 .ui-toast .uneem-icon-button { flex-shrink: 0; }
 .ui-toggle { display: inline-flex; min-height: 44px; align-items: center; gap: 16px; border: 0; border-radius: 12px; background: transparent; text-align: start; cursor: pointer; }
 .ui-toggle-label { flex: 1; font-size: 15px; color: var(--text); }
@@ -445,3 +445,6 @@ button:disabled {
     animation-iteration-count: 1 !important;
   }
 }
+
+/* Content emphasis stays readable without competing with the primary action. */
+strong, b { font-weight: 500; }

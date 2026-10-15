@@ -24,7 +24,8 @@ function changeCount(kind: LoadingKind, delta: number) {
 
 export const globalLoading = derived(counts, ($counts) => ({
   ...$counts,
-  visible: $counts.bootstrap > 0 || $counts.navigating > 0 || $counts.action > 0,
+  // Actions own their button/form feedback; don't duplicate it across the app.
+  visible: $counts.bootstrap > 0 || $counts.navigating > 0,
   any: Object.values($counts).some((count) => count > 0)
 }))
 

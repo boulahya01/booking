@@ -47,7 +47,7 @@
   {#if sent}
     <section class="rounded-[22px] bg-surface p-6 text-center" role="status">
       <div class="mx-auto grid h-14 w-14 place-items-center rounded-full bg-success-light text-success"><Icon name="check" size={25}/></div>
-      <h2 class="mt-5 text-xl font-semibold">{ar ? 'تم إرسال البلاغ' : 'Report sent'}</h2>
+      <h2 class="mt-5 text-xl font-medium">{ar ? 'تم إرسال البلاغ' : 'Report sent'}</h2>
       <p class="mb-6 mt-2 text-sm text-text-secondary">{ar ? 'سيراجعه فريقنا.' : 'Our team will review it.'}</p>
       <ActionLink href={backHref} variant="primary" fullWidth>{ar ? 'متابعة' : 'Continue'}</ActionLink>
     </section>

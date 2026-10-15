@@ -1,18 +1,24 @@
 <script lang="ts">
+  import HeaderControls from './HeaderControls.svelte'
+  import { language } from '$lib/stores/ui'
   export let showAccountLink = true
+  $: ar = $language === 'ar'
 </script>
 
 <div class="public-site">
   <header class="public-header">
-    <a href="/" class="public-brand" aria-label="UNEM Sports home">
+    <a href="/" class="public-brand" aria-label={ar ? 'UNEM Sports — الرئيسية' : 'UNEM Sports home'}>
       <img src="/assets/brand/app-icon.svg" alt="" aria-hidden="true" width="34" height="34" />
       <span>UNEM Sports<span class="public-brand-dot" aria-hidden="true">.</span></span>
     </a>
+    <div class="public-utilities">
     {#if showAccountLink}
-      <nav aria-label="Account">
-        <a href="/login" class="public-signin">Sign in</a>
+      <nav aria-label={ar ? 'الحساب' : 'Account'}>
+        <a href="/login" class="public-signin">{ar ? 'تسجيل الدخول' : 'Sign in'}</a>
       </nav>
     {/if}
+    <HeaderControls id="public" />
+    </div>
   </header>
 
   <main class="public-main">
@@ -21,15 +27,16 @@
 
   <footer class="public-footer">
     <p>UNEM Sports</p>
-    <nav aria-label="Legal">
-      <a href="/privacy">Privacy</a>
-      <a href="/terms">Terms</a>
-      <a href="/data-deletion">Data deletion</a>
+    <nav aria-label={ar ? 'روابط قانونية' : 'Legal'}>
+      <a href="/privacy">{ar ? 'الخصوصية' : 'Privacy'}</a>
+      <a href="/terms">{ar ? 'الشروط' : 'Terms'}</a>
+      <a href="/data-deletion">{ar ? 'حذف البيانات' : 'Data deletion'}</a>
     </nav>
   </footer>
 </div>
 
 <style>
+  .public-utilities { display: flex; align-items: center; }
   .public-site {
     min-height: 100dvh;
     display: flex;
@@ -58,8 +65,8 @@
     gap: 10px;
     font-size: 18px;
     line-height: 1;
-    font-weight: 760;
-    letter-spacing: -0.035em;
+    font-weight: 500;
+    letter-spacing: var(--tracking-tight);
   }
 
   .public-brand img {
@@ -82,7 +89,7 @@
     padding-inline: 14px;
     border-radius: 999px;
     font-size: 14px;
-    font-weight: 650;
+    font-weight: 500;
     color: var(--text-secondary);
     transition: background var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease);
   }
@@ -110,7 +117,7 @@
 
   .public-footer p {
     margin: 0;
-    font-weight: 650;
+    font-weight: 500;
     color: var(--text-secondary);
   }
 
@@ -135,7 +142,7 @@
     color: var(--primary);
     font-size: 12px;
     line-height: 1.2;
-    font-weight: 760;
+    font-weight: 500;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
@@ -145,8 +152,8 @@
     max-width: 720px;
     font-size: clamp(2.15rem, 7vw, 4rem);
     line-height: 0.98;
-    letter-spacing: -0.055em;
-    font-weight: 780;
+    letter-spacing: var(--tracking-tight);
+    font-weight: 550;
   }
 
   :global(.public-copy .lede) {
@@ -176,8 +183,8 @@
     color: var(--text);
     font-size: 1.08rem;
     line-height: 1.35;
-    font-weight: 720;
-    letter-spacing: -0.02em;
+    font-weight: 500;
+    letter-spacing: var(--tracking-tight);
   }
 
   :global(.public-copy p),
@@ -202,7 +209,7 @@
 
   :global(.public-copy a.inline-link) {
     color: var(--primary);
-    font-weight: 650;
+    font-weight: 500;
   }
 
   @media (max-width: 640px) {
@@ -235,5 +242,15 @@
     :global(.public-copy .legal-body) {
       margin-top: 36px;
     }
+  }
+  @media (max-width: 600px) {
+    .public-utilities > nav { display: none; }
+    .public-brand { font-size: 15px; gap: 6px; white-space: nowrap; }
+    .public-brand img { width: 30px; height: 30px; }
+    .public-header { gap: 8px; }
+  }
+  @media (max-width: 359px) {
+    .public-brand { font-size: 14px; }
+    .public-brand img { width: 26px; height: 26px; }
   }
 </style>

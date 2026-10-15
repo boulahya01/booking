@@ -235,8 +235,8 @@
       <a href={backHref} class="uneem-icon-button" aria-label={copy.back}>
         <Icon name={ar ? 'arrow-right' : 'arrow-left'} size={19} />
       </a>
-      <h1 class="text-[16px] font-semibold text-text">{copy.title}</h1>
-      <button on:click={toggleLanguage} class="uneem-icon-button text-sm font-semibold">{ar ? 'EN' : 'AR'}</button>
+      <h1 class="text-[16px] font-medium text-text">{copy.title}</h1>
+      <button on:click={toggleLanguage} class="uneem-icon-button text-sm font-medium">{ar ? 'EN' : 'AR'}</button>
     </div>
   </header>
 
@@ -248,8 +248,8 @@
     {:else if !thread}
       <section class="mx-auto w-full max-w-xl overflow-y-auto px-5 pb-10 pt-8 sm:px-6 sm:pt-12">
         <div class="mb-7">
-          <h2 class="text-[26px] font-semibold tracking-[-0.035em] text-text">{copy.intro}</h2>
-          {#if signedIn && identity}<p class="mt-2 text-sm text-text-muted">{copy.signedAs} <span class="font-semibold text-text-secondary">{identity}</span></p>{/if}
+          <h2 class="text-[26px] font-medium tracking-[var(--tracking-tight)] text-text">{copy.intro}</h2>
+          {#if signedIn && identity}<p class="mt-2 text-sm text-text-muted">{copy.signedAs} <span class="font-medium text-text-secondary">{identity}</span></p>{/if}
         </div>
 
         {#if error}<div class="mb-4 rounded-xl bg-danger-light px-4 py-3 text-sm font-medium text-danger" role="alert">{error}</div>{/if}
@@ -257,7 +257,7 @@
         <form on:submit|preventDefault={startConversation} class="space-y-3">
           {#if !signedIn}
             <div>
-              <label for="support-name" class="mb-2 block text-sm font-semibold text-text-secondary">{copy.name}</label>
+              <label for="support-name" class="mb-2 block text-sm font-medium text-text-secondary">{copy.name}</label>
               <input id="support-name" bind:value={displayName} maxlength="60" autocomplete="name" class="uneem-field" placeholder={copy.namePlaceholder} />
             </div>
           {/if}
@@ -270,11 +270,11 @@
       <section class="flex min-h-0 flex-1 flex-col">
         <div class="flex min-h-14 shrink-0 items-center justify-between gap-3 px-5 sm:px-6">
           <div class="min-w-0">
-            <p class="break-words text-sm font-semibold text-text">{thread.subject || copy.title}</p>
+            <p class="break-words text-sm font-medium text-text">{thread.subject || copy.title}</p>
             {#if thread.status === 'resolved'}<p class="mt-0.5 text-xs font-medium text-success">{copy.resolved}</p>{/if}
           </div>
           {#if thread.status === 'resolved'}
-            <button on:click={startNewConversation} class="min-h-11 shrink-0 px-2 text-sm font-semibold text-primary">{copy.newChat}</button>
+            <button on:click={startNewConversation} class="min-h-11 shrink-0 px-2 text-sm font-medium text-primary">{copy.newChat}</button>
           {/if}
         </div>
 

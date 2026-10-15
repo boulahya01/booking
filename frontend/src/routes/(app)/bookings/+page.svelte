@@ -1,243 +1,122 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { goto } from '$app/navigation'
-  import ActionLink from '$lib/components/ActionLink.svelte'
-  import Button from '$lib/components/Button.svelte'
+  import { page } from '$app/stores'
+  import { language } from '$lib/stores/ui'
+  import { getMyBookings, type MyBooking } from '$lib/bookingApi'
+  import { listMyMatches, type MyMatch } from '$lib/matchApi'
+  import { peekCachedValue } from '$lib/requestCache'
+  import { buildActivities, type Activity } from '$lib/activity'
   import Icon from '$lib/components/Icon.svelte'
+  import Button from '$lib/components/Button.svelte'
   import LoadingShape from '$lib/components/LoadingShape.svelte'
-  import { locale } from 'svelte-i18n'
-  import { authState } from '$lib/stores/auth'
-  import {
-    getMyBookings,
-    BookingApiError,
-    type MyBooking
-  } from '$lib/bookingApi'
-  import {
-    listMyMatches,
-    MatchApiError,
-    matchErrorCopy,
-    type MyMatch
-  } from '$lib/matchApi'
-  import { bookingFailureMessage } from '$lib/ux/bookingFailure'
+  const cachedBookings = peekCachedValue<MyBooking[]>('my-bookings')
+  const cachedMatches = peekCachedValue<MyMatch[]>('my-matches')
+  let bookings = cachedBookings ?? []
+  let matches = cachedMatches ?? []
+  let loading = cachedBookings === undefined && cachedMatches === undefined
+  let refreshing = false
+  let error = ''
+  let disposed = false
+  let now = Date.now()
+  $: ar = $language === 'ar'
+  $: historyView = $page.url.searchParams.get('view') === 'history'
+  $: activities = buildActivities(bookings, matches)
+  $: upcoming = activities.filter(item => !item.cancelled && Date.parse(item.endsAt) > now)
+  $: history = activities.filter(item => item.cancelled || Date.parse(item.endsAt) <= now).reverse()
+  $: rows = historyView ? history : upcoming
+  $: next = !historyView ? rows[0] : null
 
-  let bookings: MyBooking[] = []
-  let matches: MyMatch[] = []
-  let loading = true
-  let error: string | null = null
-
-  $: ar = ($locale || 'en').startsWith('ar')
-  $: copy = ar ? {
-    title:'رياضتي',
-    book:'احجز وقتاً',
-    upcoming:'القادمة',
-    none:'لا توجد حجوزات قادمة.',
-    open:'مفتوح',
-    closed:'مغلق',
-    view:'عرض',
-    history:'السجل',
-    cancelled:'ملغى',
-    completed:'مكتمل',
-    retry:'إعادة المحاولة'
-  } : {
-    title:'My Sports',
-    book:'Book a slot',
-    upcoming:'Upcoming',
-    none:'No upcoming bookings.',
-    open:'Open',
-    closed:'Closed',
-    view:'View',
-    history:'History',
-    cancelled:'Cancelled',
-    completed:'Completed',
-    retry:'Try again'
-  }
-
-  onMount(loadSports)
-
-  async function loadSports() {
-    const user = $authState.user
-    if (!user?.id) {
-      await goto('/login')
-      return
-    }
-
-    loading = true
-    error = null
-
+  async function load(force = false) {
+    if (refreshing) return
+    refreshing = true
+    error = ''
     try {
-      const [bookingRows, matchRows] = await Promise.all([
-        getMyBookings(user.id),
-        listMyMatches()
+      const results = await Promise.allSettled([
+        getMyBookings(undefined, force).then(value => {
+          if (!disposed) { bookings = value; loading = false }
+        }),
+        listMyMatches(force).then(value => {
+          if (!disposed) { matches = value; loading = false }
+        })
       ])
-      bookings = bookingRows
-      matches = matchRows
-    } catch (e) {
-      error = e instanceof MatchApiError
-        ? matchErrorCopy(e.code, $locale)
-        : bookingFailureMessage(e instanceof BookingApiError ? e.code : 'unknown', $locale)
-    } finally {
-      loading = false
-    }
+      if (!disposed && results.some(result => result.status === 'rejected')) {
+        error = ar ? 'تعذر تحديث جزء من نشاطك. حاول مجدداً.' : 'Some activity couldn’t be updated. Try again.'
+      }
+    } finally { if (!disposed) { loading = false; refreshing = false } }
   }
-
-  const matchFor = (bookingId: string) =>
-    matches.find((match) => match.booking_id === bookingId) || null
-
-  const upcoming = (booking: MyBooking) =>
-    (booking.lifecycle_status === 'upcoming' || booking.lifecycle_status === 'in_progress') && booking.status === 'scheduled'
-
-  $: upcomingBookings = bookings.filter(upcoming)
-  $: history = bookings.filter((booking) => !upcoming(booking))
-  $: joinedMatches = matches.filter(match => match.member_role !== 'organizer' && Date.parse(match.ends_at) > Date.now())
-
-  function timeText(value: string, timezone?: string | null) {
-    return new Date(value).toLocaleTimeString($locale || 'en', {
-      hour:'2-digit',
-      minute:'2-digit',
-      hour12:false,
-      ...(timezone ? { timeZone: timezone } : {})
-    })
+  onMount(() => {
+    void load()
+    const update = () => { now = Date.now(); if (!document.hidden) void load() }
+    document.addEventListener('visibilitychange', update)
+    const timer = window.setInterval(() => { now = Date.now() }, 60_000)
+    return () => { disposed = true; clearInterval(timer); document.removeEventListener('visibilitychange', update) }
+  })
+  function roleLabel(item: Activity) {
+    if (item.cancelled) return ar ? 'ملغى' : 'Cancelled'
+    if (Date.parse(item.endsAt) <= now) return ar ? 'انتهى' : 'Finished'
+    return ({booked: ar ? 'حجزك' : 'Booked', hosting: ar ? 'أنت المنظم' : 'Hosting', joined: ar ? 'أنت مشارك' : 'Joined', reserved: ar ? 'مكانك محجوز' : 'Spot reserved'})[item.role]
   }
-
-  function dateText(value: string, timezone?: string | null) {
-    return new Date(value).toLocaleDateString($locale || 'en', {
-      month:'short',
-      day:'numeric',
-      weekday:'short',
-      ...(timezone ? { timeZone: timezone } : {})
-    })
+  function dateText(item: Activity) {
+    return new Intl.DateTimeFormat(ar ? 'ar' : 'en', {weekday:'short',month:'short',day:'numeric',timeZone:item.timezone}).format(new Date(item.startsAt))
+  }
+  function timeText(item: Activity) {
+    return new Intl.DateTimeFormat(ar ? 'ar' : 'en', {hour:'2-digit',minute:'2-digit',hour12:false,timeZone:item.timezone}).format(new Date(item.startsAt))
   }
 </script>
-
-<svelte:head>
-  <title>{copy.title} · UNEEM</title>
-</svelte:head>
-
-<main class="uneem-page-narrow">
-  <header class="mb-5">
-    <h1 class="uneem-title">{copy.title}</h1>
-  </header>
-
-  <ActionLink href="/home" fullWidth size="lg" className="mb-7">
-    <Icon name="calendar-plus" size={19}/>
-    {copy.book}
-  </ActionLink>
-
+<svelte:head><title>{ar ? 'نشاطي' : 'My activity'} · UNEEM</title></svelte:head>
+<main class="uneem-page-narrow activity-page">
+  <header class="activity-heading"><div><h1 class="uneem-title">{ar ? 'نشاطي' : 'My activity'}</h1><p class="uneem-subtitle">{ar ? 'حجوزاتك والمباريات التي انضممت إليها.' : 'Your bookings and the matches you joined.'}</p></div><a class="uneem-text-action" href="/home">{ar ? 'احجز وقتاً' : 'Book a slot'}<Icon name="plus" size={17}/></a></header>
+  <nav class="activity-tabs" aria-label={ar ? 'عرض النشاط' : 'Activity view'}>
+    <a href="/bookings" aria-current={!historyView ? 'page' : undefined}>{ar ? 'القادمة' : 'Upcoming'}</a>
+    <a href="/bookings?view=history" aria-current={historyView ? 'page' : undefined}>{ar ? 'السجل' : 'History'}</a>
+  </nav>
+  {#if error}<div class="activity-error" role="alert"><p>{error}</p><Button variant="ghost" size="sm" on:click={() => load(true)}>{ar ? 'إعادة المحاولة' : 'Retry'}</Button></div>{/if}
   {#if loading}
-    <div class="space-y-2" aria-busy="true">
-      {#each [1,2] as _}
-        <div class="rounded-[18px] bg-surface p-5 space-y-3"><LoadingShape className="h-5 w-1/2" /><LoadingShape className="h-3 w-3/4" /><LoadingShape className="h-3 w-24" /></div>
-      {/each}
-    </div>
-  {:else if error}
-    <div class="flex items-center justify-between gap-3 py-4">
-      <p class="text-sm font-semibold text-danger">{error}</p>
-      <button class="min-h-10 text-sm font-bold text-primary" on:click={loadSports}>
-        {copy.retry}
-      </button>
-    </div>
+    <div aria-busy="true" aria-label={ar ? 'تحميل النشاط' : 'Loading activity'} class="activity-loading"><LoadingShape className="h-24 w-full rounded-xl"/><LoadingShape className="h-20 w-full rounded-xl"/></div>
+  {:else if rows.length === 0 && refreshing}
+    <div aria-busy="true" aria-label={ar ? 'تحميل النشاط' : 'Loading activity'} class="activity-loading"><LoadingShape className="h-24 w-full rounded-xl"/></div>
+  {:else if rows.length === 0 && !error}
+    <div class="activity-empty"><Icon name="calendar" size={30}/><h2>{historyView ? (ar ? 'لا يوجد نشاط سابق' : 'No past activity') : (ar ? 'موعدك القادم ينتظرك' : 'Your next game is waiting')}</h2><p>{historyView ? (ar ? 'سيظهر نشاطك المنتهي هنا.' : 'Finished activities will appear here.') : (ar ? 'احجز وقتاً أو انضم إلى مباراة مفتوحة.' : 'Book a time or join an open match.')}</p>{#if !historyView}<a href="/matches" class="uneem-text-action">{ar ? 'استكشف المباريات' : 'Explore open matches'}<Icon name={ar ? 'arrow-left' : 'arrow-right'} size={17}/></a>{/if}</div>
   {:else}
-    <div class="sports-summary">
-      <span><strong>{upcomingBookings.length}</strong>{ar ? 'حجوزاتك القادمة' : 'Your upcoming bookings'}</span>
-      <span><strong>{joinedMatches.length}</strong>{ar ? 'مباريات مشارك فيها' : 'Matches you joined'}</span>
-    </div>
-    {#if joinedMatches.length > 0}
-      <section class="mb-7" aria-labelledby="joined-matches-heading">
-        <h2 id="joined-matches-heading" class="mb-3 text-lg font-semibold text-text">{ar ? 'مبارياتك مع اللاعبين' : 'Matches you’re playing'}</h2>
-        <ul class="overflow-hidden rounded-[18px] bg-surface px-4">
-          {#each joinedMatches as match (match.match_id)}
-            <li><a href={`/bookings/${match.booking_id}`} class="uneem-list-row" aria-label={`${ar ? 'عرض المباراة' : 'View match'}: ${match.pitch_name}`}>
-              <div class="min-w-0 flex-1"><h3 class="break-words text-sm font-semibold text-text">{match.pitch_name}</h3><p class="mt-1 text-xs text-text-secondary">{dateText(match.starts_at, match.timezone)} · <span dir="ltr">{timeText(match.starts_at, match.timezone)}</span></p><p class="mt-1 text-xs font-semibold text-success">{match.member_role === 'reserved' ? (ar ? 'مكانك محجوز' : 'Your spot is reserved') : (ar ? 'أنت مشارك' : 'You’re playing')}</p></div>
-              <Icon name={ar ? 'chevron-left' : 'chevron-right'} size={18} className="text-text-muted shrink-0" />
-            </a></li>
-          {/each}
-        </ul>
-      </section>
+    {#if next}
+      <a href={'/bookings/' + next.id} class="next-activity">
+        <p class="activity-eyebrow">{Date.parse(next.startsAt) <= now ? (ar ? 'تلعب الآن' : 'Happening now') : (ar ? 'موعدك القادم' : 'Up next')}</p>
+        <h2>{next.title}</h2><p>{dateText(next)} · <bdi>{timeText(next)}</bdi></p>
+        <div class="activity-bottom"><span class="activity-role">{roleLabel(next)}</span><span class="next-action">{ar ? 'عرض التفاصيل' : 'View details'}<Icon name={ar ? 'arrow-left' : 'arrow-right'} size={17}/></span></div>
+      </a>
     {/if}
-    <section>
-      <h2 class="mb-3 text-lg font-bold text-text">{copy.upcoming}</h2>
-
-      {#if upcomingBookings.length === 0}
-        <div class="uneem-empty py-8">
-          <p class="font-bold text-text">{copy.none}</p>
-        </div>
-      {:else}
-        <div class="space-y-2">
-          {#each upcomingBookings as booking (booking.id)}
-            {@const match = matchFor(booking.id)}
-            {@const zone = booking.pitches?.timezone}
-            {@const isOpen = match?.visibility === 'open'}
-            {@const used = match
-              ? Math.min(match.capacity, 1 + match.reserved_spots + match.joined_count)
-              : 1}
-
-            <article class="flex flex-col gap-5 rounded-[22px] bg-surface p-5">
-              <div class="min-w-0 flex-1">
-                <p class="flex items-baseline gap-1.5">
-                  <span class="text-[26px] font-extrabold tracking-[-0.04em] text-text">
-                    {timeText(booking.starts_at, zone)}
-                  </span>
-                  <span class="text-sm font-semibold text-text-muted">
-                    – {timeText(booking.ends_at, zone)}
-                  </span>
-                </p>
-                <h3 class="mt-2 break-words font-bold text-text">
-                  {booking.pitches?.name || 'Facility'}
-                </h3>
-                <p class="mt-1 break-words text-sm text-text-muted">
-                  {dateText(booking.starts_at, zone)}
-                  {#if booking.pitches?.location} · {booking.pitches.location}{/if}
-                </p>
-                {#if match}
-                  <p class={`mt-1 text-xs font-bold ${isOpen ? 'text-success' : 'text-text-muted'}`}>
-                    {isOpen ? copy.open : copy.closed}
-                    {#if isOpen} · {used}/{match.capacity}{/if}
-                  </p>
-                {:else}
-                  <p class="mt-1 text-xs font-bold text-text-muted">{copy.closed}</p>
-                {/if}
-              </div>
-
-              <a
-                href={`/bookings/${booking.id}`}
-                class="uneem-secondary-action w-full"
-              >
-                {copy.view}
-              </a>
-            </article>
-          {/each}
-        </div>
-      {/if}
-    </section>
-
-    {#if history.length > 0}
-      <section class="mt-8">
-        <h2 class="mb-3 text-lg font-bold text-text">{copy.history}</h2>
-        <div class="overflow-hidden rounded-[22px] bg-surface px-4">
-          {#each history as booking (booking.id)}
-            <div class="uneem-list-row">
-              <div class="min-w-0 flex-1">
-                <p class="break-words font-semibold text-text">
-                  {booking.pitches?.name || 'Facility'}
-                </p>
-                <p class="mt-0.5 text-sm text-text-muted">
-                  {dateText(booking.starts_at, booking.pitches?.timezone)}
-                  · {timeText(booking.starts_at, booking.pitches?.timezone)}
-                </p>
-              </div>
-              <span class="text-xs font-semibold text-text-muted">
-                {booking.status === 'cancelled' ? copy.cancelled : copy.completed}
-              </span>
-            </div>
-          {/each}
-        </div>
-      </section>
+    {#if (next ? rows.slice(1) : rows).length}
+      <ul class="activity-list">
+        {#each (next ? rows.slice(1) : rows) as item (item.id)}
+          <li><a href={'/bookings/' + item.id}><Icon name={item.role === 'joined' || item.role === 'reserved' ? 'users' : 'calendar-check'} size={22}/><div class="activity-copy"><h2>{item.title}</h2><p>{dateText(item)} · <bdi>{timeText(item)}</bdi></p><span class="activity-role">{roleLabel(item)}</span></div><Icon name={ar ? 'chevron-left' : 'chevron-right'} size={18}/></a></li>
+        {/each}
+      </ul>
     {/if}
   {/if}
 </main>
-
 <style>
-  .sports-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1px solid var(--border-light); }
-  .sports-summary span { display: grid; gap: 5px; color: var(--text-secondary); font-size: 12px; }
-  .sports-summary strong { color: var(--text); font-size: 28px; line-height: 1.2; font-weight: 650; }
+  .activity-page { max-width: 760px; }
+  .activity-heading { display: flex; align-items: start; justify-content: space-between; flex-wrap: wrap; gap: 18px; }
+  .activity-tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--border-light); margin-block: 24px; padding-bottom: 12px; }
+  .activity-tabs a { min-height: 44px; padding: 10px 18px; border-radius: 10px; color: var(--text-secondary); font-size: 15px; }
+  .activity-tabs a[aria-current='page'] { color: var(--primary); background: var(--primary-light); }
+  .next-activity { display: block; padding: 24px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); }
+  .activity-eyebrow { font-size: 14px; color: var(--primary); margin-bottom: 12px; }
+  h2 { font-size: 20px; font-weight: 500; line-height: 1.4; }
+  .next-activity > p:not(.activity-eyebrow), .activity-copy p { color: var(--text-secondary); font-size: 14px; margin-top: 6px; }
+  .activity-bottom { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 24px; }
+  .activity-role { display: inline-block; color: var(--text-secondary); font-size: 13px; }
+  .next-action { display: inline-flex; align-items: center; gap: 8px; color: var(--primary); font-size: 15px; font-weight: 500; }
+  .activity-list { margin-top: 24px; border: 1px solid var(--border-light); border-radius: 16px; overflow: hidden; }
+  .activity-list li + li { border-top: 1px solid var(--border-light); }
+  .activity-list a { display: flex; align-items: center; gap: 16px; padding: 20px; background: var(--surface); }
+  .activity-copy { flex: 1; min-width: 0; }
+  .activity-copy h2 { font-size: 17px; }
+  .activity-copy .activity-role { margin-top: 6px; }
+  .activity-error { display: flex; align-items: center; gap: 16px; padding-block: 12px; font-size: 14px; color: var(--danger); }
+  .activity-empty { text-align: center; padding: 48px 16px; color: var(--text-secondary); }
+  .activity-empty :global(svg) { margin-inline: auto; }
+  .activity-empty h2 { margin-block: 16px 8px; color: var(--text); }
+  .activity-empty p { font-size: 15px; margin-bottom: 20px; }
+  .activity-loading { display: grid; gap: 20px; }
 </style>

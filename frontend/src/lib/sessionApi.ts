@@ -9,7 +9,7 @@ export type SessionContext = {
 
 export async function getMySessionContext(force = false): Promise<SessionContext | null> {
   return cachedRequest('session-context', 2_000, async () => {
-    const { data, error } = await supabase.rpc('get_my_session_context')
+    const { data, error } = await supabase.rpc('get_my_session_context').abortSignal(AbortSignal.timeout(10_000))
     if (error) throw new Error(error.message || 'Unable to restore account')
 
     const row: any = Array.isArray(data) ? data[0] : data

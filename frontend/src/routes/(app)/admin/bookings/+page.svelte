@@ -209,24 +209,24 @@
   </form>
 
   <div class="mb-3 flex items-center justify-between gap-3">
-    <p class="text-sm font-semibold text-text-secondary">{total} {copy.results}</p>
+    <p class="text-sm font-medium text-text-secondary">{total} {copy.results}</p>
     {#if loading && bookings.length > 0}<span class="text-xs text-text-muted" role="status">{ar ? 'جارٍ التحديث…' : 'Updating…'}</span>{/if}
   </div>
 
   {#if error && bookings.length === 0}
-    <section class="uneem-card text-center"><p class="text-sm font-semibold text-danger">{error}</p><button on:click={load} class="mt-3 min-h-10 font-bold text-primary">{copy.retry}</button></section>
+    <section class="uneem-card text-center"><p class="text-sm font-medium text-danger">{error}</p><button on:click={load} class="mt-3 min-h-10 font-medium text-primary">{copy.retry}</button></section>
   {:else if loading && bookings.length === 0}
     <div class="space-y-2" aria-busy="true">{#each [1,2,3,4] as _}<div class="h-24 animate-pulse rounded-[22px] bg-surface-level-1"></div>{/each}</div>
   {:else if bookings.length === 0}
-    <section class="uneem-card py-12 text-center"><Icon name="calendar-days" size={26} className="mx-auto text-text-muted"/><p class="mt-3 font-bold text-text">{copy.empty}</p></section>
+    <section class="uneem-card py-12 text-center"><Icon name="calendar-days" size={26} className="mx-auto text-text-muted"/><p class="mt-3 font-medium text-text">{copy.empty}</p></section>
   {:else}
     <div class="overflow-hidden rounded-[22px] bg-surface">
       {#each bookings as booking (booking.booking_id)}
         <button on:click={() => selected = booking} class="w-full border-b border-border-light px-4 py-4 text-start last:border-0 hover:bg-surface-level-1 sm:px-5">
           <div class="flex items-start gap-3">
-            <div class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-surface-level-1 text-sm font-semibold text-text-secondary">{booking.full_name?.charAt(0)?.toUpperCase() || '?'}</div>
+            <div class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-surface-level-1 text-sm font-medium text-text-secondary">{booking.full_name?.charAt(0)?.toUpperCase() || '?'}</div>
             <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-center gap-2"><p class="break-words font-semibold text-text">{booking.full_name}</p><span class={`rounded-lg bg-surface-level-1 px-2 py-1 text-xs font-medium ${booking.lifecycle_status === 'cancelled' ? 'text-danger' : booking.lifecycle_status === 'upcoming' ? 'text-primary' : 'text-text-secondary'}`}>{statusLabel(booking.lifecycle_status)}</span></div>
+              <div class="flex flex-wrap items-center gap-2"><p class="break-words font-medium text-text">{booking.full_name}</p><span class={`rounded-lg bg-surface-level-1 px-2 py-1 text-xs font-medium ${booking.lifecycle_status === 'cancelled' ? 'text-danger' : booking.lifecycle_status === 'upcoming' ? 'text-primary' : 'text-text-secondary'}`}>{statusLabel(booking.lifecycle_status)}</span></div>
               <p class="mt-2 text-sm leading-6 text-text-secondary">{booking.pitch_name} · {when(booking.starts_at, booking.pitch_id)}</p>
               <p class="mt-1 break-words text-xs leading-5 text-text-muted">{booking.student_id || '—'} · {booking.email || '—'}</p>
             </div>
@@ -240,7 +240,7 @@
   {#if totalPages > 1}
     <div class="mt-5 flex items-center justify-center gap-3">
       <button disabled={page === 1 || loading} on:click={async () => { page--; await load() }} class="uneem-secondary-action">{copy.previous}</button>
-      <span class="text-sm font-bold text-text-secondary">{page}/{totalPages}</span>
+      <span class="text-sm font-medium text-text-secondary">{page}/{totalPages}</span>
       <button disabled={page >= totalPages || loading} on:click={async () => { page++; await load() }} class="uneem-secondary-action">{copy.next}</button>
     </div>
   {/if}
@@ -248,12 +248,12 @@
 
 {#if selected}
   <Modal open={!cancelTarget} title={copy.details} on:close={() => { if (!cancelTarget) selected = null }}>
-    <h3 class="text-xl font-semibold text-text">{selected.full_name}</h3>
+    <h3 class="text-xl font-medium text-text">{selected.full_name}</h3>
     <p class="mt-1 text-sm text-text-secondary">{statusLabel(selected.lifecycle_status)}</p>
     <dl class="mt-5 space-y-4 rounded-2xl bg-surface-level-1 p-4">
-      <div><dt class="text-xs font-medium text-text-muted">{copy.student}</dt><dd class="mt-1 break-words text-sm font-semibold text-text"><bdi>{selected.student_id || '—'}</bdi><br><span class="font-normal text-text-secondary">{selected.email || '—'}</span></dd></div>
-      <div><dt class="text-xs font-medium text-text-muted">{copy.facility}</dt><dd class="mt-1 text-sm font-semibold text-text">{selected.pitch_name}<br><span class="font-normal text-text-secondary">{selected.pitch_location}</span></dd></div>
-      <div><dt class="text-xs font-medium text-text-muted">{copy.time}</dt><dd class="mt-1 text-sm font-semibold text-text">{when(selected.starts_at, selected.pitch_id)} – {when(selected.ends_at, selected.pitch_id)}</dd></div>
+      <div><dt class="text-xs font-medium text-text-muted">{copy.student}</dt><dd class="mt-1 break-words text-sm font-medium text-text"><bdi>{selected.student_id || '—'}</bdi><br><span class="font-normal text-text-secondary">{selected.email || '—'}</span></dd></div>
+      <div><dt class="text-xs font-medium text-text-muted">{copy.facility}</dt><dd class="mt-1 text-sm font-medium text-text">{selected.pitch_name}<br><span class="font-normal text-text-secondary">{selected.pitch_location}</span></dd></div>
+      <div><dt class="text-xs font-medium text-text-muted">{copy.time}</dt><dd class="mt-1 text-sm font-medium text-text">{when(selected.starts_at, selected.pitch_id)} – {when(selected.ends_at, selected.pitch_id)}</dd></div>
     </dl>
     {#if selected.lifecycle_status === 'upcoming' || selected.lifecycle_status === 'in_progress'}
       <Button variant="secondary" fullWidth className="mt-6 !bg-danger-light !text-danger" on:click={() => { cancelTarget = selected; cancelReason = 'maintenance' }}>{copy.cancel}</Button>

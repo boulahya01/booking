@@ -485,8 +485,8 @@
     </div>
   {:else if error || !details}
     <section class="uneem-empty py-10">
-      <p class="font-bold text-text">{error || copy.notFound}</p>
-      <button on:click={() => load()} class="mt-3 min-h-10 text-sm font-bold text-primary">
+      <p class="font-medium text-text">{error || copy.notFound}</p>
+      <button on:click={() => load()} class="mt-3 min-h-10 text-sm font-medium text-primary">
         {copy.retry}
       </button>
     </section>
@@ -526,9 +526,9 @@
     {:else if !isOwner && !started}
       <div class="mt-4">
         {#if details.reserved_by_me}
-          <div class="rounded-[14px] bg-success-light px-4 py-3 text-center text-sm font-semibold text-success">{copy.yourSpot}</div>
+          <div class="rounded-[14px] bg-success-light px-4 py-3 text-center text-sm font-medium text-success">{copy.yourSpot}</div>
         {:else if details.participant_by_me}
-          <div class="mb-3 text-sm font-semibold text-success">{ar ? 'أنت مشارك في هذه المباراة' : 'You’re playing in this match'}</div>
+          <div class="mb-3 text-sm font-medium text-success">{ar ? 'أنت مشارك في هذه المباراة' : 'You’re playing in this match'}</div>
           <Button variant="secondary" className="w-full" disabled={busy !== null} loading={busy === 'leave'} on:click={leave}>{copy.leave}</Button>
         {:else if isOpen}
           <Button className="w-full" disabled={!canJoin || busy !== null} loading={busy === 'join'} on:click={join}>{details.spots_left <= 0 ? (ar ? 'المباراة مكتملة' : 'Match full') : copy.join}</Button>
@@ -554,7 +554,7 @@
         <form id="add-player-form" class="add-player-form flex flex-col gap-3" on:submit|preventDefault={addFriend}>
           <SegmentedControl options={[{ value: 'registered', label: ar ? 'لاعب مسجّل' : 'Find a player' }, { value: 'guest', label: ar ? 'ضيف' : 'Add a guest' }]} value={friendMode} ariaLabel={ar ? 'نوع اللاعب' : 'Player type'} onChange={changeFriendMode} />
           <div class="relative min-w-0 flex-1">
-            <label for="booking-friend" class="mb-2 block text-sm font-semibold text-text">{friendMode === 'registered' ? (ar ? 'ابحث باسم المستخدم' : 'Search username') : (ar ? 'اسم الضيف' : 'Guest name')}</label>
+            <label for="booking-friend" class="mb-2 block text-sm font-medium text-text">{friendMode === 'registered' ? (ar ? 'ابحث باسم المستخدم' : 'Search username') : (ar ? 'اسم الضيف' : 'Guest name')}</label>
             <input
               id="booking-friend"
               role={friendMode === 'registered' ? 'combobox' : undefined}
@@ -587,7 +587,7 @@
                     on:click={() => chooseSuggestion(suggestion)}
                     class={`flex min-h-11 w-full items-center justify-between gap-3 rounded-[10px] px-3 text-start ${index === suggestionIndex ? 'bg-surface-level-1' : 'hover:bg-surface-level-1'}`}
                   >
-                    <span class="truncate text-sm font-bold text-text">@{suggestion.username}</span>
+                    <span class="truncate text-sm font-medium text-text">@{suggestion.username}</span>
                     {#if suggestion.full_name}<span class="truncate text-xs text-text-muted">{suggestion.full_name}</span>{/if}
                   </button>
                 {/each}
@@ -674,13 +674,13 @@
   .match-page-heading { margin-bottom: 24px; }
   .match-summary { padding: 24px; border-radius: 20px; background: var(--surface); }
   .summary-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-  .summary-heading h2 { font-size: 20px; font-weight: 650; line-height: 1.35; overflow-wrap: anywhere; }
-  .match-status { flex-shrink: 0; padding: 5px 10px; border-radius: 8px; background: var(--surface-level-1); font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+  .summary-heading h2 { font-size: 20px; font-weight: 500; line-height: 1.35; overflow-wrap: anywhere; }
+  .match-status { flex-shrink: 0; padding: 5px 10px; border-radius: 8px; background: var(--surface-level-1); font-size: 12px; font-weight: 500; color: var(--text-secondary); }
   .status-open { color: var(--success); background: var(--success-light); }
   .match-schedule { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px; }
   .match-schedule > div { display: flex; flex-direction: column; gap: 6px; }
   .match-schedule > div > span { font-size: 12px; color: var(--text-muted); }
-  .match-schedule strong { font-size: 19px; line-height: 1.35; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .match-schedule strong { font-size: 19px; line-height: 1.35; font-weight: 500; font-variant-numeric: tabular-nums; }
   .schedule-time strong { align-self: flex-start; }
   .schedule-time strong span { font-size: 16px; font-weight: 500; color: var(--text-secondary); }
   .match-meta { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 16px; }
@@ -691,16 +691,16 @@
   .roster-panel, .match-tools { min-width: 0; background: var(--surface); border-radius: 20px; }
   .roster-panel:only-child, .match-tools:only-child { grid-column: 1 / -1; }
   .panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 20px; }
-  .panel-heading h2 { font-size: 18px; font-weight: 650; }
+  .panel-heading h2 { font-size: 18px; font-weight: 500; }
   .panel-heading :global(.ui-button) { flex-shrink: 0; }
   .roster-list { padding-inline: 20px; }
   .player-row { display: flex; align-items: center; gap: 12px; padding-block: 14px; border-top: 1px solid var(--surface-level-1); }
-  .player-avatar { display: grid; place-items: center; height: 36px; width: 36px; flex-shrink: 0; border-radius: 12px; background: var(--surface-level-1); font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+  .player-avatar { display: grid; place-items: center; height: 36px; width: 36px; flex-shrink: 0; border-radius: 12px; background: var(--surface-level-1); font-size: 12px; font-weight: 500; color: var(--text-secondary); }
   .player-identity { flex: 1; min-width: 0; }
-  .player-identity p { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+  .player-identity p { font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
   .player-identity > span { display: block; margin-top: 2px; font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere; text-align: start; }
   .player-role { flex-shrink: 0; font-size: 11px; color: var(--text-secondary); }
-  .host-label { color: var(--primary); font-weight: 600; }
+  .host-label { color: var(--primary); font-weight: 500; }
   .roster-empty { padding-block: 20px; font-size: 14px; color: var(--text-muted); }
   .add-player-form { padding: 20px; border-top: 1px solid var(--surface-level-1); background: var(--surface-level-1); }
   .add-player-form :global(.uneem-field) { background: var(--surface); }
@@ -728,7 +728,7 @@
   .match-occupancy > div { display: flex; justify-content: space-between; gap: 16px; }
   .match-occupancy p { display: flex; align-items: baseline; gap: 8px; }
   .match-occupancy p > span { font-size: 12px; color: var(--text-secondary); }
-  .match-occupancy strong { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .match-occupancy strong { font-size: 22px; font-weight: 500; font-variant-numeric: tabular-nums; }
   .match-occupancy strong > span { font-size: 15px; font-weight: 500; color: var(--text-muted); }
   .available-spots strong { color: var(--primary); }
   progress { display: block; width: 100%; height: 5px; margin-top: 12px; appearance: none; border: 0; border-radius: 4px; overflow: hidden; background: var(--surface-level-1); }

@@ -32,8 +32,8 @@
     <div class="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-danger-light text-danger">
       <Icon name={isNotFound ? 'search' : 'alert-circle'} size={24} />
     </div>
-    <p class="mt-5 text-xs font-extrabold uppercase tracking-[0.16em] text-text-muted">{status}</p>
-    <h1 class="mt-2 text-2xl font-extrabold tracking-[-0.03em] text-text">
+    <p class="mt-5 text-xs font-medium uppercase tracking-[0.16em] text-text-muted">{status}</p>
+    <h1 class="mt-2 text-2xl font-medium tracking-[var(--tracking-tight)] text-text">
       {isNotFound ? (ar ? 'الصفحة غير موجودة' : 'Page not found') : (ar ? 'تعذر فتح الصفحة' : 'Couldn’t open this page')}
     </h1>
     <p class="mt-2 text-sm leading-6 text-text-secondary">

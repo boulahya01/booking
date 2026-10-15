@@ -140,26 +140,26 @@
   </div>
 
   {#if error && facilities.length === 0}
-    <section class="uneem-card text-center"><p class="text-sm font-semibold text-danger">{error}</p><button on:click={load} class="mt-3 min-h-10 font-bold text-primary">{copy.retry}</button></section>
+    <section class="uneem-card text-center"><p class="text-sm font-medium text-danger">{error}</p><button on:click={load} class="mt-3 min-h-10 font-medium text-primary">{copy.retry}</button></section>
   {:else if loading && facilities.length === 0}
     <div class="grid gap-3 sm:grid-cols-2" aria-busy="true">{#each [1,2,3,4] as _}<div class="h-40 animate-pulse rounded-[22px] bg-surface-level-1"></div>{/each}</div>
   {:else if visible.length === 0}
-    <section class="uneem-card py-12 text-center"><Icon name="map-pin" size={26} className="mx-auto text-text-muted"/><p class="mt-3 font-bold text-text">{copy.empty}</p><button on:click={openCreate} class="uneem-primary-action mx-auto mt-5"><Icon name="plus" size={17}/>{copy.emptyAction}</button></section>
+    <section class="uneem-card py-12 text-center"><Icon name="map-pin" size={26} className="mx-auto text-text-muted"/><p class="mt-3 font-medium text-text">{copy.empty}</p><button on:click={openCreate} class="uneem-primary-action mx-auto mt-5"><Icon name="plus" size={17}/>{copy.emptyAction}</button></section>
   {:else}
     <div class="grid gap-3 sm:grid-cols-2">
       {#each visible as facility (facility.id)}
         <article class="uneem-card flex flex-col">
           <div class="flex items-start justify-between gap-3">
-            <div class="min-w-0"><div class="flex flex-wrap items-center gap-2">{#if facility.sport_type}<span class="text-xs font-semibold text-primary">{facility.sport_type}</span>{/if}{#if !facility.is_active}<span class="rounded-lg bg-warning-light px-2 py-1 text-xs font-medium text-warning">{copy.inactive}</span>{/if}</div><h2 class="mt-2 text-xl font-semibold tracking-tight text-text">{facility.name}</h2><p class="mt-1 flex items-center gap-1.5 text-sm text-text-secondary"><Icon name="map-pin" size={14}/>{facility.location}</p></div>
+            <div class="min-w-0"><div class="flex flex-wrap items-center gap-2">{#if facility.sport_type}<span class="text-xs font-medium text-primary">{facility.sport_type}</span>{/if}{#if !facility.is_active}<span class="rounded-lg bg-warning-light px-2 py-1 text-xs font-medium text-warning">{copy.inactive}</span>{/if}</div><h2 class="mt-2 text-xl font-medium tracking-tight text-text">{facility.name}</h2><p class="mt-1 flex items-center gap-1.5 text-sm text-text-secondary"><Icon name="map-pin" size={14}/>{facility.location}</p></div>
             <button on:click={() => openEdit(facility)} class="uneem-icon-button shrink-0 bg-surface-level-1" aria-label={`${copy.edit}: ${facility.name}`}><Icon name="pencil" size={17}/></button>
           </div>
           <dl class="my-5 grid grid-cols-2 gap-x-4 gap-y-4 rounded-2xl bg-surface-level-1 p-4 text-sm">
-            <div><dt class="text-xs text-text-muted">{copy.capacity}</dt><dd class="mt-0.5 font-bold text-text">{facility.capacity}</dd></div>
-            <div><dt class="text-xs text-text-muted">{copy.duration}</dt><dd class="mt-0.5 font-bold text-text">{facility.slot_duration_minutes} min</dd></div>
-            <div><dt class="text-xs text-text-muted">{copy.window}</dt><dd class="mt-0.5 font-bold text-text">{Math.min(facility.booking_window_hours, 24)}h</dd></div>
-            <div><dt class="text-xs text-text-muted">{copy.cutoff}</dt><dd class="mt-0.5 font-bold text-text">{facility.cancellation_cutoff_minutes} min</dd></div>
+            <div><dt class="text-xs text-text-muted">{copy.capacity}</dt><dd class="mt-0.5 font-medium text-text">{facility.capacity}</dd></div>
+            <div><dt class="text-xs text-text-muted">{copy.duration}</dt><dd class="mt-0.5 font-medium text-text">{facility.slot_duration_minutes} min</dd></div>
+            <div><dt class="text-xs text-text-muted">{copy.window}</dt><dd class="mt-0.5 font-medium text-text">{Math.min(facility.booking_window_hours, 24)}h</dd></div>
+            <div><dt class="text-xs text-text-muted">{copy.cutoff}</dt><dd class="mt-0.5 font-medium text-text">{facility.cancellation_cutoff_minutes} min</dd></div>
           </dl>
-          <div class="mt-auto flex flex-wrap items-center justify-between gap-2"><p class="text-xs text-text-muted">{facilityHours(facility)}{facility.booking_frequency_enabled ? ` · ${facility.booking_frequency_days} ${copy.days}` : ''}</p>{#if facility.is_active}<button on:click={() => { archiveTarget = facility; archiveReason = 'maintenance' }} class="min-h-11 rounded-xl px-2 text-sm font-semibold text-danger hover:bg-danger-light">{copy.archive}</button>{/if}</div>
+          <div class="mt-auto flex flex-wrap items-center justify-between gap-2"><p class="text-xs text-text-muted">{facilityHours(facility)}{facility.booking_frequency_enabled ? ` · ${facility.booking_frequency_days} ${copy.days}` : ''}</p>{#if facility.is_active}<button on:click={() => { archiveTarget = facility; archiveReason = 'maintenance' }} class="min-h-11 rounded-xl px-2 text-sm font-medium text-danger hover:bg-danger-light">{copy.archive}</button>{/if}</div>
         </article>
       {/each}
     </div>
@@ -172,7 +172,7 @@
     <TextField label={copy.location} bind:value={form.location} required disabled={saving}/>
     <TextField label={copy.sport} bind:value={form.sport_type} disabled={saving}/>
     <fieldset class="grid min-w-0 grid-cols-2 gap-4 sm:col-span-2">
-      <legend class="mb-3 text-sm font-semibold text-text">{ar ? 'ساعات العمل' : 'Opening hours'}</legend>
+      <legend class="mb-3 text-sm font-medium text-text">{ar ? 'ساعات العمل' : 'Opening hours'}</legend>
       <label class="min-w-0"><span class="text-sm font-medium text-text-secondary">{copy.open}</span><input bind:value={form.open_time} type="time" required disabled={saving} class="uneem-field mt-2" /></label>
       <label class="min-w-0"><span class="text-sm font-medium text-text-secondary">{copy.close}</span><input bind:value={form.close_time} type="time" required disabled={saving} class="uneem-field mt-2" /></label>
       <p class="col-span-2 text-xs leading-5 text-text-muted">{copy.overnight}</p>
@@ -196,7 +196,7 @@
 
 {#if archiveTarget}
   <Modal open title={copy.archiveTitle} closeDisabled={saving} on:close={() => archiveTarget = null}>
-    <p class="font-semibold text-text">{archiveTarget.name}</p>
+    <p class="font-medium text-text">{archiveTarget.name}</p>
     <p class="mt-2 text-sm leading-6 text-text-secondary">{copy.archiveHint}</p>
     <label class="mt-5 block text-sm font-medium text-text-secondary">{copy.reason}<select bind:value={archiveReason} disabled={saving} class="uneem-field mt-2">{#each archiveReasons as item}<option value={item.value}>{ar ? item.ar : item.en}</option>{/each}</select></label>
     <svelte:fragment slot="footer">

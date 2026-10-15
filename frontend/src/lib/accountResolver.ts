@@ -40,6 +40,7 @@ export function classifyBootstrapError(error: unknown): Exclude<BootstrapError, 
     message.includes('failed to fetch') ||
     message.includes('fetcherror') ||
     message.includes('connection')
+    || message.includes('timeout') || message.includes('timed out') || message.includes('abort')
   ) {
     return 'network_error'
   }
@@ -76,7 +77,7 @@ export function resolveAccountRoute(ctx: ResolverContext): string | null {
   const verifyEmailPath = pathname === '/verify-email'
   const authErrorPath = pathname === '/auth-error'
   const pendingPath = pathname === '/pending-approval'
-  const profilePath = pathname === '/profile' || pathname === '/menu'
+  const profilePath = pathname === '/profile' || pathname === '/menu' || pathname === '/settings'
   const verificationPath = pathname === '/verification'
   const adminPath = pathname === '/admin' || pathname.startsWith('/admin/')
   const sportsPath = pathname.startsWith('/home') ||

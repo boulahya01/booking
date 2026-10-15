@@ -49,7 +49,7 @@
     <div class="ui-dialog-handle" aria-hidden="true"></div>
     <header class="ui-dialog-header">
       <div class="min-w-0 flex-1">
-        {#if title}<h2 class="text-xl font-bold tracking-tight text-text">{title}</h2>{/if}
+        {#if title}<h2 class="text-xl font-medium tracking-tight text-text">{title}</h2>{/if}
         <slot name="header" />
       </div>
       {#if showClose}

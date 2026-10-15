@@ -122,23 +122,23 @@
     <Button variant="secondary" size="sm" loading={loading} on:click={load}><Icon name="refresh-cw" size={17}/>{copy.refresh}</Button>
   </header>
 
-  {#if error}<div class="mb-4 rounded-2xl bg-danger-light px-4 py-3 text-sm font-semibold text-danger" role="alert">{error}</div>{/if}
+  {#if error}<div class="mb-4 rounded-2xl bg-danger-light px-4 py-3 text-sm font-medium text-danger" role="alert">{error}</div>{/if}
 
   {#if loading}
     <div class="space-y-3" aria-busy="true">{#each Array(3) as _}<div class="h-20 animate-pulse rounded-[22px] bg-surface-level-1"></div>{/each}</div>
   {:else if queue.length === 0 && !error}
     <section class="uneem-empty">
       <div class="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-success-light text-success"><Icon name="check" size={22}/></div>
-      <h2 class="mt-3 font-bold text-text">{copy.clear}</h2><p class="mt-1 text-sm text-text-muted">{copy.clearHint}</p>
+      <h2 class="mt-3 font-medium text-text">{copy.clear}</h2><p class="mt-1 text-sm text-text-muted">{copy.clearHint}</p>
     </section>
   {:else}
     <section class="uneem-panel px-4 sm:px-5">
       {#each queue as item (item.attempt_id)}
         <button on:click={() => openAttempt(item)} class="uneem-list-row min-h-24 w-full gap-4 !py-5 text-start transition-colors hover:bg-surface-level-1">
-          <div class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-surface-level-1 text-sm font-semibold text-text-secondary">{item.full_name?.charAt(0)?.toUpperCase() || '?'}</div>
+          <div class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-surface-level-1 text-sm font-medium text-text-secondary">{item.full_name?.charAt(0)?.toUpperCase() || '?'}</div>
           <div class="min-w-0 flex-1">
-            <div class="flex flex-wrap items-center gap-2"><h2 class="break-words text-base font-semibold text-text">{item.full_name}</h2><span class="rounded-full bg-surface-level-1 px-2 py-0.5 text-[10px] font-bold text-text-secondary">{item.email_kind === 'academic' ? copy.academic : copy.personal}</span>{#if Number(item.attempt_count)>1}<span class="rounded-full bg-warning-light px-2 py-0.5 text-[10px] font-bold text-warning">{copy.attempt} {item.attempt_count}</span>{/if}</div>
-            <p class="mt-2 text-sm leading-6 text-text-secondary">{copy.studentId}: <bdi class="font-semibold text-text">{item.claimed_student_id}</bdi>{#if item.previous_reason_code} · {copy.previous}: {reasonLabel(item.previous_reason_code)}{/if}</p>
+            <div class="flex flex-wrap items-center gap-2"><h2 class="break-words text-base font-medium text-text">{item.full_name}</h2><span class="rounded-full bg-surface-level-1 px-2 py-0.5 text-[10px] font-medium text-text-secondary">{item.email_kind === 'academic' ? copy.academic : copy.personal}</span>{#if Number(item.attempt_count)>1}<span class="rounded-full bg-warning-light px-2 py-0.5 text-[10px] font-medium text-warning">{copy.attempt} {item.attempt_count}</span>{/if}</div>
+            <p class="mt-2 text-sm leading-6 text-text-secondary">{copy.studentId}: <bdi class="font-medium text-text">{item.claimed_student_id}</bdi>{#if item.previous_reason_code} · {copy.previous}: {reasonLabel(item.previous_reason_code)}{/if}</p>
           </div>
           <Icon name={ar ? 'chevron-left' : 'chevron-right'} size={18} className="shrink-0 text-text-muted"/>
         </button>
@@ -149,8 +149,8 @@
 
 {#if selected}
   <Modal open title={copy.review} size="lg" closeDisabled={!!reviewingId} on:close={closeReview}>
-    <h3 class="text-xl font-semibold text-text">{selected.full_name}</h3>
-    <p class="mt-2 text-sm text-text-secondary">{copy.studentId}: <bdi class="font-semibold text-text">{selected.claimed_student_id}</bdi></p>
+    <h3 class="text-xl font-medium text-text">{selected.full_name}</h3>
+    <p class="mt-2 text-sm text-text-secondary">{copy.studentId}: <bdi class="font-medium text-text">{selected.claimed_student_id}</bdi></p>
     <div class="mt-5 overflow-hidden rounded-2xl bg-surface-level-1">
       {#if loadingEvidence}
         <div class="h-56 animate-pulse" aria-busy="true" aria-label={ar ? 'جارٍ تحميل البطاقة' : 'Loading student card'}></div>

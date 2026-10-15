@@ -140,7 +140,7 @@
 <svelte:head><title>{copy.page} · UNEEM</title></svelte:head>
 
 <main class="uneem-page-narrow verification-page">
-  <a href="/profile" class="mb-5 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-text-secondary"><Icon name={ar ? 'arrow-right' : 'arrow-left'} size={18} />{copy.back}</a>
+  <a href="/profile" class="mb-5 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-text-secondary"><Icon name={ar ? 'arrow-right' : 'arrow-left'} size={18} />{copy.back}</a>
   {#if loading}
     <div class="space-y-4" aria-busy="true"><div class="h-24 animate-pulse rounded-2xl bg-surface-level-1"></div><div class="h-64 animate-pulse rounded-2xl bg-surface-level-1"></div></div>
   {:else if !state}
@@ -158,7 +158,7 @@
       <p class="mb-5 text-sm text-danger">{copy.suspended}</p>
       <ActionLink href="/help" fullWidth size="lg">{copy.help}</ActionLink>
     {:else if verified}
-      <div class="mb-6 rounded-2xl bg-surface p-5"><p class="text-xs font-medium text-text-muted">{copy.id}</p><p class="mt-1 text-xl font-semibold" dir="ltr">{state.student_id}</p></div>
+      <div class="mb-6 rounded-2xl bg-surface p-5"><p class="text-xs font-medium text-text-muted">{copy.id}</p><p class="mt-1 text-xl font-medium" dir="ltr">{state.student_id}</p></div>
       <ActionLink href="/home" fullWidth size="lg">{copy.browse}</ActionLink>
     {:else}
       {#if state.identity_status === 'rejected' || state.identity_status === 'conflict'}<p class="mb-5 rounded-2xl bg-warning-light p-4 text-sm leading-6 text-text">{rejectionText}</p>{/if}
@@ -167,11 +167,11 @@
         {#if dirtyId && normalizedId}<Button type="submit" variant="secondary" fullWidth disabled={busy} loading={busy}>{copy.save}</Button>{/if}
       </form>
       <section class="mt-6" aria-labelledby="card-heading">
-        <h2 id="card-heading" class="mb-3 text-sm font-semibold text-text">{copy.card}</h2>
+        <h2 id="card-heading" class="mb-3 text-sm font-medium text-text">{copy.card}</h2>
         <label class="card-upload" class:has-photo={!!previewUrl} class:upload-disabled={busy}>
           <input type="file" accept="image/jpeg,image/png,image/webp" on:change={chooseCard} disabled={busy} aria-label={pending || card ? copy.replacePhoto : copy.addPhoto} />
           {#if previewUrl}<img src={previewUrl} alt={copy.card} class="mb-4 max-h-52 w-full rounded-xl object-contain" />{:else}<Icon name={pending ? 'circle-check' : 'camera'} size={28} className="mb-3 text-text-secondary" />{/if}
-          <span class="text-sm font-semibold">{pending || card ? copy.replacePhoto : copy.addPhoto}</span>
+          <span class="text-sm font-medium">{pending || card ? copy.replacePhoto : copy.addPhoto}</span>
           <span class="mt-1 text-xs leading-5 text-text-muted">{copy.photoHint}</span>
         </label>
         {#if fileError}<p class="mt-2 text-sm text-danger" role="alert">{fileError}</p>{/if}
@@ -179,7 +179,7 @@
       </section>
       {#if !pending || card}<Button fullWidth size="lg" className="mt-6" loading={busy} disabled={busy} on:click={() => save(true)}>{pending ? copy.resubmit : copy.submit}</Button>{/if}
       <ActionLink href="/home" variant="secondary" fullWidth size="lg" className="mt-3">{copy.browse}</ActionLink>
-      <div class="mt-4 text-center"><a href="/help" class="inline-flex min-h-11 items-center px-4 text-sm font-semibold text-primary">{copy.help}</a></div>
+      <div class="mt-4 text-center"><a href="/help" class="inline-flex min-h-11 items-center px-4 text-sm font-medium text-primary">{copy.help}</a></div>
     {/if}
   {/if}
 </main>

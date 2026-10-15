@@ -36,7 +36,7 @@
 
 <AuthShell>
   <section class="w-full">
-    <p class="text-sm font-semibold text-primary">UNEM Sports</p>
+    <p class="text-sm font-medium text-primary">UNEM Sports</p>
     <h1 class="auth-title mt-3">{ar ? 'تعذر تحميل حسابك' : 'We couldn’t load your account'}</h1>
     <p class="mt-3 text-[15px] leading-6 text-text-secondary">
       {ar

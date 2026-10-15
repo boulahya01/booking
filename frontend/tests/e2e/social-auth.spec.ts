@@ -29,6 +29,9 @@ test('Google delegates authentication to Supabase PKCE without layout shift', as
   await expect(page.getByRole('button', { name: /Facebook/i })).toHaveCount(0)
 
   const email = page.getByLabel('Email address', { exact: true })
+  // The SSR heading and disabled provider appear before hydration completes.
+  // Wait for the independent email field so this measures provider changes only.
+  await expect(email).toBeEnabled()
   // Compare provider states after fonts settle; font swapping is a separate
   // startup event and must not be mistaken for a provider-driven layout shift.
   await page.evaluate(() => document.fonts.ready.then(() => undefined))

@@ -49,14 +49,14 @@
   .facility-card:active { transform: scale(.985); }
   .facility-card-top { display: flex; align-items: flex-start; gap: 14px; }
   .facility-symbol { display: grid; width: 48px; height: 48px; flex-shrink: 0; place-items: center; border-radius: 14px; background: var(--primary-light); color: var(--primary); }
-  .facility-sport { margin-bottom: 3px; color: var(--text-muted); font-size: 11px; font-weight: 550; overflow-wrap: anywhere; }
+  .facility-sport { margin-bottom: 3px; color: var(--text-muted); font-size: 11px; font-weight: 500; overflow-wrap: anywhere; }
   .facility-copy { flex: 1; min-width: 0; }
-  h3 { font-size: 17px; font-weight: 650; letter-spacing: -.025em; line-height: 1.3; overflow-wrap: anywhere; }
+  h3 { font-size: 17px; font-weight: 500; letter-spacing: var(--tracking-tight); line-height: 1.3; overflow-wrap: anywhere; }
   .facility-location { display: flex; align-items: flex-start; gap: 6px; margin-top: 6px; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
   .facility-location :global(svg) { margin-top: 2px; }
   .facility-bottom { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding-top: 12px; border-top: 1px solid var(--border-light); }
   .facility-hours, .facility-view { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; line-height: 20px; }
   .facility-hours { color: var(--text-secondary); }
-  .facility-view { margin-inline-start: auto; color: var(--primary); font-weight: 650; }
+  .facility-view { margin-inline-start: auto; color: var(--primary); font-weight: 500; }
   @media (prefers-reduced-motion: reduce) { .facility-card { transition: none; } }
 </style>

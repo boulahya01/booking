@@ -73,7 +73,7 @@
     color: var(--text-secondary);
     background: transparent;
     font-size: 0.8rem;
-    font-weight: 700;
+    font-weight: 500;
     line-height: 1;
     white-space: nowrap;
     transition: color 130ms ease, background 130ms ease, border-color 130ms ease, box-shadow 130ms ease;

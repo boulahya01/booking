@@ -51,7 +51,7 @@
 <style>
   .ui-field { width: 100%; min-width: 0; }
   .ui-field-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 8px; }
-  .ui-field-label { display: block; font-size: 14px; font-weight: 550; color: var(--text-secondary); }
+  .ui-field-label { display: block; font-size: 14px; font-weight: 500; color: var(--text-secondary); }
   .ui-field-control { position: relative; }
   .uneem-field { min-height: 56px; padding: 15px 16px; font-size: 16px; }
   .has-icon { padding-inline-start: 48px; }

@@ -2,20 +2,22 @@
   import { onMount } from 'svelte'
   import { language } from '$lib/stores/ui'
   import { listOpenMatches, matchErrorCopy, MatchApiError, type OpenMatch } from '$lib/matchApi'
+  import { peekCachedValue } from '$lib/requestCache'
   import Icon from './Icon.svelte'
   import Button from './Button.svelte'
   import LoadingShape from './LoadingShape.svelte'
 
   export let standalone = false
 
-  let matches: OpenMatch[] = []
-  let loading = true
+  const cachedMatches = peekCachedValue<OpenMatch[]>('open-matches')
+  let matches: OpenMatch[] = cachedMatches ?? []
+  let loading = cachedMatches === undefined
   let refreshing = false
-  let loaded = false
+  let loaded = cachedMatches !== undefined
   let error = ''
   let disposed = false
   let now = Date.now()
-  let updatedAt = 0
+  let updatedAt = loaded ? now : 0
   $: ar = $language === 'ar'
   $: visibleMatches = matches.filter(match => new Date(match.ends_at).getTime() > now)
     .sort((a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at))
@@ -26,7 +28,7 @@
   }
 
   onMount(() => {
-    void load()
+    if (!loaded) void load()
     const refreshVisible = () => {
       now = Date.now()
       if (!document.hidden && navigator.onLine && (!updatedAt || now - updatedAt >= 30_000)) void load(true)
@@ -101,17 +103,17 @@
   .home-matches { margin-top: 32px; }
   .home-matches.standalone { margin-top: 0; }
   .matches-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 16px; }
-  h2 { font-size: 22px; font-weight: 650; letter-spacing: -.025em; }
-  .matches-heading p { margin-top: 4px; color: var(--text-secondary); font-size: 13px; }
+  h2 { font-size: 22px; font-weight: 500; letter-spacing: var(--tracking-tight); }
+  .matches-heading p { margin-top: 4px; color: var(--text-secondary); font-size: 14px; }
   .match-list { overflow: hidden; border-radius: var(--radius-lg); background: var(--surface); }
   .match-list li + li, .match-list > .match-row + .match-row { border-top: 1px solid var(--border-light); }
   .match-row { display: flex; min-height: 104px; align-items: center; gap: 14px; padding: 18px; transition: background var(--motion-fast); }
   a.match-row:hover { background: var(--surface-raised); }
-  .match-action { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; color: var(--primary); font-size: 12px; font-weight: 600; }
+  .match-action { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; color: var(--primary); font-size: 12px; font-weight: 500; }
   .match-copy { flex: 1; min-width: 0; }
-  h3 { font-size: 16px; line-height: 1.4; font-weight: 600; overflow-wrap: anywhere; }
+  h3 { font-size: 16px; line-height: 1.4; font-weight: 500; overflow-wrap: anywhere; }
   .match-schedule { margin-top: 4px; font-size: 13px; color: var(--text-secondary); }
-  .match-spots { margin-top: 5px; font-size: 12px; font-weight: 600; color: var(--success); }
+  .match-spots { margin-top: 5px; font-size: 12px; font-weight: 500; color: var(--success); }
   .match-spots.full { color: var(--text-muted); }
   .matches-empty { display: flex; align-items: flex-start; gap: 14px; padding: 20px; border-radius: var(--radius-lg); background: var(--surface); color: var(--text-secondary); }
   .matches-empty :global(svg) { flex-shrink: 0; margin-top: 3px; }

@@ -232,7 +232,7 @@
       {:else if visibleThreads.length === 0}
         <div class="px-5 py-12 text-center">
           <Icon name="message-circle" size={22} className="mx-auto text-text-muted" />
-          <p class="mt-3 text-sm font-semibold text-text-secondary">{copy.empty}</p>
+          <p class="mt-3 text-sm font-medium text-text-secondary">{copy.empty}</p>
         </div>
       {:else}
         {#each visibleThreads as item}
@@ -240,7 +240,7 @@
             <span class={`h-2.5 w-2.5 shrink-0 rounded-full ${item.status === 'open' ? 'bg-primary' : item.status === 'waiting' ? 'bg-text-muted' : 'bg-success'}`}></span>
             <span class="min-w-0 flex-1">
               <span class="flex min-w-0 flex-wrap items-center gap-2">
-                <span class="line-clamp-2 text-base font-semibold leading-6 text-text">{item.subject || (item.user_id ? copy.user : copy.guest)}</span>
+                <span class="line-clamp-2 text-base font-medium leading-6 text-text">{item.subject || (item.user_id ? copy.user : copy.guest)}</span>
                 {#if item.kind !== 'support'}<span class="rounded-md bg-surface-level-1 px-1.5 py-0.5 text-xs font-medium text-text-muted">{kindLabel(item.kind)}</span>{/if}
               </span>
               <span class={`mt-1 block text-xs font-medium ${item.status === 'open' ? 'text-primary' : 'text-text-muted'}`}>{statusLabel(item.status)}</span>
@@ -257,7 +257,7 @@
           <Icon name={ar ? 'arrow-right' : 'arrow-left'} size={18} />
         </button>
         <div class="min-w-0 flex-1">
-          <h1 class="truncate text-[18px] font-semibold text-text">{selected.subject || (selected.user_id ? copy.user : copy.guest)}</h1>
+          <h1 class="truncate text-[18px] font-medium text-text">{selected.subject || (selected.user_id ? copy.user : copy.guest)}</h1>
           <p class={`mt-0.5 text-xs font-medium ${selected.status === 'open' ? 'text-primary' : 'text-text-muted'}`}>{statusLabel(selected.status)}</p>
         </div>
         <Button variant="secondary" size="sm" disabled={saving || loadingMessages} on:click={toggleResolved} className="shrink-0">
@@ -267,7 +267,7 @@
 
       {#if context?.kind === 'report'}
         <div class="mb-3 flex flex-wrap gap-x-4 gap-y-1 rounded-xl bg-surface-level-1 px-3 py-2 text-xs text-text-secondary">
-          <span class="font-semibold text-text-muted">{copy.context}</span>
+          <span class="font-medium text-text-muted">{copy.context}</span>
           <span>{copy.target}: <strong class="text-text">{readable(context.target_type)}</strong></span>
           <span>{copy.reason}: <strong class="text-text">{readable(context.reason_code)}</strong></span>
         </div>

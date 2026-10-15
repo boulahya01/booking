@@ -3,6 +3,58 @@
   import PublicPage from '$lib/components/PublicPage.svelte'
   import { entryState, markWelcomeSeen } from '$lib/entryState'
   import { authState } from '$lib/stores/auth'
+  import { language } from '$lib/stores/ui'
+
+  $: ar = $language === 'ar'
+  $: copy = ar ? {
+    title: 'UNEM Sports — حجز المرافق الرياضية للطلبة',
+    description: 'اكتشف المرافق الرياضية الجامعية، واحجز الأوقات المتاحة، وأنشئ مباريات مفتوحة أو انضم إليها مع UNEM Sports.',
+    socialDescription: 'منصة رياضية بسيطة للطلبة تجمع المرافق والحجوزات والمباريات المفتوحة.',
+    eyebrow: 'الرياضة الجامعية، بكل بساطة',
+    heading: 'احجز. العب. تعارف.',
+    introduction: 'اعثر على ملعب، واحجز وقتك، وانضم إلى مباريات مفتوحة مع زملائك في الجامعة.',
+    accountActions: 'إجراءات الحساب',
+    getStarted: 'ابدأ الآن',
+    illustration: 'رسم توضيحي لملعب UNEM Sports',
+    visualCaption: 'كل ما تحتاجه لمباراتك القادمة',
+    visualTitle: 'اعثر على ملعبك.',
+    capabilitiesLabel: 'ما الذي يقدمه UNEM Sports',
+    capabilitiesEyebrow: 'صُمّم للطلبة',
+    capabilitiesTitle: 'كل ما تحتاجه من الفكرة إلى صافرة البداية.',
+    capabilities: [
+      { title: 'اعثر على مرفق', description: 'اطّلع على الملاعب والأوقات المتاحة بسهولة.' },
+      { title: 'احجز بسهولة', description: 'اختر وقتاً متاحاً وأكمل حجزك بخطوات واضحة.' },
+      { title: 'العب مع الآخرين', description: 'افتح حجزك للانضمام أو شارك في مباراة مع طلبة آخرين.' }
+    ],
+    verificationEyebrow: 'التحقق من الهوية الطلابية',
+    verificationTitle: 'هوية طلابية موثّقة لكل طالب.',
+    verificationDescription: 'يمكن للجميع إنشاء حساب والتصفح. يتاح الحجز والانضمام إلى المباريات بعد التحقق من رقم طالب فريد.',
+    opening: 'جارٍ فتح UNEM Sports'
+  } : {
+    title: 'UNEM Sports — Student sports booking',
+    description: 'UNEM Sports helps students discover university sports facilities, book available time slots, and create or join open matches.',
+    socialDescription: 'A simple student sports platform for facilities, bookings and open matches.',
+    eyebrow: 'Campus sport, made simple',
+    heading: 'Book. Play. Meet.',
+    introduction: 'Find a court, reserve a time, and join open matches with students on campus.',
+    accountActions: 'Account actions',
+    getStarted: 'Get started',
+    illustration: 'UNEM Sports court illustration',
+    visualCaption: 'One place for your next game',
+    visualTitle: 'Find your court.',
+    capabilitiesLabel: 'What UNEM Sports does',
+    capabilitiesEyebrow: 'Made for students',
+    capabilitiesTitle: 'Everything between the idea and the first whistle.',
+    capabilities: [
+      { title: 'Find a facility', description: 'See open courts and time slots without digging through schedules.' },
+      { title: 'Book quickly', description: 'Choose a valid slot and keep the booking in one simple flow.' },
+      { title: 'Play together', description: 'Open your booking or join a match with other students.' }
+    ],
+    verificationEyebrow: 'Student verification',
+    verificationTitle: 'One student. One verified Student ID.',
+    verificationDescription: 'Anyone can create an account and browse. Booking and participation unlock only after a unique Student ID is verified.',
+    opening: 'Opening UNEM Sports'
+  }
 
   $: showLanding = browser &&
     $entryState.ready &&
@@ -12,15 +64,15 @@
 </script>
 
 <svelte:head>
-  <title>UNEM Sports — Student sports booking</title>
+  <title>{copy.title}</title>
   <meta
     name="description"
-    content="UNEM Sports helps students discover university sports facilities, book available time slots, and create or join open matches."
+    content={copy.description}
   />
   <meta property="og:title" content="UNEM Sports" />
   <meta
     property="og:description"
-    content="A simple student sports platform for facilities, bookings and open matches."
+    content={copy.socialDescription}
   />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://uneem.site/" />
@@ -31,60 +83,50 @@
   <PublicPage showAccountLink={false}>
     <div class="landing-grid">
       <section class="hero" aria-labelledby="home-title" aria-describedby="home-copy">
-        <p class="eyebrow">Campus sport, made simple</p>
-        <h1 id="home-title">Book. Play. Meet.</h1>
+        <p class="eyebrow">{copy.eyebrow}</p>
+        <h1 id="home-title">{copy.heading}</h1>
         <p id="home-copy" class="hero-copy">
-          Find a court, reserve a time, and join open matches with students on campus.
+          {copy.introduction}
         </p>
 
-        <div class="hero-actions" aria-label="Account actions">
+        <div class="hero-actions" aria-label={copy.accountActions}>
           <a class="primary-action" href="/login" on:click={markWelcomeSeen}>
-            <span>Get started</span>
+            <span>{copy.getStarted}</span>
             <span class="action-arrow" aria-hidden="true">↗</span>
           </a>
         </div>
       </section>
 
       <figure class="hero-visual">
-        <img src="/assets/brand/landing-court.svg" alt="UNEM Sports court illustration" width="720" height="720" loading="eager" />
-        <figcaption><span>One place for your next game</span><strong>Find your court.</strong></figcaption>
+        <img src="/assets/brand/landing-court.svg" alt={copy.illustration} width="720" height="720" loading="eager" />
+        <figcaption><span>{copy.visualCaption}</span><strong>{copy.visualTitle}</strong></figcaption>
       </figure>
     </div>
 
-    <section class="capabilities" aria-label="What UNEM Sports does">
+    <section class="capabilities" aria-label={copy.capabilitiesLabel}>
       <div class="capabilities-intro">
-        <p class="eyebrow">Made for students</p>
-        <h2>Everything between the idea and the first whistle.</h2>
+        <p class="eyebrow">{copy.capabilitiesEyebrow}</p>
+        <h2>{copy.capabilitiesTitle}</h2>
       </div>
       <div class="capability-list">
-        <article>
-          <span>01</span>
-          <div><h3>Find a facility</h3><p>See open courts and time slots without digging through schedules.</p></div>
-        </article>
-        <article>
-          <span>02</span>
-          <div><h3>Book quickly</h3><p>Choose a valid slot and keep the booking in one simple flow.</p></div>
-        </article>
-        <article>
-          <span>03</span>
-          <div><h3>Play together</h3><p>Open your booking or join a match with other students.</p></div>
-        </article>
+        {#each copy.capabilities as capability, index}
+          <article><span dir="ltr">{String(index + 1).padStart(2, '0')}</span><div><h3>{capability.title}</h3><p>{capability.description}</p></div></article>
+        {/each}
       </div>
     </section>
 
     <section class="trust-note" aria-labelledby="verification-title">
       <div>
-        <p class="eyebrow">Student verification</p>
-        <h2 id="verification-title">One student. One verified Student ID.</h2>
+        <p class="eyebrow">{copy.verificationEyebrow}</p>
+        <h2 id="verification-title">{copy.verificationTitle}</h2>
       </div>
       <p>
-        Anyone can create an account and browse. Booking and participation unlock only after a
-        unique Student ID is verified.
+        {copy.verificationDescription}
       </p>
     </section>
   </PublicPage>
 {:else}
-  <div class="entry-pending" role="status" aria-label="Opening UNEM Sports">
+  <div class="entry-pending" role="status" aria-label={copy.opening}>
     <div class="entry-mark" aria-hidden="true"></div>
   </div>
 {/if}
@@ -122,7 +164,7 @@
     color: var(--primary);
     font-size: 12px;
     line-height: 1.2;
-    font-weight: 760;
+    font-weight: 500;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
@@ -132,8 +174,8 @@
     max-width: 780px;
     font-size: clamp(3.25rem, 10vw, 7.25rem);
     line-height: 0.88;
-    letter-spacing: -0.075em;
-    font-weight: 790;
+    letter-spacing: var(--tracking-tight);
+    font-weight: 600;
     text-wrap: balance;
   }
 
@@ -159,7 +201,7 @@
     border-radius: 14px;
     padding-inline: 22px;
     font-size: 15px;
-    font-weight: 700;
+    font-weight: 500;
     transition: transform var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease), box-shadow var(--motion-fast) var(--motion-ease);
   }
 
@@ -217,7 +259,7 @@
   }
 
   .hero-visual figcaption span { color: rgba(255,255,255,.68); font-size: 11px; }
-  .hero-visual figcaption strong { font-size: 16px; font-weight: 680; }
+  .hero-visual figcaption strong { font-size: 16px; font-weight: 500; }
 
   .capabilities {
     display: grid;
@@ -234,7 +276,7 @@
     color: var(--text);
     font-size: clamp(1.45rem, 3vw, 2.15rem);
     line-height: 1.08;
-    letter-spacing: -.045em;
+    letter-spacing: var(--tracking-tight);
   }
 
   .capability-list { display: grid; }
@@ -256,13 +298,13 @@
     color: var(--text);
     font-size: 1rem;
     line-height: 1.25;
-    font-weight: 730;
+    font-weight: 500;
   }
 
   .capability-list span {
     color: var(--text-muted);
     font-size: 12px;
-    font-weight: 700;
+    font-weight: 500;
   }
 
   .capability-list p {
@@ -293,7 +335,7 @@
     max-width: 440px;
     font-size: clamp(1.65rem, 4vw, 2.65rem);
     line-height: 1.04;
-    letter-spacing: -0.045em;
+    letter-spacing: var(--tracking-tight);
   }
 
   .trust-note > p {
@@ -303,6 +345,10 @@
     font-size: 15px;
     line-height: 1.66;
   }
+
+  :global(html[lang='ar']) h1 { font-weight: 500; line-height: 1.2; letter-spacing: 0; }
+  :global(html[lang='ar']) h2 { font-weight: 500; line-height: 1.35; letter-spacing: 0; }
+  :global(html[lang='ar']) .eyebrow { line-height: 1.5; letter-spacing: 0; text-transform: none; }
 
   @media (max-width: 760px) {
     .landing-grid { grid-template-columns: 1fr; gap: 34px; }

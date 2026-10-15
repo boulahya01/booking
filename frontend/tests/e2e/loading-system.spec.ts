@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-test('real async auth actions use delayed global feedback and block duplicate submits', async ({ page }) => {
+test('real async auth actions use local feedback and block duplicate submits', async ({ page }) => {
   let signupRequests = 0
   let releaseSignup: () => void = () => undefined
   const signupGate = new Promise<void>(resolve => { releaseSignup = resolve })
@@ -37,7 +37,9 @@ test('real async auth actions use delayed global feedback and block duplicate su
   const submit = page.getByRole('button', { name: 'Create account', exact: true })
   await submit.click()
 
-  await expect(page.locator('.global-loading-bar')).toBeVisible()
+  await expect(submit).toHaveAttribute('aria-busy', 'true')
+  await page.waitForTimeout(200)
+  await expect(page.locator('.global-loading-bar')).toHaveCount(0)
   await expect(submit).toBeDisabled()
   await expect.poll(() => signupRequests).toBe(1)
   releaseSignup()

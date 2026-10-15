@@ -236,7 +236,7 @@
 
       {#if hintedEmail && status === 'waiting'}
         <div class="mt-5 rounded-[18px] bg-surface px-4 py-4">
-          <p class="break-all text-sm font-semibold text-text">{hintedEmail}</p>
+          <p class="break-all text-sm font-medium text-text">{hintedEmail}</p>
         </div>
       {/if}
     </div>
