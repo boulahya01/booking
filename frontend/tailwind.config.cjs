@@ -52,6 +52,10 @@ module.exports = {
         sans: ['var(--font-family)'],
         serif: ['Georgia', 'Times New Roman', 'serif']
       },
+      letterSpacing: {
+        tight: 'var(--tracking-tight)',
+        tighter: 'var(--tracking-tight)'
+      },
       spacing: {
         'safe-bottom': 'var(--app-safe-bottom, 0px)',
         'safe-top': 'var(--app-safe-top, 0px)'

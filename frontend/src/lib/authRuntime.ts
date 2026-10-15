@@ -17,59 +17,60 @@ import { beginLoading } from '$lib/stores/loading'
 export function initAuthRuntime(): () => void {
   if (typeof window === 'undefined') return () => undefined
 
-  let processingAuth = false
   let cacheUserId: string | null = null
-  let unsubAuth: (() => void) | null = null
-  let unsubEarlyRecovery: (() => void) | null = null
+  let revision = 0
+  let authEventRevision = 0
+  let sessionReadRevision = 0
+  let disposed = false
+  let activeWork: { userId: string; promise: Promise<void> } | null = null
+  let stopBootstrapLoading: (() => void) | null = null
+
+  function stopProgress() {
+    stopBootstrapLoading?.()
+    stopBootstrapLoading = null
+  }
 
   function setCacheIdentity(nextUserId: string | null) {
     if (cacheUserId === nextUserId) return
+    // Invalidate old work before it can populate either the store or a cache.
+    revision += 1
+    activeWork = null
+    stopProgress()
     clearRequestCache()
     cacheUserId = nextUserId
-  }
-
-  function sessionUser(sessionUser: any): User {
-    return {
-      id: sessionUser.id,
-      email: sessionUser.email ?? undefined
-    }
-  }
-
-  restorePasswordRecovery()
-
-  const { data: earlyRecoveryListener } = supabase.auth.onAuthStateChange((event, session) => {
-    if (event === 'PASSWORD_RECOVERY' && session?.user) {
-      markPasswordRecovery(session)
-    } else if (event === 'SIGNED_OUT') {
-      clearPasswordRecovery()
-      setCacheIdentity(null)
-    }
-  })
-  unsubEarlyRecovery = () => earlyRecoveryListener.subscription.unsubscribe()
-
-  async function applySession(session: any) {
-    if (!session?.user) {
-      setCacheIdentity(null)
-      clearPasswordRecovery()
+    const currentUser = get(authState).user
+    if (currentUser && currentUser.id !== nextUserId) {
       authState.clear()
-      return
+      if (nextUserId) authState.setLoading(true)
     }
+  }
 
-    markWelcomeSeen()
-    setCacheIdentity(session.user.id)
+  function sessionUser(user: any): User {
+    return { id: user.id, email: user.email ?? undefined }
+  }
+
+  function isCurrent(userId: string, requestRevision: number) {
+    return !disposed && revision === requestRevision && cacheUserId === userId
+  }
+
+  async function applySession(session: any, requestRevision: number, force: boolean) {
+    const userId = session.user.id
     const fallbackUser = sessionUser(session.user)
-
     try {
-      restorePasswordRecovery(session.user.id)
-
-      const context = await getMySessionContext()
-      if (cacheUserId !== session.user.id) return
+      restorePasswordRecovery(userId)
+      const context = await getMySessionContext(force)
+      if (!isCurrent(userId, requestRevision)) return
       if (!context) {
         authState.setBootstrapError(fallbackUser, 'profile_not_found')
         return
       }
 
       const { profile, account } = context
+      // A response started near an identity transition must never authorize
+      // a different account, even if the client switched tokens mid-request.
+      if (profile.id !== userId || account.user_id !== userId) {
+        throw new Error('session_identity_mismatch')
+      }
       authState.setSessionContext({
         id: profile.id,
         email: session.user.email ?? undefined,
@@ -80,86 +81,102 @@ export function initAuthRuntime(): () => void {
         status: profile.status
       }, account)
     } catch (error) {
-      if (cacheUserId === session.user.id) {
-        authState.setBootstrapError(fallbackUser, classifyBootstrapError(error))
+      if (isCurrent(userId, requestRevision)) {
+        const failure = classifyBootstrapError(error)
+        const known = get(authState)
+        if (failure === 'network_error' && known.user?.id === userId && known.account) {
+          // Keep a previously confirmed same-user view usable during a transient
+          // outage. Every booking mutation still checks current access on-server.
+          authState.setRefreshError(true)
+        } else authState.setBootstrapError(fallbackUser, failure)
       }
     }
   }
 
-  async function syncSession() {
-    if (processingAuth) return
-    const stopBootstrapLoading = beginLoading('bootstrap')
-    processingAuth = true
-    authState.setLoading(true)
+  function acceptSession(session: any, force = false, loginOwnsContext = false): Promise<void> {
+    if (disposed) return Promise.resolve()
+    const userId = session?.user?.id ?? null
+    setCacheIdentity(userId)
 
+    if (!userId) {
+      revision += 1
+      activeWork = null
+      stopProgress()
+      clearPasswordRecovery()
+      authState.clear()
+      return Promise.resolve()
+    }
+
+    markWelcomeSeen()
+    restorePasswordRecovery(userId)
+    // Email login already resolves context and chooses its return destination.
+    // Still observe its identity above so no prior private cache survives.
+    if (loginOwnsContext) return Promise.resolve()
+    if (activeWork && activeWork.userId === userId && !force) return activeWork.promise
+
+    const requestRevision = ++revision
+    const currentAuth = get(authState)
+    const blocking = currentAuth.user?.id !== userId || !currentAuth.account
+    stopProgress()
+    authState.setLoading(blocking)
+    if (blocking) stopBootstrapLoading = beginLoading('bootstrap')
+
+    const promise = applySession(session, requestRevision, force).finally(() => {
+      if (!isCurrent(userId, requestRevision)) return
+      activeWork = null
+      authState.setLoading(false)
+      stopProgress()
+    })
+    activeWork = { userId, promise }
+    return promise
+  }
+
+  async function syncSession(force = false) {
+    const readRevision = ++sessionReadRevision
+    const eventRevision = authEventRevision
+    const currentAuth = get(authState)
+    if (!currentAuth.user || !currentAuth.account) authState.setLoading(true)
     try {
       const { data, error } = await supabase.auth.getSession()
+      if (disposed || readRevision !== sessionReadRevision || eventRevision !== authEventRevision) return
       if (error) throw error
-      if (!data?.session) clearPasswordRecovery()
-      await applySession(data?.session)
+      await acceptSession(data?.session, force)
     } catch {
-      setCacheIdentity(null)
-      clearPasswordRecovery()
-      authState.clear()
-    } finally {
-      processingAuth = false
-      authState.setLoading(false)
-      stopBootstrapLoading()
+      if (!disposed && readRevision === sessionReadRevision && eventRevision === authEventRevision) {
+        await acceptSession(null)
+      }
     }
   }
 
-  const stopBootstrapRetry = registerAuthBootstrapRetry(syncSession)
-
+  restorePasswordRecovery()
+  const stopBootstrapRetry = registerAuthBootstrapRetry(() => syncSession(true))
   const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+    if (disposed) return
     if (event === 'SIGNED_OUT') {
-      setCacheIdentity(null)
-      clearPasswordRecovery()
-      authState.clear()
+      authEventRevision += 1
+      void acceptSession(null)
       return
     }
-
     if (event === 'PASSWORD_RECOVERY' && session?.user) {
+      authEventRevision += 1
       markPasswordRecovery(session)
-      markWelcomeSeen()
-      if (!processingAuth) {
-        processingAuth = true
-        const stopBootstrapLoading = beginLoading('bootstrap')
-        authState.setLoading(true)
-        void applySession(session).finally(() => {
-          processingAuth = false
-          authState.setLoading(false)
-          stopBootstrapLoading()
-        })
-      }
+      void acceptSession(session)
       return
     }
-
     if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
-      markWelcomeSeen()
-      restorePasswordRecovery(session.user.id)
-
-      const currentAuth = get(authState)
-      if (event === 'SIGNED_IN' && get(page).url.pathname === '/login' && currentAuth.loading) return
-
-      if (!processingAuth) {
-        processingAuth = true
-        const stopBootstrapLoading = beginLoading('bootstrap')
-        authState.setLoading(currentAuth.user?.id !== session.user.id)
-        void applySession(session).finally(() => {
-          processingAuth = false
-          authState.setLoading(false)
-          stopBootstrapLoading()
-        })
-      }
+      authEventRevision += 1
+      const loginOwnsContext = event === 'SIGNED_IN' && get(page).url.pathname === '/login' && get(authState).loading
+      void acceptSession(session, false, loginOwnsContext)
     }
   })
 
-  unsubAuth = () => authListener?.subscription?.unsubscribe()
   void syncSession()
 
   return () => {
-    unsubAuth?.()
-    unsubEarlyRecovery?.()
+    disposed = true
+    revision += 1
+    stopProgress()
+    authListener.subscription.unsubscribe()
     stopBootstrapRetry()
   }
 }

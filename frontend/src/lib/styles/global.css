@@ -8,7 +8,9 @@
  * in system.css. Keeping one design-token owner prevents load-order theme drift.
  */
 :root {
-  --font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Tahoma, Arial, sans-serif;
+  --font-family: 'Outfit Variable', 'Tajawal', -apple-system, BlinkMacSystemFont, 'Segoe UI', Tahoma, Arial, sans-serif;
+  --tracking-tight: -.025em;
+  --tracking-body: -.006em;
   --font-mono: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 }
 
@@ -36,6 +38,9 @@
   body {
     overflow-x: clip;
     font-family: var(--font-family);
+    font-synthesis: none;
+    font-size: 16px;
+    font-weight: 400;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     background: var(--bg);
@@ -61,5 +66,10 @@ body[dir='rtl'] {
 }
 
 html[lang='ar'] {
-  --font-family: 'Noto Sans Arabic', 'Geist', Tahoma, Arial, sans-serif;
+  --tracking-tight: 0;
+  --tracking-body: 0;
+  --font-family: 'Tajawal', 'Outfit Variable', Tahoma, Arial, sans-serif;
 }
+
+html[lang='ar'] body { line-height: 1.7; }
+html[lang='ar'] :is(h1, h2, h3, button) { letter-spacing: 0; }

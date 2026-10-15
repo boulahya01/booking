@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { language, uiState } from '$lib/stores/ui'
+  import { language } from '$lib/stores/ui'
+  import HeaderControls from './HeaderControls.svelte'
   import Icon from './Icon.svelte'
   import PwaInstallCard from './PwaInstallCard.svelte'
   export let backHref = ''
@@ -23,9 +24,7 @@
           </a>
         {/if}
       </div>
-      <button type="button" class="auth-language" on:click={() => uiState.setLanguage($language === 'en' ? 'ar' : 'en')} aria-label={$language === 'ar' ? 'Switch to English' : 'التبديل إلى العربية'}>
-        {$language === 'ar' ? 'English' : 'العربية'}
-      </button>
+      <HeaderControls showMenu={false} id="auth" />
     </header>
     <div class="auth-shell-main"><div class="w-full"><slot /></div></div>
     <footer class="auth-shell-footer"><slot name="footer" /><div class="auth-install"><PwaInstallCard compact /></div></footer>
@@ -43,10 +42,8 @@
   }
   .auth-shell-frame { display: flex; flex: 1; flex-direction: column; width: 100%; min-width: 0; margin-inline: auto; }
   .auth-shell-header { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 12px; }
-  .auth-brand { display: inline-flex; min-height: 44px; align-items: center; gap: 9px; font-size: 15px; font-weight: 650; letter-spacing: -.025em; }
+  .auth-brand { display: inline-flex; min-height: 44px; align-items: center; gap: 9px; font-size: 15px; font-weight: 500; letter-spacing: var(--tracking-tight); }
   .auth-brand img { border-radius: 11px; }
-  .auth-language { min-height: 44px; padding-inline: 12px; border-radius: 12px; color: var(--text-secondary); background: transparent; font-family: system-ui, sans-serif; font-size: 13px; font-weight: 550; }
-  .auth-language:hover { background: var(--surface-level-1); }
   .auth-shell-main { display: flex; flex: 1; align-items: flex-start; padding-block: clamp(24px, 4dvh, 40px) 20px; }
   .auth-shell-footer { padding-top: 8px; text-align: center; }
   .auth-install:has(:global(.install-card)) { margin-top: 16px; }

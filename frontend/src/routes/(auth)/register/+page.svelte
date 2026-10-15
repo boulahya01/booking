@@ -225,7 +225,7 @@
     {:else if step === 'details'}
       <div class="mb-5 flex items-center gap-3 rounded-[18px] bg-surface-level-1 px-4 py-3.5">
         <span class={`h-2.5 w-2.5 shrink-0 rounded-full bg-warning`}></span>
-        <div class="min-w-0"><p class="text-sm font-semibold text-text">{academic ? copy.universityEmail : copy.personalEmail}</p><p class="mt-0.5 text-xs text-text-muted">{academic ? copy.universityAccess : copy.personalAccess}</p></div>
+        <div class="min-w-0"><p class="text-sm font-medium text-text">{academic ? copy.universityEmail : copy.personalEmail}</p><p class="mt-0.5 text-xs text-text-muted">{academic ? copy.universityAccess : copy.personalAccess}</p></div>
       </div>
       <form on:submit|preventDefault={continueFromDetails} class="space-y-4">
         <TextField label={copy.fullName} placeholder={copy.fullNamePlaceholder} autocomplete="name" maxlength={120} bind:value={fullName} validation={nameState} hint={nameState === 'invalid' ? copy.invalidName : ''} disabled={loading} />
@@ -245,7 +245,7 @@
     {/if}
 
     <p class="mt-7 text-center text-sm text-text-secondary">
-      {copy.haveAccount}<a href={loginHref} class="ms-1 font-semibold text-primary transition-colors hover:text-primary-hover">{copy.signIn}</a>
+      {copy.haveAccount}<a href={loginHref} class="ms-1 font-medium text-primary transition-colors hover:text-primary-hover">{copy.signIn}</a>
     </p>
   </section>
 

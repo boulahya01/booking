@@ -54,7 +54,9 @@ test('notifications update across routes, roll back failed dismissals and clear 
     await page.getByLabel('Password', { exact: true }).fill('Fixture123!');
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     await page.getByRole('heading', { name: 'Play today' }).waitFor();
-    const bell = page.getByRole('link', { name: 'Notifications, 2 new', exact: true });
+    const menu = page.locator('.uneem-topbar').getByRole('button', { name: 'Open menu, unread notifications', exact: true });
+    await menu.click();
+    const bell = page.getByRole('navigation', { name: 'Quick links' }).getByRole('link', { name: /^Notifications\s*2$/ });
     await bell.waitFor();
     assert.equal(counts['/rest/v1/announcements'], 1);
     await bell.click();
@@ -62,7 +64,9 @@ test('notifications update across routes, roll back failed dismissals and clear 
     assert.equal(counts['/rest/v1/announcements'], 1);
     await page.getByRole('button', { name: 'Dismiss: Evening football', exact: true }).click();
     await page.waitForFunction(() => !document.body.textContent.includes('Evening football'));
-    await page.getByRole('link', { name: 'Notifications, 1 new', exact: true }).waitFor();
+    await menu.click();
+    await page.getByRole('navigation', { name: 'Quick links' }).getByRole('link', { name: /^Notifications\s*1$/ }).waitFor();
+    await page.keyboard.press('Escape');
     await expect.poll(() => typeof releaseDismiss).toBe('function');
     releaseDismiss!();
     await page.getByRole('button', { name: 'Dismiss: Court maintenance', exact: true }).click();

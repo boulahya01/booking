@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 
-test('dismissed update stays available in Menu with one update action', async ({ page }) => {
+test('dismissed update stays available in Account with one update action', async ({ page }) => {
   await page.addInitScript(() => {
     const waiting = { postMessage() { (window as any).updateRequests = ((window as any).updateRequests || 0) + 1 } }
     const registration = Object.assign(new EventTarget(), { waiting, installing: null, update: async () => undefined })
@@ -9,8 +9,8 @@ test('dismissed update stays available in Menu with one update action', async ({
   const f = await fixture(page)
   await f.login()
   await page.getByRole('status', { name: 'UNEEM update ready' }).getByRole('button', { name: 'Later', exact: true }).click()
-  await page.getByRole('link', { name: 'Menu', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Menu', exact: true })).toBeVisible()
+  await page.getByRole('link', { name: 'Account', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Account', exact: true })).toBeVisible()
   await expect(page.getByRole('status', { name: 'UNEEM update ready' })).toHaveCount(0)
   const update = page.getByRole('button', { name: 'Update UNEEM', exact: true })
   await expect(update).toHaveCount(1)
@@ -79,41 +79,39 @@ async function fits(page: Page) {
   }))).toEqual({layoutWidth:page.viewportSize()!.width,noOverflow:true})
 }
 
-test('Home keeps facilities in place while an empty next booking resolves', async ({ page }) => {
+async function switchLanguage(page: Page, language: 'en' | 'ar') {
+  await page.locator('.uneem-topbar').getByRole('button', { name: language === 'ar' ? 'Language' : 'اللغة', exact: true }).click()
+  await page.locator('.uneem-topbar').getByRole('button', { name: language === 'ar' ? 'العربية' : 'English', exact: true }).click()
+}
+
+test('Home focuses on facilities without fetching private activity data', async ({ page }) => {
   const f = await fixture(page)
-  let releaseBooking: () => void = () => undefined
-  const bookingGate = new Promise<void>(resolve => { releaseBooking = resolve })
-  await page.route('**/rpc/get_next_booking', async route => {
-    await bookingGate
-    await route.fulfill({ contentType: 'application/json', body: '[]' })
+  let activityReads = 0
+  await page.route('**/rpc/get_next_booking', route => {
+    activityReads++
+    return route.fulfill({ contentType: 'application/json', body: '[]' })
   })
   await f.login()
   await expect(page.getByRole('heading', { name: 'Play today' })).toBeVisible()
-  await expect(page.locator('.loading-card')).toBeVisible()
   await expect(page.getByRole('link', { name: /View times/ })).toBeVisible()
-  await page.evaluate(() => document.fonts.ready)
-  const facilities = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Facilities', exact: true }) })
-  const before = (await facilities.boundingBox())!.y
-  releaseBooking()
-  await expect(page.getByRole('heading', { name: 'No booking yet', exact: true })).toBeVisible()
-  expect(Math.abs((await facilities.boundingBox())!.y - before)).toBeLessThan(1)
+  await expect(page.locator('.next-booking')).toHaveCount(0)
+  expect(activityReads).toBe(0)
   await fits(page)
   expect(f.errors).toEqual([])
   expect(f.unhandled).toEqual([])
 })
 
-test('Home shows open matches after facilities without blocking facility loading', async ({ page }) => {
+test('Play shows facilities first and opens matches in their own section', async ({ page }) => {
   const f = await fixture(page)
   let releaseMatches: () => void = () => undefined
   const gate = new Promise<void>(resolve => { releaseMatches = resolve })
   await page.route('**/rpc/list_open_matches', async route => { await gate; await route.fallback() })
   await f.login()
-  const section = page.getByRole('region', { name: 'Open matches', exact: true })
   await expect(page.getByRole('link', { name: /View times/ })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Open matches', exact: true })).toHaveCount(0)
+  await page.getByRole('navigation', { name: 'Play sections' }).getByRole('link', { name: 'Open matches', exact: true }).click()
+  const section = page.getByRole('region', { name: 'Open matches', exact: true })
   await expect(section.getByLabel('Loading matches', { exact: true })).toBeVisible()
-  await expect(page.locator('.home-header').getByRole('link')).toHaveCount(0)
-  const facilities = page.getByRole('region', { name: 'Facilities', exact: true })
-  expect((await section.boundingBox())!.y).toBeGreaterThan((await facilities.boundingBox())!.y)
   releaseMatches()
   const match = section.getByRole('link', { name: /Join match/ })
   await expect(match).toHaveCount(1)
@@ -128,7 +126,7 @@ test('Home shows open matches after facilities without blocking facility loading
   expect(f.unhandled).toEqual([])
 })
 
-test('Home match errors retry inline and empty matches remain below facilities', async ({ page }) => {
+test('match errors retry inline and leave section navigation available', async ({ page }) => {
   const f = await fixture(page)
   let requests = 0
   await page.route('**/rpc/list_open_matches', route => {
@@ -136,9 +134,10 @@ test('Home match errors retry inline and empty matches remain below facilities',
     return route.fulfill({ status: requests === 1 ? 500 : 200, contentType: 'application/json', body: requests === 1 ? JSON.stringify({ message: 'Temporary failure' }) : '[]' })
   })
   await f.login()
+  await page.getByRole('navigation', { name: 'Play sections' }).getByRole('link', { name: 'Open matches', exact: true }).click()
   const section = page.getByRole('region', { name: 'Open matches', exact: true })
   await expect(section.getByRole('alert')).toBeVisible()
-  await expect(page.getByRole('link', { name: /View times/ })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Play sections' }).getByRole('link', { name: 'Facilities', exact: true })).toBeVisible()
   await section.getByRole('button', { name: 'Retry', exact: true }).click()
   await expect(section.getByRole('heading', { name: 'No open matches yet' })).toBeVisible()
   await expect(section.getByRole('alert')).toHaveCount(0)
@@ -203,7 +202,7 @@ test('open-match organizer can find a registered friend without kicking joined p
   await page.getByRole('button', { name: 'Close', exact: true }).click()
   await expect(page.getByLabel('Guest name', { exact: true })).toHaveCount(0)
   await page.goto('/menu')
-  await page.getByRole('button', { name: 'العربية', exact: true }).click()
+  await switchLanguage(page, 'ar')
   await page.goto(`/bookings/${f.bookingId}`)
   await expect(page.getByRole('heading', { name: 'إدارة مباراتك', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'إضافة لاعب', exact: true }).click()
@@ -269,7 +268,7 @@ test('simple match list leads to details and shows join before the roster', asyn
   await fits(page)
   await page.screenshot({ path: test.info().outputPath('player-details.png'), fullPage: true })
   await page.goto('/menu')
-  await page.getByRole('button', { name: 'العربية', exact: true }).click()
+  await switchLanguage(page, 'ar')
   await page.goto(`/bookings/${f.bookingId}`)
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
   await expect(page.getByRole('button', { name: 'انضم', exact: true })).toBeEnabled()
@@ -277,18 +276,17 @@ test('simple match list leads to details and shows join before the roster', asyn
   expect(f.errors).toEqual([])
 })
 
-test('My Sports includes joined matches even without an owned booking', async ({ page }) => {
+test('My activity includes joined matches even without an owned booking', async ({ page }) => {
   const f = await fixture(page)
   await page.route('**/rpc/list_my_matches', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify([{ ...f.booking, member_role: 'player', visibility: 'open', organizer_name: 'Test Organizer' }]) }))
   await f.login()
   await page.goto('/bookings')
-  const joined = page.getByRole('region', { name: 'Matches you’re playing' })
-  await expect(joined.getByRole('link', { name: /View match/ })).toHaveAttribute('href', `/bookings/${f.bookingId}`)
-  await expect(joined.getByText('You’re playing', { exact: true })).toBeVisible()
-  await expect(page.locator('.sports-summary')).toContainText('1Matches you joined')
+  const joined = page.locator('.next-activity')
+  await expect(joined).toHaveAttribute('href', `/bookings/${f.bookingId}`)
+  await expect(joined.getByText('Joined', { exact: true })).toBeVisible()
   await fits(page)
   await page.screenshot({ path: test.info().outputPath('my-sports-joined.png'), fullPage: true })
-  await joined.getByRole('link').click()
+  await joined.click()
   await expect(page.getByRole('heading', { name: 'Match details' })).toBeVisible()
   expect(f.errors).toEqual([])
   expect(f.unhandled).toEqual([])
@@ -324,7 +322,7 @@ test('slot restrictions appear once and blocked slots use a neutral later action
   await page.evaluate(() => window.scrollTo(0, 0))
   await page.screenshot({ path: test.info().outputPath('slots-policy-once.png'), fullPage: true })
   await page.goto('/menu')
-  await page.getByRole('button', { name: 'العربية', exact: true }).click()
+  await switchLanguage(page, 'ar')
   await page.goto(`/pitch/${f.pitchId}`)
   await expect(page.locator('#booking-policy')).toHaveCount(1)
   await expect(page.getByRole('button', { name: 'احجز لاحقاً', exact: true })).toHaveCount(3)
@@ -373,7 +371,7 @@ test('booking frequency restricts creating a booking but still allows joining an
   expect(f.unhandled).toEqual([])
 })
 
-test('compact slots, booking error recovery, grouped Menu and invite link fallback', async ({page}) => {
+test('compact slots, booking error recovery, grouped Account and invite link fallback', async ({page}) => {
   const f = await fixture(page)
   await f.login()
   await expect(page.getByRole('heading',{name:'Play today'})).toBeVisible()
@@ -393,18 +391,18 @@ test('compact slots, booking error recovery, grouped Menu and invite link fallba
   await expect(dialog.getByRole('alert')).toBeVisible()
   await dialog.getByRole('button',{name:'Close',exact:true}).click()
   await expect(dialog).not.toBeVisible()
-  await page.getByRole('link',{name:'Menu',exact:true}).click()
-  await expect(page.getByRole('heading',{name:'Menu',exact:true})).toBeVisible()
+  await page.getByRole('link',{name:'Account',exact:true}).click()
+  await expect(page.getByRole('heading',{name:'Account',exact:true})).toBeVisible()
   await expect(page.getByRole('navigation',{name:'Navigation menu'})).toHaveCount(0)
-  await page.getByRole('button',{name:'Dark',exact:true}).click()
+  await page.locator('.uneem-topbar').getByRole('button',{name:'Switch to dark mode',exact:true}).click()
   await expect(page.locator('html')).toHaveClass(/dark/)
-  await page.getByRole('button',{name:'العربية',exact:true}).click()
+  await switchLanguage(page, 'ar')
   await expect(page.locator('html')).toHaveAttribute('dir','rtl')
   await fits(page)
   await page.evaluate(() => window.scrollTo(0,0))
   await page.screenshot({path:test.info().outputPath('menu-ar-dark.png'),fullPage:true})
-  await page.getByRole('button',{name:'English',exact:true}).click()
-  await page.getByRole('button',{name:'Light',exact:true}).click()
+  await switchLanguage(page, 'en')
+  await page.locator('.uneem-topbar').getByRole('button',{name:'Switch to light mode',exact:true}).click()
   await page.goto('/matches')
   await expect(page.getByRole('heading',{name:'Open matches',exact:true})).toBeVisible()
   await page.getByRole('link',{name:/Join match/}).click()

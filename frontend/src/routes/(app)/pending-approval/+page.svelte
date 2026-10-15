@@ -68,7 +68,7 @@
   {:else if error}
     <section class="w-full">
       <div class="mb-5 flex h-11 w-11 items-center justify-center rounded-full bg-danger-light text-danger"><Icon name="alert-triangle" size={20} /></div>
-      <h1 class="text-3xl font-semibold tracking-[-0.035em] text-text">{copy.loadError}</h1>
+      <h1 class="text-3xl font-medium tracking-[var(--tracking-tight)] text-text">{copy.loadError}</h1>
       <p class="mt-2 text-sm leading-6 text-text-secondary">{error}</p>
       <div class="mt-6 space-y-3">
         <Button on:click={refresh} variant="primary" size="lg" className="w-full" loading={loading} disabled={loading}>{copy.retry}</Button>
@@ -79,11 +79,11 @@
     <section class="w-full">
       {#if state.access_status === 'suspended'}
         <div class="mb-5 flex h-11 w-11 items-center justify-center rounded-full bg-danger-light text-danger"><Icon name="shield" size={20} /></div>
-        <p class="text-sm font-semibold text-danger">{copy.restrictedLabel}</p>
-        <h1 class="mt-1 text-3xl font-semibold tracking-[-0.035em] text-text">{copy.restrictedTitle}</h1>
+        <p class="text-sm font-medium text-danger">{copy.restrictedLabel}</p>
+        <h1 class="mt-1 text-3xl font-medium tracking-[var(--tracking-tight)] text-text">{copy.restrictedTitle}</h1>
         <p class="mt-3 text-sm leading-6 text-text-secondary">{copy.restrictedBody}</p>
         <div class="mt-5 rounded-2xl bg-surface-level-1 p-4">
-          <p class="text-xs font-semibold uppercase tracking-wide text-text-muted">{copy.reason}</p>
+          <p class="text-xs font-medium uppercase tracking-wide text-text-muted">{copy.reason}</p>
           <p class="mt-1 text-sm font-medium text-text">{state.restriction_reason?.replaceAll('_', ' ') || copy.reviewRequired}</p>
         </div>
         <div class="mt-6 space-y-3">
@@ -92,8 +92,8 @@
         </div>
       {:else if state.identity_status === 'conflict'}
         <div class="mb-5 flex h-11 w-11 items-center justify-center rounded-full bg-warning-light text-warning"><Icon name="shield" size={20} /></div>
-        <p class="text-sm font-semibold text-warning">{copy.conflictLabel}</p>
-        <h1 class="mt-1 text-3xl font-semibold tracking-[-0.035em] text-text">{copy.conflictTitle}</h1>
+        <p class="text-sm font-medium text-warning">{copy.conflictLabel}</p>
+        <h1 class="mt-1 text-3xl font-medium tracking-[var(--tracking-tight)] text-text">{copy.conflictTitle}</h1>
         <p class="mt-3 text-sm leading-6 text-text-secondary">{copy.conflictBody}</p>
         <div class="mt-6 space-y-3">
           <ActionLink href="/help" variant="primary" size="lg" icon="info" className="w-full">{copy.contactSupport}</ActionLink>
@@ -101,8 +101,8 @@
         </div>
       {:else if state.identity_status === 'rejected'}
         <div class="mb-5 flex h-11 w-11 items-center justify-center rounded-full bg-warning-light text-warning"><Icon name="pencil" size={20} /></div>
-        <p class="text-sm font-semibold text-warning">{copy.actionLabel}</p>
-        <h1 class="mt-1 text-3xl font-semibold tracking-[-0.035em] text-text">{copy.rejectedTitle}</h1>
+        <p class="text-sm font-medium text-warning">{copy.actionLabel}</p>
+        <h1 class="mt-1 text-3xl font-medium tracking-[var(--tracking-tight)] text-text">{copy.rejectedTitle}</h1>
         <p class="mt-3 text-sm leading-6 text-text-secondary">{copy.rejectedBody}</p>
         <div class="mt-6 space-y-3">
           <ActionLink href="/verification" variant="primary" size="lg" icon="shield" className="w-full">{copy.fixVerification}</ActionLink>
@@ -110,8 +110,8 @@
         </div>
       {:else if state.identity_status === 'required'}
         <div class="mb-5 flex h-11 w-11 items-center justify-center rounded-full bg-primary-light text-primary"><Icon name="shield" size={20} /></div>
-        <p class="text-sm font-semibold text-primary">{copy.oneStep}</p>
-        <h1 class="mt-1 text-3xl font-semibold tracking-[-0.035em] text-text">{copy.requiredTitle}</h1>
+        <p class="text-sm font-medium text-primary">{copy.oneStep}</p>
+        <h1 class="mt-1 text-3xl font-medium tracking-[var(--tracking-tight)] text-text">{copy.requiredTitle}</h1>
         <p class="mt-3 text-sm leading-6 text-text-secondary">{copy.requiredBody}</p>
         <div class="mt-6 space-y-3">
           <ActionLink href="/verification" variant="primary" size="lg" icon="shield" className="w-full">{copy.startVerification}</ActionLink>
@@ -119,8 +119,8 @@
         </div>
       {:else}
         <div class="mb-5 flex h-11 w-11 items-center justify-center rounded-full bg-warning-light text-warning"><Icon name="clock" size={20} /></div>
-        <p class="text-sm font-semibold text-warning">{copy.reviewLabel}</p>
-        <h1 class="mt-1 text-3xl font-semibold tracking-[-0.035em] text-text">{copy.pendingTitle}</h1>
+        <p class="text-sm font-medium text-warning">{copy.reviewLabel}</p>
+        <h1 class="mt-1 text-3xl font-medium tracking-[var(--tracking-tight)] text-text">{copy.pendingTitle}</h1>
         <p class="mt-3 text-sm leading-6 text-text-secondary">{copy.pendingBody}</p>
         <div class="mt-6 grid gap-3">
           <ActionLink href="/verification" variant="secondary" size="md" icon="shield">{copy.viewSubmission}</ActionLink>

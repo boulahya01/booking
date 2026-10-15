@@ -28,7 +28,7 @@ test('all students browse, see a persistent reminder and correct ID before appro
     if (key === 'user') return json(user)
     if (key === 'logout') return route.fulfill({ status: 204 })
     if (key === 'get_my_session_context' || key === 'get_my_account_state') return json([account])
-    if (key === 'get_next_booking' || key === 'list_my_bookings' || key === 'announcements' || key === 'announcement_dismissals' || key === 'list_open_matches') return json([])
+    if (key === 'get_next_booking' || key === 'list_my_bookings' || key === 'list_my_matches' || key === 'announcements' || key === 'announcement_dismissals' || key === 'list_open_matches') return json([])
     if (key === 'pitches') return json(url.searchParams.has('id') ? facility : [facility])
     if (key === 'get_pitch_availability') return json([{ id: starts, pitch_id: pitchId, starts_at: starts, ends_at: ends, is_available: true, capacity: 22, timezone: 'Africa/Casablanca' }])
     if (url.pathname.includes('/storage/v1/object/student-verification/')) return json({ Key: url.pathname.split('/object/')[1] })

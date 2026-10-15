@@ -61,6 +61,13 @@ async function expectNoHorizontalOverflow(page: Page) {
 }
 
 test.beforeEach(async ({ page }) => {
+  // Public smoke tests stay isolated even when local development uses hosted Auth.
+  // A per-test signup fixture below overrides this catch-all for that one action.
+  await page.route('**/*.supabase.co/**', route => {
+    const key = new URL(route.request().url()).pathname.split('/').at(-1);
+    if (key === 'settings') return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ external: { google: true } }) });
+    return route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ message: 'Invalid fictional Auth request', code: 'fixture_rejected' }) });
+  });
   await primeProtectedPreview(page);
 });
 

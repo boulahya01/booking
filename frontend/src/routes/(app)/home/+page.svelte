@@ -1,21 +1,21 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import PitchCard from '$lib/components/PitchCard.svelte'
-  import NextBookingCard from '$lib/components/NextBookingCard.svelte'
   import SegmentedControl from '$lib/components/SegmentedControl.svelte'
   import Button from '$lib/components/Button.svelte'
-  import HomeMatches from '$lib/components/HomeMatches.svelte'
   import LoadingShape from '$lib/components/LoadingShape.svelte'
   import Icon from '$lib/components/Icon.svelte'
   import { _, locale } from 'svelte-i18n'
   import { authState } from '$lib/stores/auth'
   import { logger } from '$lib/logger'
   import { listActiveFacilities, type FacilitySummary } from '$lib/facilityApi'
+  import { peekCachedValue } from '$lib/requestCache'
 
-  let pitches: FacilitySummary[] = []
-  let pitchesLoading = true
+  const cachedPitches = peekCachedValue<FacilitySummary[]>('facilities:active')
+  let pitches: FacilitySummary[] = cachedPitches ?? []
+  let pitchesLoading = cachedPitches === undefined
   let pitchesError = false
-  let pitchesLoaded = false
+  let pitchesLoaded = cachedPitches !== undefined
   let refreshing = false
   let selectedSport = 'all'
   let disposed = false
@@ -46,10 +46,10 @@
     }
   }
 
-  onMount(() => { void fetchPitches(); return () => { disposed = true } })
+  onMount(() => { if (!pitchesLoaded) void fetchPitches(); return () => { disposed = true } })
 </script>
 
-<svelte:head><title>{isArabic ? 'الرئيسية' : 'Home'} · UNEEM</title></svelte:head>
+<svelte:head><title>{isArabic ? 'العب' : 'Play'} · UNEEM</title></svelte:head>
 
 <main class="uneem-page home-page">
   <header class="home-header">
@@ -58,8 +58,6 @@
       <h1 class="uneem-title">{isArabic ? 'العب اليوم' : 'Play today'}</h1>
     </div>
   </header>
-
-  <NextBookingCard />
 
   <section id="facilities" aria-labelledby="facilities-heading">
     <div class="facilities-heading">
@@ -101,21 +99,20 @@
       </div>
     {/if}
   </section>
-  <HomeMatches />
 </main>
 
 <style>
   .home-page { max-width: 64rem; }
   .home-header { margin-bottom: 24px; }
-  .home-greeting { margin-bottom: 6px; color: var(--text-secondary); font-size: 14px; font-weight: 550; }
+  .home-greeting { margin-bottom: 6px; color: var(--text-secondary); font-size: 14px; font-weight: 400; }
   .facilities-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
-  .facilities-heading h2 { font-size: 22px; font-weight: 650; letter-spacing: -.025em; }
+  .facilities-heading h2 { font-size: 22px; font-weight: 500; letter-spacing: var(--tracking-tight); }
   .sport-filter { margin-bottom: 20px; }
   .facilities-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .facility-skeleton { display: flex; min-height: 156px; flex-direction: column; justify-content: space-between; gap: 20px; padding: 18px; border-radius: var(--radius-lg); background: var(--surface); }
   .facilities-error { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; padding: 16px; border-radius: var(--radius-lg); background: var(--danger-light); }
   .facilities-error p { flex: 1 1 180px; color: var(--danger); font-size: 14px; }
   .facilities-empty { display: flex; align-items: center; flex-direction: column; gap: 16px; padding: 48px 16px; color: var(--text-secondary); text-align: center; }
-  .facilities-empty p { color: var(--text); font-size: 16px; font-weight: 550; }
+  .facilities-empty p { color: var(--text); font-size: 16px; font-weight: 500; }
   @media (min-width: 640px) { .facilities-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; } }
 </style>

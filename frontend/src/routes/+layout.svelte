@@ -24,7 +24,7 @@
   import { initializeI18n } from '$lib/i18n'
   import { authState } from '$lib/stores/auth'
   import { initAuthRuntime } from '$lib/authRuntime'
-  import geistFont from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url'
+  import outfitFont from '@fontsource-variable/outfit/files/outfit-latin-wght-normal.woff2?url'
   import { observeViewport } from '$lib/viewport'
   import {
     passwordRecoveryActive,
@@ -41,6 +41,7 @@
   }
 
   let routeGuardProcessing = false
+  let preferencesReady = false
 
   initializeI18n('en')
 
@@ -102,6 +103,7 @@
     const stopAuthRuntime = initAuthRuntime()
 
     applyTheme($theme)
+    preferencesReady = true
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
     const handleChange = () => {
@@ -123,7 +125,9 @@
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', isDark ? '#101113' : '#f5f5f7')
   }
 
-  $: if (browser) applyTheme($theme)
+  // app-bootstrap has already applied the saved theme before first paint.
+  // Do not replace it with the store's default light theme during hydration.
+  $: if (browser && preferencesReady) applyTheme($theme)
 
   $: if (browser && $uiState.language) {
     document.documentElement.lang = $uiState.language
@@ -133,7 +137,7 @@
 </script>
 
 <svelte:head>
-  <link rel="preload" href={geistFont} as="font" type="font/woff2" crossorigin="anonymous" />
+  <link rel="preload" href={outfitFont} as="font" type="font/woff2" crossorigin="anonymous" />
   <title>UNEM Sports</title>
 </svelte:head>
 

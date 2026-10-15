@@ -41,7 +41,7 @@
 <style>
   .pwa-update { display: flex; align-items: center; gap: 12px; width: min(calc(100% - 32px), 660px); margin: 8px auto; padding: 10px 12px 10px 16px; border: 1px solid var(--border-light); border-radius: 14px; background: var(--surface); }
   .update-copy { flex: 1; min-width: 0; }
-  .update-title { font-size: 13px; line-height: 1.5; font-weight: 600; color: var(--text); }
+  .update-title { font-size: 13px; line-height: 1.5; font-weight: 500; color: var(--text); }
   .update-description { margin-top: 2px; font-size: 12px; line-height: 1.5; color: var(--text-secondary); }
   .update-actions { display: flex; align-items: center; flex-shrink: 0; gap: 4px; }
   .update-dismiss { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 10px; color: var(--text-secondary); }

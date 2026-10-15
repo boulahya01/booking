@@ -4,24 +4,29 @@
   import { browser } from '$app/environment'
   import { goto } from '$app/navigation'
   import { page } from '$app/stores'
-  import { supabase } from '$lib/supabaseClient'
+  import { getFacility, type FacilityDetails } from '$lib/facilityApi'
+  import { peekCachedValue, setCachedValue, invalidateRequestCache } from '$lib/requestCache'
+  import { listMyMatches, type MyMatch } from '$lib/matchApi'
   import SlotCard from '$lib/components/SlotCard.svelte'
   import BookingModal from '$lib/components/BookingModal.svelte'
   import Icon from '$lib/components/Icon.svelte'
   import Button from '$lib/components/Button.svelte'
   import { _, locale } from 'svelte-i18n'
-  import { logger } from '$lib/logger'
   import {
     getPitchAvailability,
     getMyBookings,
     BookingApiError,
-    type MyBooking
+    type AvailabilitySlot, type CreatedBooking, type MyBooking
   } from '$lib/bookingApi'
   import { bookingFailureMessage } from '$lib/ux/bookingFailure'
 
-  let pitch: any = null
+  let pitch: FacilityDetails | null = null
   let slots: any[] = []
   let myBookings: MyBooking[] = []
+  let myMatches: MyMatch[] = []
+  let loadedPitchId = ''
+  let policyVersion = 0
+  let availabilityVersion = 0
   let loading = true
   let loadingSlots = false
   let error: string | null = null
@@ -31,7 +36,6 @@
   let currentTime = new Date()
 
   let fetchVersion = 0
-  let slotsRequestVersion: number | null = null
   let refreshInterval: ReturnType<typeof setInterval> | null = null
   let cleanupVisibility: (() => void) | null = null
 
@@ -45,7 +49,8 @@
   $: activeBooking = myBookings.find(
     (booking) => ['scheduled', 'in_progress'].includes(booking.status) && new Date(booking.ends_at).getTime() > currentTime.getTime()
   ) || null
-  $: decoratedVisibleSlots = visibleSlots.map((slot) => decoratedSlot(slot))
+  $: slotContext = { pitch, myMatches, myBookings, activeBooking, locale: $locale, now: currentTime }
+  $: decoratedVisibleSlots = visibleSlots.map((slot) => decoratedSlot(slot, slotContext))
   $: policyBlockedSlots = decoratedVisibleSlots.filter(
     (slot) => slot.is_available && slot.booking_blocked
   )
@@ -55,7 +60,7 @@
       )[0]
     : null
   $: grouped = decoratedVisibleSlots.reduce<Record<string, any[]>>((acc, slot) => {
-    const key = facilityDateKey(slot.datetime_start)
+    const key = facilityDateKey(slot.datetime_start, pitch?.timezone)
     ;(acc[key] ??= []).push(slot)
     return acc
   }, {})
@@ -65,11 +70,11 @@
 
   function startAutoRefresh() {
     refreshInterval = setInterval(() => {
-      if (!document.hidden && pitchId && !showModal) void fetchSlots()
+      if (!document.hidden && pitchId && !showModal) { void fetchSlots(true); void fetchPolicy(true) }
     }, 120_000)
 
     const handleVisibility = () => {
-      if (!document.hidden && pitchId) void fetchSlots()
+      if (!document.hidden && pitchId && !showModal) { void fetchSlots(); void fetchPolicy() }
     }
     document.addEventListener('visibilitychange', handleVisibility)
     cleanupVisibility = () => document.removeEventListener('visibilitychange', handleVisibility)
@@ -82,70 +87,68 @@
     cleanupVisibility = null
   }
 
-  async function fetchPitch() {
-    const version = ++fetchVersion
-    if (!pitchId) {
-      pitch = null
-      loading = false
-      return
-    }
-
-    const { data, error: fetchError } = await supabase
-      .from('pitches')
-      .select('id,name,location,open_time,close_time,capacity,sport_type,timezone,booking_frequency_enabled,booking_frequency_days,booking_window_hours')
-      .eq('id', pitchId)
-      .maybeSingle()
-
-    if (version !== fetchVersion) return
-
-    if (fetchError) {
-      logger.error('[Pitch Page] Failed to load pitch:', fetchError)
-      error = $_('common.error')
-      pitch = null
-    } else {
-      error = null
-      pitch = data || null
-    }
-    loading = false
-  }
-
-  async function fetchSlots() {
+  async function fetchPitch(force = false) {
     const version = fetchVersion
-    if (!pitchId || slotsRequestVersion === version) return
-
-    slotsRequestVersion = version
-    loadingSlots = true
-    errorSlots = null
-
+    if (!pitchId) { loading = false; return }
     try {
-      const [availability, bookingRows] = await Promise.all([
-        getPitchAvailability(pitchId),
-        getMyBookings()
-      ])
+      const data = await getFacility(pitchId, force)
       if (version !== fetchVersion) return
-      slots = availability
-      myBookings = bookingRows
-    } catch (fetchError) {
+      pitch = data
+      error = null
+    } catch {
       if (version !== fetchVersion) return
-      logger.error('[Pitch Page] Failed to load availability:', fetchError)
-      errorSlots = bookingFailureMessage(
-        fetchError instanceof BookingApiError ? fetchError.code : 'unknown',
-        $locale
-      )
+      error = $_('common.error')
     } finally {
-      if (slotsRequestVersion === version) slotsRequestVersion = null
-      if (version === fetchVersion) loadingSlots = false
+      if (version === fetchVersion) loading = false
     }
   }
 
-  $: if (pitchId && browser) {
-    loading = true
+  async function fetchSlots(force = false) {
+    const version = fetchVersion
+    const request = ++availabilityVersion
+    if (!pitchId) return
+    loadingSlots = slots.length === 0
+    errorSlots = null
+    try {
+      const availability = await getPitchAvailability(pitchId, force)
+      if (version !== fetchVersion || request !== availabilityVersion) return
+      slots = availability
+    } catch (fetchError) {
+      if (version !== fetchVersion || request !== availabilityVersion) return
+      errorSlots = bookingFailureMessage(fetchError instanceof BookingApiError ? fetchError.code : 'unknown', $locale)
+    } finally {
+      if (version === fetchVersion && request === availabilityVersion) loadingSlots = false
+    }
+  }
+
+  async function fetchPolicy(force = false) {
+    const version = fetchVersion
+    const request = ++policyVersion
+    // Each confirmed read can update its guidance without waiting on the other.
+    await Promise.allSettled([
+      getMyBookings(undefined, force).then(bookings => {
+        if (version === fetchVersion && request === policyVersion) myBookings = bookings
+      }),
+      listMyMatches(force).then(matches => {
+        if (version === fetchVersion && request === policyVersion) myMatches = matches
+      })
+    ])
+  }
+
+  $: if (pitchId && browser && loadedPitchId !== pitchId) {
+    loadedPitchId = pitchId
+    fetchVersion++
     error = null
-    pitch = null
-    slots = []
-    myBookings = []
+    errorSlots = null
+    pitch = peekCachedValue<FacilityDetails>('facility:' + pitchId) ?? null
+    slots = peekCachedValue<AvailabilitySlot[]>('availability:' + pitchId) ?? []
+    myBookings = peekCachedValue<MyBooking[]>('my-bookings') ?? []
+    myMatches = peekCachedValue<MyMatch[]>('my-matches') ?? []
+    loading = !pitch
+    loadingSlots = slots.length === 0
     void fetchPitch()
     void fetchSlots()
+    void fetchPolicy()
   }
 
   onMount(() => {
@@ -161,7 +164,8 @@
     }
   })
 
-  function policyBlock(slot: any) {
+  function policyBlock(slot: any, context: typeof slotContext) {
+    const { pitch, myBookings, activeBooking, locale: currentLocale, now } = context
     if (!slot.is_available) return null
 
     let eligibleAt = 0
@@ -189,9 +193,9 @@
       }
     }
 
-    if (!eligibleAt || eligibleAt <= currentTime.getTime()) return null
+    if (!eligibleAt || eligibleAt <= now.getTime()) return null
 
-    const labelDate = new Date(eligibleAt).toLocaleDateString($locale || 'en', {
+    const labelDate = new Date(eligibleAt).toLocaleDateString(currentLocale || 'en', {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
@@ -209,11 +213,12 @@
     }
   }
 
-  function decoratedSlot(slot: any) {
-    const block = policyBlock(slot)
+  function decoratedSlot(slot: any, context = slotContext) {
+    const block = policyBlock(slot, context)
     return {
       ...slot,
-      pitch_name: pitch?.name,
+      joined_by_me: context.myMatches.some(match => match.booking_id === slot.booking_id && match.member_role !== 'organizer'),
+      pitch_name: context.pitch?.name,
       booking_blocked: Boolean(block),
       booking_block_code: block?.code || null,
       booking_block_label: block?.label || null,
@@ -239,13 +244,33 @@
     selectedSlot = null
   }
 
-  async function onBookingCompleted() {
-    await fetchSlots()
+  function onBookingCompleted(booking: CreatedBooking) {
+    // Supersede any snapshot reads that started before the confirmed write.
+    availabilityVersion++
+    policyVersion++
+    slots = slots.map(slot => Date.parse(slot.datetime_start) === Date.parse(booking.starts_at)
+      ? { ...slot, booking_id: booking.id, datetime_end: booking.ends_at, is_available: false, booked_by_me: true, match_id: null, match_open: false, joined_count: 0, reserved_spots: 0 }
+      : slot)
+    myBookings = [...myBookings.filter(item => item.id !== booking.id), {
+      id: booking.id, pitch_id: booking.pitch_id, starts_at: booking.starts_at, ends_at: booking.ends_at,
+      status: 'scheduled', lifecycle_status: 'upcoming', cancelled_at: null, created_at: new Date().toISOString(),
+      pitches: pitch ? { name: pitch.name, location: pitch.location, capacity: pitch.capacity, timezone: pitch.timezone } : null
+    }]
+    invalidateRequestCache('availability:' + pitchId)
+    invalidateRequestCache('my-bookings')
+    setCachedValue('availability:' + pitchId, slots, 15_000)
+    setCachedValue('my-bookings', myBookings, 20_000)
+    loadingSlots = false
+    // The confirmed slot is usable while the rest of the grid reconciles.
+    void fetchSlots(true)
+    void fetchPolicy(true)
   }
 
-  function facilityDateKey(value: string): string {
+  function onBookingUnavailable() { void fetchSlots(true); void fetchPolicy(true) }
+
+  function facilityDateKey(value: string, timezone = pitch?.timezone): string {
     const parts = new Intl.DateTimeFormat('en', {
-      timeZone: pitch?.timezone || 'Africa/Casablanca',
+      timeZone: timezone || 'Africa/Casablanca',
       year: 'numeric',
       month: '2-digit',
       day: '2-digit'
@@ -298,10 +323,10 @@
     </div>
   {:else if error || !pitch}
     <section class="uneem-empty">
-      <p class="font-bold text-text">
+      <p class="font-medium text-text">
         {error || (ar ? 'المرفق غير موجود' : 'Facility not found')}
       </p>
-      <Button on:click={fetchPitch} variant="secondary" className="mt-4">
+      <Button on:click={() => fetchPitch(true)} variant="secondary" className="mt-4">
         {$_('common.retry')}
       </Button>
     </section>
@@ -324,7 +349,7 @@
       <div class="times-heading">
         <div><h2>{ar ? 'اختر وقتك' : 'Choose your time'}</h2><p>{ar ? 'خلال 24 ساعة القادمة' : 'Next 24 hours'}</p></div>
         {#if loadingSlots && slots.length > 0}
-          <span class="text-xs font-semibold text-text-muted">
+          <span class="text-xs font-medium text-text-muted">
             {ar ? 'تحديث…' : 'Refreshing…'}
           </span>
         {/if}
@@ -338,20 +363,20 @@
         </div>
       {:else if errorSlots && slots.length === 0}
         <div class="flex flex-col gap-4 rounded-[22px] bg-surface p-5" role="alert">
-          <p class="text-sm font-semibold text-danger">{errorSlots}</p>
-          <Button on:click={fetchSlots} variant="secondary" fullWidth>
+          <p class="text-sm font-medium text-danger">{errorSlots}</p>
+          <Button on:click={() => fetchSlots(true)} variant="secondary" fullWidth>
             {$_('common.retry')}
           </Button>
         </div>
       {:else if visibleSlots.length === 0}
         <div class="uneem-empty py-8">
-          <p class="font-semibold text-text-muted">{$_('pitch.no_slots')}</p>
+          <p class="font-medium text-text-muted">{$_('pitch.no_slots')}</p>
         </div>
       {:else}
         {#if errorSlots}
-          <div class="mb-3 flex items-center justify-between gap-3 rounded-[14px] bg-danger-light px-3.5 py-3 text-sm font-semibold text-danger">
+          <div class="mb-3 flex items-center justify-between gap-3 rounded-[14px] bg-danger-light px-3.5 py-3 text-sm font-medium text-danger">
             <span>{errorSlots}</span>
-            <Button on:click={fetchSlots} variant="ghost" size="sm">{$_('common.retry')}</Button>
+            <Button on:click={() => fetchSlots(true)} variant="ghost" size="sm">{$_('common.retry')}</Button>
           </div>
         {/if}
 
@@ -373,11 +398,11 @@
         <div class="space-y-7">
           {#each slotGroups as group}
             <div>
-              <h3 class="mb-3 text-sm font-semibold text-text-secondary">
+              <h3 class="mb-3 text-sm font-medium text-text-secondary">
                 {groupLabel(group.date)}
               </h3>
               <div class="slot-grid">
-                {#each group.slots as slot, i (slot.id || `${slot.datetime_start}-${i}`)}
+                {#each group.slots as slot, i (`${slot.pitch_id}:${Date.parse(slot.datetime_start)}`)}
                   <SlotCard
                     slotData={slot}
                     onBook={() => openBooking(slot)}
@@ -399,27 +424,28 @@
     slotData={selectedSlot}
     onClose={onModalClose}
     onBooked={onBookingCompleted}
+    onUnavailable={onBookingUnavailable}
   />
 {/if}
 
 <style>
   .pitch-heading { padding: 4px 0 28px; }
-  .pitch-heading h1 { font-size: clamp(28px, 5vw, 36px); font-weight: 650; letter-spacing: -.04em; line-height: 1.2; overflow-wrap: anywhere; }
+  .pitch-heading h1 { font-size: clamp(28px, 5vw, 36px); font-weight: 500; letter-spacing: var(--tracking-tight); line-height: 1.2; overflow-wrap: anywhere; }
   .pitch-location { display: flex; align-items: flex-start; gap: 8px; margin-top: 12px; color: var(--text-secondary); font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
   .pitch-location :global(svg) { margin-top: 2px; flex-shrink: 0; }
   .pitch-facts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
   .pitch-facts > span { display: inline-flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 12px; background: var(--surface); color: var(--text-secondary); font-size: 13px; }
   .times-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; }
-  .times-heading h2 { font-size: 21px; font-weight: 650; letter-spacing: -.025em; }
+  .times-heading h2 { font-size: 21px; font-weight: 500; letter-spacing: var(--tracking-tight); }
   .times-heading p { margin-top: 5px; color: var(--text-muted); font-size: 13px; }
   .slot-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .booking-policy { display: flex; align-items: flex-start; gap: 10px; padding: 14px 16px; margin-bottom: 20px; border-radius: 14px; background: var(--surface-level-1); color: var(--text-secondary); font-size: 13px; line-height: 1.6; }
   .booking-policy :global(svg) { flex-shrink: 0; margin-top: 2px; }
   .booking-policy-content { min-width: 0; }
-  .policy-reason { color: var(--text); font-weight: 600; }
+  .policy-reason { color: var(--text); font-weight: 500; }
   .policy-time { margin-top: 6px; font-variant-numeric: tabular-nums; }
   .policy-window { margin-top: 4px; font-size: 12px; color: var(--text-muted); }
-  .policy-match-link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 4px; font-weight: 600; color: var(--primary); }
+  .policy-match-link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 4px; font-weight: 500; color: var(--primary); }
   .policy-match-link:hover { text-decoration: underline; }
   .policy-match-link:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: 4px; }
   @media (min-width: 640px) { .slot-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; } }

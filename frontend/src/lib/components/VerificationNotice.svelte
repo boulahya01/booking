@@ -19,7 +19,7 @@
   <aside use:measure class="verification-notice" aria-label={ar ? 'التحقق من الطالب' : 'Student verification'}>
     <div class="verification-notice-inner">
       <Icon name={pending ? 'clock' : 'shield'} size={20} className="shrink-0" />
-      <p class="min-w-0 flex-1 text-sm font-semibold leading-5">{title}</p>
+      <p class="min-w-0 flex-1 text-sm font-medium leading-5">{title}</p>
       <a href="/verification" class="verification-notice-action">{pending ? (ar ? 'عرض الطلب' : 'View') : (ar ? 'تحقق الآن' : 'Verify')}</a>
     </div>
   </aside>
@@ -28,6 +28,6 @@
 <style>
   .verification-notice { background: var(--warning-light); color: var(--text); }
   .verification-notice-inner { display: flex; align-items: center; gap: 12px; min-height: 56px; max-width: 1280px; margin-inline: auto; padding: 6px max(var(--page-gutter), var(--app-safe-right)) 6px max(var(--page-gutter), var(--app-safe-left)); }
-  .verification-notice-action { display: inline-flex; align-items: center; justify-content: center; min-width: 72px; min-height: 44px; padding-inline: 16px; border-radius: 14px; background: var(--surface); color: var(--text); font-size: 14px; font-weight: 650; }
+  .verification-notice-action { display: inline-flex; align-items: center; justify-content: center; min-width: 72px; min-height: 44px; padding-inline: 16px; border-radius: 14px; background: var(--surface); color: var(--text); font-size: 14px; font-weight: 500; }
   .verification-notice-action:active { transform: scale(.97); }
 </style>

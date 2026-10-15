@@ -15,6 +15,7 @@ export type FacilityDetails = FacilitySummary & {
   timezone: string
   booking_frequency_enabled: boolean
   booking_frequency_days: number
+  booking_window_hours: number
 }
 
 const FACILITY_TTL = 5 * 60 * 1000
@@ -36,7 +37,7 @@ export async function getFacility(facilityId: string, force = false): Promise<Fa
   return cachedRequest(`facility:${facilityId}`, FACILITY_TTL, async () => {
     const { data, error } = await supabase
       .from('pitches')
-      .select('id,name,location,open_time,close_time,capacity,sport_type,timezone,booking_frequency_enabled,booking_frequency_days')
+      .select('id,name,location,open_time,close_time,capacity,sport_type,timezone,booking_frequency_enabled,booking_frequency_days,booking_window_hours')
       .eq('id', facilityId)
       .maybeSingle()
 

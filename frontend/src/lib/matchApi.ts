@@ -147,7 +147,7 @@ export async function listOpenMatches(force = false): Promise<OpenMatch[]> {
 
 export async function listMyMatches(force = false): Promise<MyMatch[]> {
   return cachedRequest('my-matches', 15_000, async () => {
-    const { data, error } = await supabase.rpc('list_my_matches')
+    const { data, error } = await supabase.rpc('list_my_matches').abortSignal(AbortSignal.timeout(10_000))
     if (error) throwMatchError(error)
     return (Array.isArray(data) ? data : []) as MyMatch[]
   }, force)

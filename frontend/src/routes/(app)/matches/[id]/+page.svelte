@@ -43,7 +43,7 @@
 <main class="uneem-page-narrow">
   {#if error}
     <section class="uneem-empty py-10">
-      <p class="font-bold text-text">{error}</p>
+      <p class="font-medium text-text">{error}</p>
       <a href="/matches" class="uneem-primary-action mt-4 min-w-[120px]">
         {ar ? 'المباريات' : 'Matches'}
       </a>

@@ -129,11 +129,11 @@
     {#if !showForm}<Button on:click={openCreate} className="w-full sm:w-auto"><Icon name="plus" size={18}/>{copy.add}</Button>{/if}
   </header>
 
-  {#if error && !showForm}<div class="mb-4 rounded-2xl bg-danger-light px-4 py-3 text-sm font-semibold text-danger" role="alert">{error}</div>{/if}
+  {#if error && !showForm}<div class="mb-4 rounded-2xl bg-danger-light px-4 py-3 text-sm font-medium text-danger" role="alert">{error}</div>{/if}
 
   {#if showForm}
     <form on:submit|preventDefault={save} class="uneem-panel mb-6 overflow-hidden">
-      <div class="flex min-h-16 items-center justify-between gap-4 px-5 pt-3 sm:px-6"><h2 class="font-bold text-text">{editingId ? copy.edit : copy.create}</h2><button type="button" disabled={saving} aria-label={copy.cancel} on:click={() => showForm=false} class="uneem-icon-button shrink-0"><Icon name="x" size={18}/></button></div>
+      <div class="flex min-h-16 items-center justify-between gap-4 px-5 pt-3 sm:px-6"><h2 class="font-medium text-text">{editingId ? copy.edit : copy.create}</h2><button type="button" disabled={saving} aria-label={copy.cancel} on:click={() => showForm=false} class="uneem-icon-button shrink-0"><Icon name="x" size={18}/></button></div>
       <div class="grid gap-5 p-5 sm:grid-cols-2 sm:p-6">
         <TextField label={copy.enTitle} bind:value={form.title_en} disabled={saving} required/><TextField label={copy.arTitle} bind:value={form.title_ar} disabled={saving} required/>
         <div><label class="text-sm font-medium text-text-secondary" for="body-en">{copy.enBody}</label><textarea id="body-en" bind:value={form.body_en} rows="4" required disabled={saving} dir="ltr" class="uneem-field mt-2 resize-y"></textarea></div>
@@ -150,7 +150,7 @@
   {#if loading}
     <div class="space-y-3" aria-busy="true">{#each [1,2,3] as _}<div class="h-28 animate-pulse rounded-[22px] bg-surface-level-1"></div>{/each}</div>
   {:else if announcements.length===0 && !error}
-    <section class="uneem-empty"><div class="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-surface text-text-muted"><Icon name="bell" size={22}/></div><p class="mt-3 font-bold text-text">{copy.empty}</p><button on:click={openCreate} class="mt-3 min-h-10 text-sm font-bold text-primary">{copy.add}</button></section>
+    <section class="uneem-empty"><div class="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-surface text-text-muted"><Icon name="bell" size={22}/></div><p class="mt-3 font-medium text-text">{copy.empty}</p><button on:click={openCreate} class="mt-3 min-h-10 text-sm font-medium text-primary">{copy.add}</button></section>
   {:else}
     <div class="grid gap-4 lg:grid-cols-2">
       {#each announcements as item (item.id)}
@@ -158,7 +158,7 @@
           <div class="flex items-start justify-between gap-4">
             <div class="min-w-0 flex-1">
               <p class="mb-2 text-xs font-medium text-text-muted">{announcementState(item)}</p>
-              <h2 class="break-words text-lg font-semibold leading-6 text-text">{ar ? item.title_ar : item.title_en}</h2>
+              <h2 class="break-words text-lg font-medium leading-6 text-text">{ar ? item.title_ar : item.title_en}</h2>
             </div>
             <button disabled={saving} on:click={() => openEdit(item)} aria-label={`${copy.edit}: ${ar ? item.title_ar : item.title_en}`} class="uneem-icon-button shrink-0 bg-surface-level-1"><Icon name="edit" size={18}/></button>
           </div>

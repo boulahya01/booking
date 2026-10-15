@@ -20,7 +20,7 @@
 <AuthShell>
   <section class="flex min-h-[45vh] w-full flex-col items-center justify-center text-center" aria-live="polite">
     <span class="mb-5 h-8 w-8 animate-spin rounded-full border-2 border-primary/25 border-t-primary" aria-hidden="true"></span>
-    <h1 class="text-xl font-semibold text-text">{copy.title}</h1>
+    <h1 class="text-xl font-medium text-text">{copy.title}</h1>
     <p class="mt-2 text-sm text-text-secondary">{copy.body}</p>
   </section>
 </AuthShell>

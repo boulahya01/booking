@@ -9,6 +9,13 @@ const values = new Map<string, CacheEntry<unknown>>()
 const inflight = new Map<string, Promise<unknown>>()
 let generation = 0
 
+// Only read a fresh value; private caches are cleared when auth identity changes.
+export function peekCachedValue<T>(key: string): T | undefined {
+  if (!browser) return undefined
+  const entry = values.get(key)
+  return entry && entry.expiresAt > Date.now() ? entry.value as T : undefined
+}
+
 export async function cachedRequest<T>(
   key: string,
   ttlMs: number,
@@ -33,7 +40,7 @@ export async function cachedRequest<T>(
 
   const requestGeneration = generation
   const pending = loader().then((value) => {
-    if (requestGeneration === generation) {
+    if (requestGeneration === generation && inflight.get(key) === pending) {
       values.set(key, { value, expiresAt: Date.now() + ttlMs })
     }
     return value

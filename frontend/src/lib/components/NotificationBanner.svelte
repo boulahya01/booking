@@ -27,7 +27,7 @@
           <article class="notification-item">
             <span class="notification-dot" aria-hidden="true"></span>
             <div class="min-w-0 flex-1">
-              <h2 class="text-[15px] font-semibold leading-6 text-text">{ar ? item.title_ar || item.title_en : item.title_en}</h2>
+              <h2 class="text-[15px] font-medium leading-6 text-text">{ar ? item.title_ar || item.title_en : item.title_en}</h2>
               <p class="mt-1 whitespace-pre-wrap text-sm leading-6 text-text-secondary">{ar ? item.body_ar || item.body_en : item.body_en}</p>
               <time datetime={item.published_at} class="mt-3 block text-xs text-text-muted">{new Date(item.published_at).toLocaleDateString(ar ? 'ar-MA' : 'en', { month: 'short', day: 'numeric' })}</time>
             </div>
@@ -39,7 +39,7 @@
     {:else if !$notifications.error}
       <div class="uneem-empty py-16" role="status">
         <div class="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-[22px] bg-surface text-text-muted"><Icon name="bell" size={28} /></div>
-        <h2 class="text-lg font-semibold text-text">{ar ? 'لا توجد تحديثات جديدة' : 'You’re all caught up'}</h2>
+        <h2 class="text-lg font-medium text-text">{ar ? 'لا توجد تحديثات جديدة' : 'You’re all caught up'}</h2>
         <p class="mt-2 text-sm text-text-secondary">{ar ? 'ستظهر التحديثات الجديدة هنا.' : 'New updates will appear here.'}</p>
       </div>
     {/if}

@@ -95,7 +95,7 @@
 
 <style>
   .google-mark { flex-shrink: 0; }
-  :global(.google-sign-in) { min-height: 50px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; font-size: 15px; font-weight: 550; }
+  .social-sign-in :global(.google-sign-in) { min-height: 52px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; font-size: 15px; font-weight: 500; }
   .provider-status { margin: 12px 0 0; font-size: 13px; line-height: 1.5; color: var(--text-secondary); }
   .auth-divider {
     display: flex;

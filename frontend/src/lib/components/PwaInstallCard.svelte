@@ -53,11 +53,11 @@
   .install-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
   .install-heading img { flex-shrink: 0; border-radius: 11px; }
   .install-copy { flex: 1; min-width: 130px; }
-  .install-copy h2 { font-size: 14px; font-weight: 600; line-height: 1.5; color: var(--text); }
+  .install-copy h2 { font-size: 14px; font-weight: 500; line-height: 1.5; color: var(--text); }
   .install-copy p { margin-top: 3px; font-size: 12px; line-height: 1.6; color: var(--text-secondary); }
   .install-heading :global(.ui-button) { flex-shrink: 0; margin-inline-start: auto; }
   .install-help { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-light); font-size: 13px; line-height: 1.7; color: var(--text-secondary); }
-  .install-help p { font-weight: 550; color: var(--text); }
+  .install-help p { font-weight: 500; color: var(--text); }
   .install-help ol { list-style: decimal; padding-inline-start: 20px; margin-top: 6px; }
   .install-help li + li { margin-top: 6px; }
   .compact { padding: 12px; }

@@ -131,7 +131,7 @@
       <div class="space-y-5">
         <div class="rounded-[18px] bg-surface px-4 py-4 text-center">
           <div class="mb-2 flex justify-center text-primary"><Icon name="mail" size={20} /></div>
-          <p class="break-all text-sm font-semibold text-text">{normalizedEmail}</p>
+          <p class="break-all text-sm font-medium text-text">{normalizedEmail}</p>
         </div>
         <button type="button" on:click={startAgain} class="mx-auto block min-h-11 px-3 text-sm font-medium text-text-secondary transition-colors hover:text-text">{copy.another}</button>
       </div>

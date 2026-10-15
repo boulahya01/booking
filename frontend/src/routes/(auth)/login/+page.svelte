@@ -153,7 +153,7 @@
       <div class="mb-4 rounded-[16px] bg-danger-light p-3.5 text-danger" role="alert">
         <div class="flex items-start gap-3"><Icon name="alert-circle" size={18} className="mt-0.5 shrink-0" /><p class="text-sm font-medium leading-6">{submitError}</p></div>
         {#if authFailureKind === 'email_unconfirmed'}
-          <a href={verifyHref} class="mt-3 inline-flex min-h-10 items-center font-semibold text-primary hover:text-primary-hover">{copy.resendConfirmation}</a>
+          <a href={verifyHref} class="mt-3 inline-flex min-h-10 items-center font-medium text-primary hover:text-primary-hover">{copy.resendConfirmation}</a>
         {/if}
       </div>
     {/if}
@@ -183,14 +183,14 @@
 
 <style>
   .login-intro { margin-bottom: 24px; }
-  .login-intro h1 { font-size: clamp(26px, 5vw, 30px); line-height: 1.3; font-weight: 650; letter-spacing: -.035em; }
+  .login-intro h1 { font-size: clamp(26px, 5vw, 30px); line-height: 1.3; font-weight: 500; letter-spacing: var(--tracking-tight); }
   :global(html[dir='rtl']) .login-intro h1 { letter-spacing: 0; }
   .login-intro p { margin-top: 6px; color: var(--text-secondary); font-size: 14px; }
   .login-form { display: grid; gap: 14px; }
   .login-form :global(.uneem-field) { min-height: 52px; padding-block: 13px; border-radius: 12px; border-color: var(--border); background: var(--surface); }
   .login-form :global(.uneem-field:focus) { border-color: var(--primary); }
   .login-form :global([data-state='invalid'] .uneem-field) { border-color: var(--danger); }
-  .login-recovery { display: inline-flex; min-height: 32px; align-items: center; font-size: 13px; font-weight: 550; color: var(--primary); }
+  .login-recovery { display: inline-flex; min-height: 32px; align-items: center; font-size: 13px; font-weight: 500; color: var(--primary); }
   .login-register { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 0 7px; margin-top: 16px; font-size: 14px; color: var(--text-secondary); }
-  .login-register a { display: inline-flex; min-height: 44px; align-items: center; font-weight: 600; color: var(--primary); }
+  .login-register a { display: inline-flex; min-height: 44px; align-items: center; font-weight: 500; color: var(--primary); }
 </style>

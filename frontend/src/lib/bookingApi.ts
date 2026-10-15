@@ -1,6 +1,8 @@
 import { supabase } from './supabaseClient'
 import { cachedRequest, invalidateRequestCache } from './requestCache'
 import { withLoading } from './stores/loading'
+import { get } from 'svelte/store'
+import { authState } from './stores/auth'
 
 export type BookingFailureCode =
   | 'authentication_required'
@@ -47,6 +49,14 @@ export type AvailabilitySlot = {
   reserved_spots: number
   joined_count: number
   spots_left: number
+}
+
+export type CreatedBooking = {
+  id: string
+  pitch_id: string
+  starts_at: string
+  ends_at: string
+  status: 'scheduled'
 }
 
 export type BookingLifecycle = 'upcoming' | 'in_progress' | 'completed' | 'cancelled'
@@ -217,7 +227,7 @@ export function invalidateBookingData(bookingId?: string, pitchId?: string): voi
 
 export async function getPitchAvailability(pitchId: string, force = false): Promise<AvailabilitySlot[]> {
   return cachedRequest(`availability:${pitchId}`, AVAILABILITY_TTL, async () => {
-    const { data, error } = await supabase.rpc('get_pitch_availability', { p_pitch_id: pitchId })
+    const { data, error } = await supabase.rpc('get_pitch_availability', { p_pitch_id: pitchId }).abortSignal(AbortSignal.timeout(10_000))
     if (error) throwApiError(error)
     if (!Array.isArray(data)) return []
 
@@ -259,18 +269,25 @@ export async function listBookingRoster(bookingId: string, force = false): Promi
   }, force)
 }
 
-export async function createBooking(pitchId: string, startsAt: string) {
-  return withLoading('action', async () => {
+export async function createBooking(pitchId: string, startsAt: string): Promise<CreatedBooking> {
+    const userId = get(authState).user?.id
     const { data, error } = await supabase.rpc('create_booking', {
       p_pitch_id: pitchId,
       p_starts_at: startsAt
-    })
+    }).abortSignal(AbortSignal.timeout(15_000))
 
     if (error) throwApiError(error)
+    if (!userId || get(authState).user?.id !== userId) throw new BookingApiError('authentication_required')
+    const row = Array.isArray(data) ? data[0] : data
+    if (!row?.id || row.pitch_id !== pitchId || row.status !== 'scheduled'
+      || Date.parse(row.starts_at) !== Date.parse(startsAt)
+      || !Number.isFinite(Date.parse(row.ends_at)) || Date.parse(row.ends_at) <= Date.parse(startsAt)) {
+      // A missing/malformed acknowledgement is not proof the write failed.
+      throw new BookingApiError('unknown')
+    }
     invalidateBookingData(undefined, pitchId)
     invalidateRequestCache('open-matches')
-    return Array.isArray(data) ? data[0] : data
-  })
+    return row as CreatedBooking
 }
 
 export async function cancelBooking(bookingId: string) {
@@ -293,7 +310,7 @@ export async function cancelBooking(bookingId: string) {
 // but the database scopes the read exclusively through auth.uid().
 export async function getMyBookings(_userId?: string, force = false): Promise<MyBooking[]> {
   return cachedRequest('my-bookings', MY_BOOKINGS_TTL, async () => {
-    const { data, error } = await supabase.rpc('list_my_bookings', { p_limit: 100 })
+    const { data, error } = await supabase.rpc('list_my_bookings', { p_limit: 100 }).abortSignal(AbortSignal.timeout(10_000))
     if (error) throwApiError(error)
     return (Array.isArray(data) ? data : []).map(normalizeAuthoritativeBooking)
   }, force)

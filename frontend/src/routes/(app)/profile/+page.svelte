@@ -217,26 +217,26 @@
 <style>
   .profile-page { display:flex; flex-direction:column; gap:24px; max-width:620px; }
   .profile-section { display:flex; flex-direction:column; gap:18px; padding:20px; border-radius:var(--radius-xl); background:var(--surface); }
-  .profile-section h2 { font-size:16px; font-weight:600; letter-spacing:-.02em; overflow-wrap:anywhere; }
+  .profile-section h2 { font-size:16px; font-weight:500; letter-spacing: var(--tracking-tight); overflow-wrap:anywhere; }
   .profile-person { display:flex; align-items:center; gap:16px; min-width:0; padding-bottom:4px; }
   .profile-person > div { min-width:0; }
   .profile-person h2 { font-size:20px; }
   .profile-person p { margin-top:5px; color:var(--text-secondary); font-size:14px; overflow-wrap:anywhere; }
-  .profile-avatar { display:grid; place-items:center; width:56px; height:56px; flex-shrink:0; border-radius:19px; background:var(--primary-light); color:var(--primary); font-size:19px; font-weight:600; }
+  .profile-avatar { display:grid; place-items:center; width:56px; height:56px; flex-shrink:0; border-radius:19px; background:var(--primary-light); color:var(--primary); font-size:19px; font-weight:500; }
   .profile-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; }
   .identity-status { display:inline-flex; align-items:center; gap:5px; border-radius:99px; padding:5px 9px; color:var(--warning); background:var(--warning-light); font-size:12px; }
   .identity-status.is-verified { color:var(--success); background:var(--success-light); }
-  .student-id { font-size:22px; font-weight:600; text-align:start; overflow-wrap:anywhere; }
+  .student-id { font-size:22px; font-weight:500; text-align:start; overflow-wrap:anywhere; }
   .security-row { display:flex; align-items:center; gap:12px; min-height:44px; }
   .security-row > div { min-width:0; flex:1; }
-  .security-row p { font-size:14px; font-weight:550; }
+  .security-row p { font-size:14px; font-weight:500; }
   .security-row span { display:block; margin-top:6px; font-size:14px; color:var(--text-secondary); overflow-wrap:anywhere; }
   .security-row :global(button) { flex-shrink:0; }
   .security-divider { height:1px; background:var(--border-light); }
-  .security-label { margin:0; color:var(--text-secondary); font-size:12px; font-weight:650; text-transform:uppercase; letter-spacing:.04em; }
-  .change-password { min-height:44px; padding:8px; border-radius:12px; color:var(--primary); font-size:13px; font-weight:550; }
+  .security-label { margin:0; color:var(--text-secondary); font-size:12px; font-weight:500; text-transform:uppercase; letter-spacing:.04em; }
+  .change-password { min-height:44px; padding:8px; border-radius:12px; color:var(--primary); font-size:13px; font-weight:500; }
   .pending-email { padding:12px; border-radius:12px; background:var(--primary-light); color:var(--text-secondary); font-size:13px; line-height:1.5; overflow-wrap:anywhere; }
   .method-status { margin:0; color:var(--text-secondary); font-size:14px; }
   .method-error { display:flex; align-items:center; justify-content:space-between; gap:12px; color:var(--text-secondary); font-size:14px; }
-  .method-error button { min-height:40px; padding-inline:8px; color:var(--primary); font-weight:600; }
+  .method-error button { min-height:40px; padding-inline:8px; color:var(--primary); font-weight:500; }
 </style>
