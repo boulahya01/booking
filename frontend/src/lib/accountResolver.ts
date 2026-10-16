@@ -84,7 +84,7 @@ export function resolveAccountRoute(ctx: ResolverContext): string | null {
     pathname.startsWith('/bookings') ||
     pathname.startsWith('/pitch/') ||
     pathname.startsWith('/matches') ||
-    pathname.startsWith('/notifications')
+    pathname.startsWith('/notifications') || pathname.startsWith('/community')
 
   if (
     recoveryActive &&

@@ -216,6 +216,7 @@ function normalizeRoster(data: any): BookingRosterEntry[] {
 }
 
 export function invalidateBookingData(bookingId?: string, pitchId?: string): void {
+  invalidateRequestCache('community:')
   if (bookingId) {
     invalidateRequestCache(`booking-details:${bookingId}`)
     invalidateRequestCache(`booking-roster:${bookingId}`)
