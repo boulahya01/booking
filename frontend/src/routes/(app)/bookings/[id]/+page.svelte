@@ -511,7 +511,7 @@
       </div>
       <div class="match-meta">
         <p><Icon name="map-pin" size={14}/>{details.location}</p>
-        <p>{copy.bookedBy} <strong dir="ltr">@{details.booker_username}</strong></p>
+        <p>{copy.bookedBy} <a href={'/community/players/' + details.booker_username}><bdi>@{details.booker_username}</bdi></a></p>
       </div>
       {#if details.match_id && (isOpen || isOwner)}
         <div class="match-occupancy" aria-label={ar ? 'أماكن المباراة' : 'Match capacity'}>
@@ -520,6 +520,11 @@
         </div>
       {/if}
     </section>
+
+    <div class="match-social-actions">
+      {#if isOpen && !started}<ShareMatch match={details}/>{/if}
+      {#if details.match_id && (isOwner || details.participant_by_me || details.reserved_by_me)}<ActionLink href={'/community/chats/' + details.booking_id} variant="secondary" fullWidth><Icon name="message-circle" size={17}/>{ar ? 'محادثة المباراة' : 'Match chat'}</ActionLink>{/if}
+    </div>
 
     {#if !$hasFullAccess}
       <ActionLink href="/verification" fullWidth size="lg" className="mt-4">{ar ? 'تحقق من هويتك للانضمام' : 'Verify ID to join'}</ActionLink>
@@ -608,7 +613,7 @@
                 <div class="player-avatar" aria-hidden="true">{member.display_name?.trim()?.[0]?.toUpperCase() || 'U'}</div>
                 <div class="player-identity">
                   <p>{member.display_name || (member.username ? `@${member.username}` : copy.guest)}</p>
-                  {#if member.username}<span dir="ltr">@{member.username}</span>
+                  {#if member.username}<a href={'/community/players/' + member.username}><bdi>@{member.username}</bdi></a>
                   {:else if member.source === 'guest'}<span>{copy.guest}</span>{/if}
                 </div>
                 <span class:host-label={member.member_role === 'organizer'} class="player-role">
@@ -639,7 +644,6 @@
         {/if}
         {#if isOpen && !started}
           <section class="invite-section">
-            <ShareMatch {bookingId} title={details.pitch_name}/>
           </section>
         {/if}
         {#if isOpen}
@@ -670,6 +674,8 @@
   </svelte:fragment>
 </Modal>
 <style>
+  .match-social-actions { display:flex; gap:12px; margin-top:16px; }
+  .match-social-actions > :global(*) { flex:1; }
   .match-page { max-width: 960px; }
   .match-page-heading { margin-bottom: 24px; }
   .match-summary { padding: 24px; border-radius: 20px; background: var(--surface); }
@@ -686,7 +692,7 @@
   .match-meta { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 16px; }
   .match-meta p { display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 1.5; color: var(--text-secondary); overflow-wrap: anywhere; }
   .match-meta :global(svg) { flex-shrink: 0; }
-  .match-meta strong { font-weight: 500; color: var(--text); }
+  .match-meta a { font-weight: 500; color: var(--primary); }
   .match-workspace { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 20px; align-items: start; margin-top: 24px; }
   .roster-panel, .match-tools { min-width: 0; background: var(--surface); border-radius: 20px; }
   .roster-panel:only-child, .match-tools:only-child { grid-column: 1 / -1; }

@@ -125,6 +125,7 @@ function throwMatchError(error: any): never {
 }
 
 function invalidateMatchData(bookingId?: string): void {
+  invalidateRequestCache('community:')
   invalidateRequestCache('open-matches')
   invalidateRequestCache('my-matches')
   invalidateRequestCache('availability:')

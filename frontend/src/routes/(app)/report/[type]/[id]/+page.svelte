@@ -18,7 +18,8 @@
     { value:'other', en:'Something else', ar:'سبب آخر' }
   ]
   let reason: ReportReason = 'other'
-  let details = ''
+  const messageContext = $page.url.searchParams.get('message')
+  let details = messageContext && /^[0-9]{1,20}$/.test(messageContext) ? `Community message #${messageContext}: ` : ''
   let submitting = false
   let error = ''
   let sent = false

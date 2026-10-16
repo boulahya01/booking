@@ -4,7 +4,12 @@ This directory is the canonical database/authorization source for UNEEM V2. The 
 
 ## Ordered source of truth
 
-Apply the original layers below, then every numbered file from 025 through 063 in ascending order. The timestamped equivalents are in `../migrations/`.
+Apply the original layers below, then every numbered file from 025 through 064 in ascending order. The timestamped equivalents are in `../migrations/`.
+
+Layer 064 adds opt-in Community profiles, lobby/match conversations, bounded peer
+read models and persisted messaging/read state. It is feature-branch source and
+has not been applied to production. See `../../docs/community-and-match-chat.md`
+for membership rules, isolated checks and the separate rollout/rollback boundary.
 
 Layer 063 was validated in isolated PostgreSQL and applied to production on
 2026-10-11. It blocks organizer cancellation

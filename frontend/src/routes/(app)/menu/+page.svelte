@@ -13,6 +13,7 @@
   $: initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase()
   $: identityLabel = account?.identity_status === 'verified' ? (ar ? 'تم التحقق' : 'Verified') : account?.identity_status === 'pending' ? (ar ? 'قيد المراجعة' : 'Under review') : (ar ? 'مطلوب' : 'Required')
   $: accountLinks = [
+    ...($authState.user?.username && account?.role !== 'admin' ? [{ href: '/community/players/' + $authState.user.username, icon: 'users', title: ar ? 'بطاقة اللاعب' : 'Player card', detail: ar ? 'ملفك في المجتمع' : 'Your community profile' }] : []),
     { href: '/verification', icon: 'id-card', title: ar ? 'الهوية الطلابية' : 'Student verification', detail: identityLabel },
     { href: '/notifications', icon: 'bell', title: ar ? 'الإشعارات' : 'Notifications', detail: $unreadNotifications ? String($unreadNotifications) : '' },
     { href: '/settings', icon: 'settings', title: ar ? 'الإعدادات' : 'Settings', detail: ar ? 'اللغة والمظهر' : 'Language & appearance' }
